@@ -172,7 +172,7 @@ AI: (执行 git add + git commit)
 **输出**：
 ```yaml
 - step: 1
-  subject: fix(auth): 🐛 修复登录页面无法正确加载的问题
+  subject: fix(auth): 🐛登录页面无法正确加载的问题
   body: 修复了登录页面在某些情况下无法正确加载的问题，提升了页面响应速度。
   foot: ""
   files:
@@ -181,7 +181,7 @@ AI: (执行 git add + git commit)
     - src/services/authService.ts
 
 - step: 2
-  subject: style(auth): 🌈 优化登录模块代码格式
+  subject: style(auth): 🌈登录模块代码格式
   body: 调整了登录相关文件的代码格式以提升可读性。
   foot: ""
   files:
@@ -211,7 +211,7 @@ AI: (执行 git add + git commit)
 **输出**：
 ```yaml
 - step: 1
-  subject: refactor(auth): ♻️ 重构登录模块
+  subject: refactor(auth): ♻️登录模块
   body: 修复了登录页面在某些情况下无法正确加载的问题，同时调整了代码格式以提升可读性。
   foot: ""
   files:
@@ -226,7 +226,7 @@ AI: (执行 git add + git commit)
 
 **输出**：
 ```
-[main a1b2c3d] refactor(auth): ♻️ 重构登录模块
+[main a1b2c3d] refactor(auth): ♻️登录模块
  3 files changed, 50 insertions(+), 20 deletions(-)
 ```
 
