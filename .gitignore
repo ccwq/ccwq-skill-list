@@ -1,0 +1,19 @@
+# IDE
+.idea/
+*.iml
+.vscode/
+.history/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Log
+*.log
+
+# Node (如果有)
+node_modules/
+npm-debug.log*
