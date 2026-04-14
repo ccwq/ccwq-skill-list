@@ -40,7 +40,7 @@ description: Git 提交综合工具，支持规划、讨论、修改和执行提
 
 ```yaml
 - step: 1
-  subject: <type>(<scope>): <emoji> <主题>
+  subject: <type>(<scope>): <emoji><主题>
   body: <正文描述>
   foot: <脚注（可选）>
   files:
@@ -51,7 +51,7 @@ description: Git 提交综合工具，支持规划、讨论、修改和执行提
 ### Default 模式输出 (Commit Message)
 
 ```
-<type>(<scope>): <emoji> <subject>
+<type>(<scope>): <emoji><subject>
 
 - <body>
 ```
