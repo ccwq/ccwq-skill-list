@@ -1,0 +1,7 @@
+interface:
+  display_name: "软件授权检查"
+  short_description: "评估企业内部使用的软件授权合规风险"
+  default_prompt: "Use $software-license-checker to assess whether a software package can be used inside a company under a conservative internal-use license compliance review."
+
+policy:
+  allow_implicit_invocation: true
