@@ -17,3 +17,7 @@ Thumbs.db
 # Node (如果有)
 node_modules/
 npm-debug.log*
+
+test-space/git-history-cleaner/*
+!test-space/git-history-cleaner/report.md
+!test-space/git-history-cleaner/run_tests.py
