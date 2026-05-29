@@ -1,0 +1,7 @@
+interface:
+  display_name: "FFmpeg 视频处理"
+  short_description: "基于 FFmpeg 的视频压缩、转码、裁剪与音视频处理"
+  default_prompt: "Use $ffmpeg-video-processing to compress, transcode, trim, or resize a video with ffmpeg."
+
+policy:
+  allow_implicit_invocation: true
