@@ -1,6 +1,8 @@
 ---
 name: ffmpeg-video-processing
 description: Use when working with video or audio files via ffmpeg or ffprobe, including compression, transcoding, trimming, resizing, frame-rate changes, audio extraction, muxing, concat, subtitle burn-in, watermarking, and media inspection. Also use when the user needs a target-size MP4, WebM, or GIF, or when ffmpeg is missing and you must ask the user to provide a binary path or confirm downloading an official build.
+version: 1.0.0
+
 ---
 
 # Ffmpeg Video Processing
