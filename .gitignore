@@ -21,3 +21,5 @@ npm-debug.log*
 test-space/git-history-cleaner/*
 !test-space/git-history-cleaner/report.md
 !test-space/git-history-cleaner/run_tests.py
+
+test-space/readme-install-verify/*
