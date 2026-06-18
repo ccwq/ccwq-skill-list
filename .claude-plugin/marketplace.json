@@ -1,0 +1,47 @@
+{
+  "name": "ccwq-skill-list",
+  "owner": {
+    "name": "ccwq"
+  },
+  "description": "ccwq 的 Claude Code Skill / Plugin 集合",
+  "metadata": {
+    "pluginRoot": "./plugins"
+  },
+  "plugins": [
+    {
+      "name": "git-up",
+      "source": "./git-up",
+      "description": "Git 提交综合工具，支持规划、讨论、修改和执行提交",
+      "version": "1.0.0",
+      "category": "git"
+    },
+    {
+      "name": "git-history-cleaner",
+      "source": "./git-history-cleaner",
+      "description": "清理 Git 仓库历史中的特定文件或目录以减小仓库体积，或移除误提交到历史中的敏感/二进制文件",
+      "version": "1.0.0",
+      "category": "git"
+    },
+    {
+      "name": "nano-prompt",
+      "source": "./nano-prompt",
+      "description": "AI 图像提示词生成技能。基于 Nano Banana Pro 的 20 条核心提示技巧，输出 YAML 格式的分层提示词结构",
+      "version": "1.0.0",
+      "category": "ai"
+    },
+    {
+      "name": "software-license-checker",
+      "source": "./software-license-checker",
+      "description": "评估软件在企业内部使用场景下的许可证、授权与潜在付费要求，输出偏保守的法务预警报告",
+      "version": "1.0.0",
+      "category": "compliance"
+    },
+    {
+      "name": "ffmpeg-video-processing",
+      "source": "./ffmpeg-video-processing",
+      "description": "通过 ffmpeg/ffprobe 处理音视频文件：压缩、转码、裁剪、缩放、变帧率、抽取音频、混流、拼接、字幕烧录、加水印与媒体检查",
+      "version": "1.0.0",
+      "category": "media"
+    }
+  ]
+}
