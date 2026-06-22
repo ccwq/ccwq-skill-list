@@ -26,9 +26,15 @@ https://github.com/ccwq/ccwq-skill-list
 
 使用 `skills` CLI 从仓库中读取可用 skill，并在交互界面中手动选择需要安装的内容。
 
+简写
+```bash
+npx skills ccwq/ccwq-skill-list
+```
+完整
 ```bash
 npx -y skills add https://github.com/ccwq/ccwq-skill-list
 ```
+
 
 ### 通用安装：指定 skill
 
