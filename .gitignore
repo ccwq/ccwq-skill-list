@@ -23,3 +23,4 @@ test-space/git-history-cleaner/*
 !test-space/git-history-cleaner/run_tests.py
 
 test-space/readme-install-verify/*
+skill-opt
