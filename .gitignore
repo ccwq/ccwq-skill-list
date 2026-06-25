@@ -24,3 +24,7 @@ test-space/git-history-cleaner/*
 
 test-space/readme-install-verify/*
 skill-opt
+
+
+skills/*-workspace
+docs/*

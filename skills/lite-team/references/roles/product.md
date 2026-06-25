@@ -20,7 +20,7 @@
 - **读**：被用户或主 Agent 要求时读 `docs/bbs/lite-team-bbs.md`，优先处理 `to: 产品`、`type: question` 的消息——这正是开发/测试反馈上来的需求与交互疑问。
 - **写**：需要把决策或验收口径交给下游时，用脚本写入，自己不手改 markdown：
   ```bash
-  python3 scripts/bbs.py add --root . --from 产品 --to 开发 --type decision \
+  python3 <skill目录>/scripts/bbs.py add --root . --from 产品 --to 开发 --type decision \
     --summary "结论：登录失败统一返回 401；验收：错误凭证不暴露具体原因。"
   ```
   - 给开发的实现/验收口径 → `--to 开发`；给测试的边界/验收点 → `--to 测试`；二者都需要 → `--to all`。

@@ -46,8 +46,10 @@ BBS 路径固定：`docs/bbs/lite-team-bbs.md`。
 初始化：
 
 ```bash
-python3 scripts/bbs.py init --root .
+python3 <skill目录>/scripts/bbs.py init --root .
 ```
+
+`<skill目录>` 指当前安装的 `lite-team` skill 目录，例如 `.claude/skills/lite-team`、`~/.claude/skills/lite-team`，或本仓库的 `skills/lite-team`。不要假设项目根目录一定有 `scripts/bbs.py`。
 
 脚本需 Python 3（≥3.8）；部分系统 `python` 仍指向 Python 2，请用 `python3`。
 
@@ -117,7 +119,7 @@ python3 scripts/bbs.py init --root .
 优先用脚本写入，由它自动生成 `id`（`m-YYYYMMDD-NN`）、追加消息并守住 7 条上限和 500 字软约束，避免手改 markdown 出错：
 
 ```bash
-python3 scripts/bbs.py add --root . \
+python3 <skill目录>/scripts/bbs.py add --root . \
   --from 开发 --to 测试 --type handoff \
   --summary "登录异常分支已实现，请验证错误凭证、重复提交和超时。" \
   --files "src/auth/*, tests/auth/*" --verify "npm test -- auth"
@@ -153,7 +155,7 @@ python3 scripts/bbs.py add --root . \
 仅在用户明确确认后：
 
 ```bash
-python3 scripts/bbs.py archive --root . --summary "拟归档摘要"
+python3 <skill目录>/scripts/bbs.py archive --root . --summary "拟归档摘要"
 ```
 
 脚本会再次确认 `<message>` 为空，写入 `<history>`、保留最近 9 条，并确保 `<message>` 为空。
@@ -161,7 +163,7 @@ python3 scripts/bbs.py archive --root . --summary "拟归档摘要"
 如用户明确要求放弃当前消息，可先执行：
 
 ```bash
-python3 scripts/bbs.py clear --root . --yes
+python3 <skill目录>/scripts/bbs.py clear --root . --yes
 ```
 
 然后重新执行 `/done` 流程。清理只会清空 `<message>`，不会删除 `<history>`。

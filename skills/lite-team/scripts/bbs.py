@@ -17,11 +17,21 @@ MAX_MESSAGE_SUMMARY_CHARS = 500
 CORE_FIELDS = ("from", "to", "type", "summary")
 OPTIONAL_FIELDS = ("files", "verify", "need", "risk", "decision", "detail", "reply_to")
 
-TEMPLATE = """# BBS\n\n<message>\n</message>\n\n<history>\n</history>\n"""
 
 
 def bbs_path(root: Path) -> Path:
     return root / "docs" / "bbs" / "lite-team-bbs.md"
+
+
+def template_path() -> Path:
+    return Path(__file__).resolve().parent.parent / "assets" / "bbs.template.md"
+
+
+def load_template() -> bytes:
+    path = template_path()
+    if not path.exists():
+        raise FileNotFoundError(f"未找到 BBS 模板：{path}")
+    return path.read_bytes()
 
 
 def read_text(path: Path) -> str:
@@ -140,7 +150,7 @@ def cmd_init(args: argparse.Namespace) -> int:
         print(f"BBS 已存在：{path}")
         return 0
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(TEMPLATE, encoding="utf-8")
+    path.write_bytes(load_template())
     print(f"已初始化：{path}")
     return 0
 
@@ -203,7 +213,7 @@ def build_parser() -> argparse.ArgumentParser:
     def add_root(p: argparse.ArgumentParser) -> None:
         p.add_argument("--root", default=".", help="项目根目录，默认当前目录")
 
-    p_init = sub.add_parser("init", help="初始化 docs/bbs/bbs.md")
+    p_init = sub.add_parser("init", help="初始化 docs/bbs/lite-team-bbs.md")
     add_root(p_init)
     p_init.add_argument("--force", action="store_true", help="覆盖已有 BBS")
     p_init.set_defaults(func=cmd_init)

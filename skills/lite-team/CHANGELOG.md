@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.1.2
+
+- 将 `SKILL.md` 与内置角色人设中的脚本示例从 `python3 scripts/bbs.py ...` 调整为 `python3 <skill目录>/scripts/bbs.py ...`，避免安装到项目级或个人级 skill 目录后，Agent 误以为项目根目录存在 `scripts/bbs.py`。
+
+## 1.1.1
+
+- 修正 `bbs.py init` 在顶层 `--help` 中仍显示旧路径 `docs/bbs/bbs.md` 的问题，统一为 `docs/bbs/lite-team-bbs.md`。
+- `bbs.py init` 改为读取 `assets/bbs.template.md` 作为唯一初始化模板来源，避免脚本内联模板与资源文件双份维护。
+- 初始化模板按字节读写，避免 Windows 文本换行转换导致生成文件与模板文件不一致。
+
 ## 1.1.0
 
 - 修正文档脚本调用为 `python3`（脚本需 Python 3，部分系统 `python` 仍是 Python 2）。

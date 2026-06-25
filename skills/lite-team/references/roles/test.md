@@ -21,7 +21,7 @@
 - **写**：用脚本写入，自己不手改 markdown：
   - 发现业务 bug → 反馈开发：
     ```bash
-    python3 scripts/bbs.py add --root . --from 测试 --to 开发 --type bug \
+    python3 <skill目录>/scripts/bbs.py add --root . --from 测试 --to 开发 --type bug \
       --summary "重复提交未拦截：连点两次提交两条记录。" --verify "npm test -- auth" \
       --reply-to m-20260625-01
     ```

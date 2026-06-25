@@ -15,7 +15,7 @@
 - **写**：用脚本写入，自己不手改 markdown：
   - 需求不清 → 反馈产品：
     ```bash
-    python3 scripts/bbs.py add --root . --from 开发 --to 产品 --type question \
+    python3 <skill目录>/scripts/bbs.py add --root . --from 开发 --to 产品 --type question \
       --summary "登录超时后是否需要自动重试？影响错误码设计。"
     ```
   - 测试设计有问题（如选择器脱离真实页面、覆盖点缺失）→ 反馈测试：`--to 测试 --type question`。

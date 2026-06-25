@@ -1,0 +1,44 @@
+{
+  "skill_name": "lite-team",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "你现在是开发 Agent。登录异常分支已经实现，需要给测试 Agent 留一条交接：请验证错误凭证、重复提交和接口超时；相关文件是 src/auth/* 和 tests/auth/*；验证命令是 npm test -- auth。请按 lite-team 的方式处理，默认短输出，不要污染真实项目以外的无关位置。",
+      "expected_output": "应识别开发角色与交接场景，优先使用 docs/bbs/lite-team-bbs.md 和 scripts/bbs.py add 写入/给出交接；消息字段包含 from=开发、to=测试、type=handoff、summary、files、verify，并保持短输出。",
+      "files": [],
+      "expectations": [
+        "输出或产物体现使用 lite-team BBS 路径 docs/bbs/lite-team-bbs.md。",
+        "输出或产物体现使用 scripts/bbs.py add，而不是手写大段 Markdown。",
+        "交接字段包含 from=开发、to=测试、type=handoff。",
+        "交接内容包含验证点：错误凭证、重复提交、接口超时。",
+        "输出保持简短，并且没有宣称未实际验证的完成状态。"
+      ]
+    },
+    {
+      "id": 1,
+      "prompt": "请验证 lite-team 的 BBS 脚本在临时目录可用：初始化协作板，写入一条从 产品 到 开发 的 decision 消息，查看 status，然后清空 message 并归档一条 history。请把你执行的命令、关键输出和最终 BBS 摘要保存成报告。不要改真实仓库的 docs/bbs/lite-team-bbs.md。",
+      "expected_output": "应在临时目录运行 scripts/bbs.py init/add/status/clear/archive，报告关键输出；最终 status 应显示当前消息 0、历史摘要 1；不污染真实仓库 BBS。",
+      "files": [],
+      "expectations": [
+        "报告包含 init、add、status、clear、archive 五个脚本步骤。",
+        "报告体现使用临时目录作为 --root，而不是真实仓库根目录。",
+        "add 步骤使用 from=产品、to=开发、type=decision。",
+        "最终状态显示或说明当前消息为 0，历史摘要为 1。",
+        "没有修改真实仓库的 docs/bbs/lite-team-bbs.md。"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "现在用户说 /done，但协作板里还有一条未处理的 to: 测试 的 handoff。请按 lite-team 规则处理：说明是否能归档、下一步该做什么；不要擅自 clear，也不要写入 history。",
+      "expected_output": "应说明暂不能归档，列出还有未处理消息，需要先由测试处理或用户明确要求放弃/clear；不得擅自清空 message 或写入 history。",
+      "files": [],
+      "expectations": [
+        "输出明确说明 message 中仍有未处理事项时暂不能归档。",
+        "输出提示需要先处理消息，或由用户明确要求放弃/clear。",
+        "输出没有执行或建议立即 archive 写入 history。",
+        "输出没有擅自 clear 未处理消息。",
+        "输出保持短摘要风格。"
+      ]
+    }
+  ]
+}

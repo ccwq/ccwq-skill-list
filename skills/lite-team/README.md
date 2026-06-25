@@ -52,14 +52,14 @@ lite-team/
 ├─ SKILL.md                 # 交给 Agent 的核心规则
 ├─ README.md                # 安装与使用说明
 ├─ assets/
-│  └─ bbs.template.md       # 空协作板模板
+│  └─ bbs.template.md       # init 初始化协作板时使用的模板
 ├─ references/
 │  └─ roles/                # 内置角色人设（产品 / 开发 / 测试）
 │     ├─ product.md
 │     ├─ dev.md
 │     └─ test.md
 └─ scripts/
-   └─ bbs.py                # 初始化、写入、状态、清空、归档辅助脚本
+   └─ bbs.py                # 按模板初始化，并提供写入、状态、清空、归档辅助脚本
 ```
 
 运行时生成的项目文件：
