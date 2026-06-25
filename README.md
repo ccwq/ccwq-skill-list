@@ -11,7 +11,7 @@ https://github.com/ccwq/ccwq-skill-list
 最简：交互式选择并安装全部可用 skill。
 
 ```bash
-npx skills ccwq/ccwq-skill-list
+npx -y skills add ccwq/ccwq-skill-list
 ```
 
 逐步加参数（按需组合）：
@@ -42,6 +42,7 @@ npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code --
 | `nano-prompt` | AI 图像提示词生成，基于分层结构构建专业级提示词 | [SKILL.md](skills/nano-prompt/SKILL.md) |
 | `ffmpeg-video-processing` | 使用 ffmpeg / ffprobe 处理音视频，包括压缩、转码、裁剪与媒体检查 | [SKILL.md](skills/ffmpeg-video-processing/SKILL.md) |
 | `rd-mode` | 远程开发模式规则，约束 host/server 协作并统一 CDP 浏览器操作（abc 命令） | [README.md](skills/rd-mode/README.md) |
+| `lite-team` | 轻量多 Agent 协作，用 docs/bbs/lite-team-bbs.md 协作板在不同 Agent/session 间手动交接 | [README.md](skills/lite-team/README.md) |
 
 > 触发形式：`/skill-name` 偏 slash command 风格，`$skill-name` 偏按 skill 名触发；实际以你的 Claude Code / skills 运行环境为准。
 
@@ -138,6 +139,40 @@ rd-mode --init   # 首次使用，问答补全 RHost / CDP_PORT，写入 ~/.conf
 | `--init` | 生成本地配置（`RHost`、`CDP_PORT`） |
 
 详情、host/server 架构、`abc` 用法与故障排查见 [README.md](skills/rd-mode/README.md)。
+
+---
+
+### lite-team
+
+手动角色协作，按需用 BBS 协作板交接；不自动编排、不自动读取。
+
+```text
+/role 开发
+给测试 Agent 留一条交接：登录异常分支已完成，需验证错误凭证、重复提交和超时。
+/role 测试
+读取协作板
+/done
+```
+
+| 快捷命令 | 说明 |
+|------|------|
+| `/role <角色名>` | 切换当前 session 角色 |
+| `/bbs init` | 初始化协作板 |
+| `/bbs read` | 读取协作板 |
+| `/bbs write` | 写入一条交接 |
+| `/done` | 生成拟归档摘要，等用户确认 |
+
+脚本命令（Python 3，≥3.8，统一用 `python3`）：
+
+| 命令 | 说明 |
+|------|------|
+| `init` | 初始化协作板 |
+| `add` | 写入一条交接（自动生成 id，守 7 条上限与 500 字软约束） |
+| `status` | 查看消息数量 |
+| `clear --yes` | 清空当前消息，保留历史 |
+| `archive --summary` | 确认归档后写入历史 |
+
+BBS 会提交 Git，勿写密钥/Token；message 最多 7 条，history 最多 9 条。详情见 [README.md](skills/lite-team/README.md)。
 
 ---
 
