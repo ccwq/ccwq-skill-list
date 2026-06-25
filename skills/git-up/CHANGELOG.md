@@ -2,6 +2,14 @@
 
 All notable changes to this skill will be documented in this file.
 
+## [1.2.0] - 2026-06-25
+
+### 变更
+- `--plan` 阶段立即持久化 `plan.yaml`、快照文件与编译后的 `step-N.msg/files`
+- `--discuss` / `--modify` 在可见计划变化时同步更新磁盘计划工件
+- `--commit` 改为只校验并执行已落盘计划，工件缺失或过期时拒绝执行，不再重建计划
+- 计划工件目录迁移到 `git rev-parse --git-path git-up`，避免仓库根 `tmp/` 与 `.gitignore` 污染
+
 ## [1.1.0] - 2026-06-25
 
 ### 变更

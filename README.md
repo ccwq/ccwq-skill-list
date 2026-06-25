@@ -87,14 +87,14 @@ $git-history-cleaner --repo /path/to/repo --path "*.log" --auto
 Git 提交综合工具，支持规划、讨论、修改和执行提交。
 
 ```text
-/git-up --plan           # 分析 diff，生成 YAML 提交计划
+/git-up --plan           # 分析 diff，生成并保存 YAML 提交计划
 /git-up --discuss        # 询问用户对计划的意见
-/git-up --modify <内容>  # 根据反馈调整计划
-/git-up --commit         # 执行实际提交
+/git-up --modify <内容>  # 根据反馈调整并同步已保存计划
+/git-up --commit         # 执行已保存且未过期的计划
 /git-up                  # 直接生成 commit message
 ```
 
-模式：plan / discuss / modify / commit / default。详情见 [SKILL.md](skills/git-up/SKILL.md)。
+模式：plan / discuss / modify / commit / default。`--plan` 会在 Git 内部路径保存计划工件，`--commit` 只执行已保存且未过期的计划。详情见 [SKILL.md](skills/git-up/SKILL.md)。
 
 ---
 
