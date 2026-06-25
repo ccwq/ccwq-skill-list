@@ -1,20 +1,23 @@
 #!/usr/bin/env sh
 # git-up --commit 执行脚本
 #
-# 读取由 /git-up --plan / --modify 写入的计划工件，校验当前工作区未偏离计划，
+# 读取由 /git-up --plan / --modify 写入的 active 计划工件，校验当前工作区未偏离计划，
 # 再逐 step 执行 git add + git commit。
-# 工件目录：$(git rev-parse --git-path git-up)
-#   plan.yaml      权威 YAML 计划
-#   manifest.env   简单元数据
-#   staged.diff    计划同步时的 git diff --cached 快照
-#   worktree.diff  计划同步时的 git diff 快照
-#   status.txt     计划同步时的 git status --short -uall 快照
-#   step-N.msg     第 N 个提交的完整 message 原文（供 git commit -F 使用）
-#   step-N.files   第 N 个提交的文件清单，每行一个路径（含空格也安全）
+# 工件根目录：$(git rev-parse --git-path git-up)
+#   current          当前 active plan id（随机 4 位）
+#   <plan-id>/       当前计划工件目录，例如 ab3f/
+#     plan.yaml      权威 YAML 计划
+#     manifest.env   简单元数据
+#     staged.diff    计划同步时的 git diff --cached 快照
+#     worktree.diff  计划同步时的 git diff 快照
+#     status.txt     计划同步时的 git status --short -uall 快照
+#     step-N.msg     第 N 个提交的完整 message 原文（供 git commit -F 使用）
+#     step-N.files   第 N 个提交的文件清单，每行一个路径（含空格也安全）
 #
 # 设计要点：
 #   - 纯 POSIX sh，零外部依赖，兼容 Linux / macOS / Windows git bash
 #   - 工件存放在 Git 内部路径，避免污染工作区和 .gitignore
+#   - current 文件定位唯一 active 计划；历史目录可保留但不会被执行
 #   - fail-fast：set -e，任意步骤失败立即终止
 #   - 缺失/过期拒绝：不在 commit 阶段重建计划
 #   - 断点续跑：每步成功后删除该步的 msg/files，并刷新快照
@@ -34,10 +37,54 @@ refuse() {
   exit 1
 }
 
+normalize_snapshot() {
+  # 只规范化换行传输差异：CRLF / CR -> LF；纯换行内容视为空。
+  # 不 trim 普通空格，也不忽略任何非换行字符差异，避免掩盖真实 stale 变更。
+  awk '
+    BEGIN { has_content = 0 }
+    {
+      sub(/\r$/, "")
+      lines[NR] = $0
+      if ($0 != "") {
+        has_content = 1
+      }
+    }
+    END {
+      if (!has_content) {
+        exit
+      }
+      for (i = 1; i <= NR; i++) {
+        print lines[i]
+      }
+    }
+  ' "$1"
+}
+
 write_snapshot() {
-  git diff --cached > "$DIR/staged.diff"
-  git diff > "$DIR/worktree.diff"
-  git status --short -uall > "$DIR/status.txt"
+  git diff --cached > "$DIR/.snapshot.staged.raw"
+  git diff > "$DIR/.snapshot.worktree.raw"
+  git status --short -uall > "$DIR/.snapshot.status.raw"
+  normalize_snapshot "$DIR/.snapshot.staged.raw" > "$DIR/staged.diff"
+  normalize_snapshot "$DIR/.snapshot.worktree.raw" > "$DIR/worktree.diff"
+  normalize_snapshot "$DIR/.snapshot.status.raw" > "$DIR/status.txt"
+  rm -f "$DIR/.snapshot.staged.raw" "$DIR/.snapshot.worktree.raw" "$DIR/.snapshot.status.raw"
+}
+
+compare_snapshot() {
+  current="$1"
+  saved="$2"
+  reason="$3"
+
+  normalize_snapshot "$current" > "$current.norm"
+  normalize_snapshot "$saved" > "$saved.norm"
+
+  if ! cmp -s "$current.norm" "$saved.norm"; then
+    rm -f "$DIR/.current.staged.diff" "$DIR/.current.worktree.diff" "$DIR/.current.status.txt"
+    rm -f "$current.norm" "$saved.norm"
+    refuse "$reason"
+  fi
+
+  rm -f "$current.norm" "$saved.norm"
 }
 
 assert_snapshot_current() {
@@ -45,27 +92,28 @@ assert_snapshot_current() {
   git diff > "$DIR/.current.worktree.diff"
   git status --short -uall > "$DIR/.current.status.txt"
 
-  if ! cmp -s "$DIR/.current.staged.diff" "$DIR/staged.diff"; then
-    rm -f "$DIR/.current.staged.diff" "$DIR/.current.worktree.diff" "$DIR/.current.status.txt"
-    refuse "staged diff 与计划快照不一致"
-  fi
-
-  if ! cmp -s "$DIR/.current.worktree.diff" "$DIR/worktree.diff"; then
-    rm -f "$DIR/.current.staged.diff" "$DIR/.current.worktree.diff" "$DIR/.current.status.txt"
-    refuse "worktree diff 与计划快照不一致"
-  fi
-
-  if ! cmp -s "$DIR/.current.status.txt" "$DIR/status.txt"; then
-    rm -f "$DIR/.current.staged.diff" "$DIR/.current.worktree.diff" "$DIR/.current.status.txt"
-    refuse "git status 与计划快照不一致"
-  fi
+  compare_snapshot "$DIR/.current.staged.diff" "$DIR/staged.diff" "staged diff 与计划快照不一致"
+  compare_snapshot "$DIR/.current.worktree.diff" "$DIR/worktree.diff" "worktree diff 与计划快照不一致"
+  compare_snapshot "$DIR/.current.status.txt" "$DIR/status.txt" "git status 与计划快照不一致"
 
   rm -f "$DIR/.current.staged.diff" "$DIR/.current.worktree.diff" "$DIR/.current.status.txt"
 }
 
-DIR=$(git rev-parse --git-path git-up)
+ROOT=$(git rev-parse --git-path git-up)
+CURRENT="$ROOT/current"
 
-[ -d "$DIR" ] || refuse "未找到计划工件目录：$DIR"
+[ -d "$ROOT" ] || refuse "未找到计划工件根目录：$ROOT"
+[ -f "$CURRENT" ] || refuse "缺少 current 文件：$CURRENT"
+
+PLAN_ID=$(sed -n '1p' "$CURRENT" | tr -d '\r')
+case "$PLAN_ID" in
+  "") refuse "current 文件为空" ;;
+  */*|*\\*|*..*) refuse "current 中的 plan id 非法：$PLAN_ID" ;;
+esac
+
+DIR="$ROOT/$PLAN_ID"
+
+[ -d "$DIR" ] || refuse "current 指向的计划目录不存在：$PLAN_ID"
 [ -f "$DIR/plan.yaml" ] || refuse "缺少 plan.yaml"
 [ -f "$DIR/manifest.env" ] || refuse "缺少 manifest.env"
 [ -f "$DIR/staged.diff" ] || refuse "缺少 staged.diff"
@@ -104,7 +152,7 @@ for n in $STEPS; do
   assert_snapshot_current
 
   # 按文件清单逐行 git add（逐行读取以兼容含空格的路径）
-  while IFS= read -r f; do
+  while IFS= read -r f || [ -n "$f" ]; do
     [ -n "$f" ] && git add "$f"
   done < "$files"
 
@@ -125,7 +173,9 @@ for n in $STEPS; do
   write_snapshot
 done
 
-# 全部成功，删除计划工件目录，避免旧计划被误用。
+# 全部成功，删除 active 计划目录和 current，避免旧计划被误用。
 rm -rf "$DIR"
+rm -f "$CURRENT"
+rmdir "$ROOT" 2>/dev/null || true
 
 echo "✅ All $total commits done."

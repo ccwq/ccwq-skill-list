@@ -5,6 +5,7 @@ All notable changes to this skill will be documented in this file.
 ## [1.2.0] - 2026-06-25
 
 ### 变更
+- 修复 `step-N.files` 末行无换行时最后一个文件不会进入 `git add` 的问题
 - 修复 Windows/PowerShell 文本写入导致快照 CRLF/LF 差异或空 diff 被写成 CRLF 空行时的误判
 - 新增参数缩写：`--plan` 可用 `-p`，`--commit` 可用 `-c`
 - `--plan` 阶段立即持久化 `plan.yaml`、快照文件与编译后的 `step-N.msg/files`

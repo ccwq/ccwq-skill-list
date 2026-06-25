@@ -35,7 +35,7 @@ description: |
 - **计划持久化**：`--plan` 阶段立即写入权威 `plan.yaml`、快照文件和编译后的 `step-N.msg/files`
 - **交互讨论**：询问用户拆分合理性、类型选择等，并在可见计划改变时同步磁盘工件
 - **计划调整**：修改 step、subject、files 关联，并重写全部计划工件
-- **脚本提交**：调用内置 `scripts/commit.sh`，在脚本层面校验计划未过期后逐 step 执行 `git add` + `git commit`，支持断点续跑
+- **脚本提交**：调用内置 `scripts/commit.sh`，在脚本层面校验计划未过期后逐 step 执行 `git add` + `git commit`，支持断点续跑，并兼容 `step-N.files` 末行无换行
 - **快照稳定性**：快照比较仅规范化 CRLF/CR/LF 换行差异与纯换行空快照，不忽略真实 diff/status 内容变化
 
 ## 输入
@@ -198,7 +198,7 @@ Active 计划目录内容：
 - `#!/usr/bin/env sh` + `set -e`，纯 POSIX，兼容 Windows git bash
 - 零参数，用 `git rev-parse --git-path git-up` 定位工件根目录，并读取 `current` 找到 active 计划目录
 - 执行前校验工件存在，并校验当前 diff/status 与快照一致
-- 逐 step：按 `step-N.files` 逐行 `git add`，再 `git commit -F step-N.msg`
+- 逐 step：按 `step-N.files` 逐行 `git add`，再 `git commit -F step-N.msg`；读取文件清单时兼容末行无换行，避免漏掉最后一项
 - **空提交防护**：`git diff --cached --quiet` 为真（暂存区无变更）则跳过该步，不报错
 - **断点续跑**：每步成功后删除该步 `.msg`/`.files`；脚本会在步骤推进时刷新快照，失败后重跑仍能从残留 step 继续
 - 全部成功后删除 active 计划目录和 `current`；如果 `git-up` 根目录为空，也一并删除，避免旧计划被误用
