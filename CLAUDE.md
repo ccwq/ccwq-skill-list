@@ -32,10 +32,12 @@
 
 安装说明一律「最简 → 逐步加参数」：先给一行最简命令，再逐步叠加 `--skill`、`--agent claude-code` 等参数并组合，而非平铺多个并列小节。
 
-### 新增 / 重构 skill 的清单
+### 新增 / 修改 / 删除 skill 的同步清单
 
-新增或重命名 skill 时，必须同步更新根 README：
+新增、修改、删除或重命名 skill 时，必须同步维护根 README 与 plugin marketplace，避免安装索引和 Claude Code 插件入口不一致：
 
-1. 「可用 Skill」索引表新增/修改一行（名称、一句说明、详情链接）。
-2. 「参数速查」新增/修改对应小节（调用示例 + 参数表 + 注意事项 + 详情链接）。
-3. 确认详情链接路径真实存在，无断链。
+1. 「可用 Skill」索引表新增/修改/删除对应行（名称、一句说明、详情链接）。
+2. 「参数速查」新增/修改/删除对应小节（调用示例 + 参数表 + 注意事项 + 详情链接）。
+3. `.claude-plugin/marketplace.json` 的 `plugins` 数组同步新增/修改/删除对应条目，字段至少包含 `name`、`source`、`description`、`version`、`category`；`source` 使用与仓库 skill/plugin 目录匹配的相对路径（如 `./lite-team`）。
+4. 确认 README 详情链接路径真实存在，无断链。
+5. 修改后校验 `.claude-plugin/marketplace.json` 是合法 JSON。

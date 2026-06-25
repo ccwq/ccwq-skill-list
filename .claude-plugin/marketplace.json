@@ -42,6 +42,13 @@
       "description": "通过 ffmpeg/ffprobe 处理音视频文件：压缩、转码、裁剪、缩放、变帧率、抽取音频、混流、拼接、字幕烧录、加水印与媒体检查",
       "version": "1.0.0",
       "category": "media"
+    },
+    {
+      "name": "lite-team",
+      "source": "./lite-team",
+      "description": "轻量多 Agent 协作技能，用 docs/bbs/lite-team-bbs.md 协作板在不同 Agent/session 间手动交接",
+      "version": "1.1.0",
+      "category": "collaboration"
     }
   ]
 }
