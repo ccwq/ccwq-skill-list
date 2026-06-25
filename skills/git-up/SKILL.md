@@ -1,7 +1,14 @@
 ---
 name: git-up
-version: 1.0.0
-description: Git 提交综合工具，支持规划、讨论、修改和执行提交
+version: 1.1.0
+description: |
+  Git 提交综合工具：分析 git diff、规划提交拆分、生成规范的 commit message，并在脚本层面批量执行提交。
+  用户提到以下需求时使用：
+  - "提交代码"、"commit 一下"、"帮我 git commit"、"git up"
+  - "把这些改动分成几个提交"、"规划提交"、"拆 commit"、"分批提交"
+  - "生成 commit message"、"写提交信息"、"提交信息怎么写"
+  - "讨论/修改提交计划"、"--plan/--discuss/--modify/--commit"
+  - 任何涉及分析 git diff、拆分提交、生成提交信息或执行提交的需求
 ---
 
 # Git 提交综合工具
@@ -17,7 +24,7 @@ description: Git 提交综合工具，支持规划、讨论、修改和执行提
 | `plan` | `/git-up --plan` | 分析 diff，生成 YAML 计划 | YAML 格式提交计划 |
 | `discuss` | `/git-up --discuss` | 询问用户对计划的意见 | 讨论性问题 |
 | `modify` | `/git-up --modify <内容>` | 根据用户反馈调整计划 | 更新后的 YAML |
-| `commit` | `/git-up --commit` | 执行实际提交 | git commit 结果 |
+| `commit` | `/git-up --commit` | 编译计划并调用脚本提交 | git log 结果 |
 | `default` | `/git-up` | 直接生成 commit message | Commit Message |
 
 ## 能力
@@ -27,7 +34,8 @@ description: Git 提交综合工具，支持规划、讨论、修改和执行提
 - **计划生成**：输出 YAML 格式的提交计划
 - **交互讨论**：询问用户拆分合理性、类型选择等
 - **计划调整**：修改 step、subject、files 关联
-- **提交执行**：组合 git add + git commit
+- **计划编译**：将 YAML 计划编译为中间产物（每 step 一组 `step-N.msg` + `step-N.files`），供内置脚本读取
+- **脚本提交**：调用内置 `scripts/commit.sh`，在脚本层面逐 step 执行 `git add` + `git commit`，支持断点续跑
 
 ## 输入
 
@@ -66,7 +74,7 @@ description: Git 提交综合工具，支持规划、讨论、修改和执行提
 
 ### Commit 模式输出
 
-执行后的 git commit 结果或错误信息。
+执行后的 `git log --oneline -<step数>` 结果；若脚本中途失败，则输出失败步骤的错误信息与续跑提示。详见「脚本提交规范」。
 
 ## Commit Message 类型规范
 
@@ -85,6 +93,58 @@ description: Git 提交综合工具，支持规划、讨论、修改和执行提
 | chore | 🔧 | 杂项改动 | scripts, config, deps, logging, tools |
 | revert | ↩ | 回滚提交 | git-revert, rollback, hotfix |
 | i18n | 🌐 | 国际化 | locale, translation, localization, language |
+
+## 脚本提交规范
+
+`--commit` 模式不现写脚本，而是把 YAML 计划「编译」成中间产物，再调用内置的固定脚本 `scripts/commit.sh` 在脚本层面批量提交。这样脚本保持纯 POSIX sh、零依赖，语义理解（解析 YAML）留给 Claude，机械执行（git 命令）留给脚本。
+
+### 中间产物
+
+目录：`<repo-root>/tmp/git-up-<hash4>/`
+
+- `<repo-root>` = `git rev-parse --show-toplevel`
+- `<hash4>` = `git rev-parse --short=4 HEAD`（空仓库回退 `init`）
+- 多项目并行靠「项目本地 + HEAD hash」双重隔离，互不串台
+
+每个 step 写两个配对文件：
+
+| 文件 | 内容 |
+|------|------|
+| `step-N.msg` | 第 N 个提交的完整 message 原文：`subject` + 空行 + `body`（YAML 里的 `\n` 展开为真实换行）+ 空行 + `foot`（非空时才有） |
+| `step-N.files` | 第 N 个提交的文件清单，每行一个路径（含空格也安全） |
+
+序号 N 从 1 递增，天然决定提交顺序（被依赖的在前）。
+
+### Claude 执行序列
+
+1. 定位：`repo=$(git rev-parse --show-toplevel)`，`hash4=$(git rev-parse --short=4 HEAD 2>/dev/null || echo init)`，目录 `D="$repo/tmp/git-up-$hash4"`
+2. 清残留：`rm -rf "$repo"/tmp/git-up-* && mkdir -p "$D"`（清掉本仓库所有旧批次，保证脚本运行时只有一个待执行批次）
+3. 确保忽略：项目根 `.gitignore` 不含 `/tmp/git-up-*/` 时追加之
+   `grep -qxF '/tmp/git-up-*/' "$repo/.gitignore" 2>/dev/null || echo '/tmp/git-up-*/' >> "$repo/.gitignore"`
+4. 按计划逐 step 写入 `step-N.msg` 与 `step-N.files`
+5. 执行：`sh skills/git-up/scripts/commit.sh`
+6. 汇报：`git log --oneline -<step数>`
+
+> hash4 仅用于目录命名（隔离/多项目并行）；脚本**不重算** HEAD hash——因为提交会移动 HEAD 导致目录名漂移、破坏断点续跑——而是在 `<repo-root>/tmp/` 下查找唯一含待执行 step 的批次目录。
+
+`--commit` 即视为确认（计划已在 plan/discuss/modify 阶段 review），不再二次确认。
+
+### 脚本行为（scripts/commit.sh）
+
+- `#!/usr/bin/env sh` + `set -e`，纯 POSIX，兼容 Windows git bash
+- 零参数，用 `git rev-parse --show-toplevel` 定位仓库根，再在 `tmp/` 下查找唯一待执行的 `git-up-*` 批次目录（不重算 HEAD hash，避免提交移动 HEAD 后目录漂移）
+- 逐 step：按 `step-N.files` 逐行 `git add`，再 `git commit -F step-N.msg`
+- **空提交防护**：`git diff --cached --quiet` 为真（暂存区无变更）则跳过该步，不报错
+- **断点续跑**：每步成功后删除该步 `.msg`/`.files`；失败中止后残留的就是未完成步骤，直接重跑脚本即从断点续跑，幂等不重复提交
+- 全部成功后 `rmdir` 空的批次目录，工作树无残留
+
+### 失败处理
+
+`set -e` 在失败步骤立即中止，先前已成功的提交不回滚（git 提交逐个落地）。Claude 汇报「已完成 step 1..k，step k+1 失败：<错误>」，并提示：修复后直接重跑 `sh skills/git-up/scripts/commit.sh` 即从断点 k+1 续跑。
+
+### Windows 兼容性
+
+通过 git bash 执行：`sh skills/git-up/scripts/commit.sh`。中间产物在仓库内 `tmp/` 下，不依赖系统 `/tmp` 的跨平台映射；heredoc 不再使用，`set -e` 与逐行读取在 git bash 下均正常工作。
 
 ## 处理规则
 
@@ -146,16 +206,20 @@ AI: 这个拆分是否合理？是否需要合并 step 1 和 step 2？
 AI: (输出更新后的 YAML)
 
 用户: /git-up --commit
-AI: (执行 git add + git commit)
+AI: (生成并展示脚本，询问是否执行)
+用户: y
+AI: (执行脚本，输出 git log)
 ```
 
 ## 约束
 
-- 必须严格遵循用户指定的模式
-- Plan 模式必须输出有效的 YAML 格式
-- Commit 模式仅输出 git 命令执行结果，不输出解释
-- Modify 模式必须保持 YAML 格式有效性
-- Discuss 模式必须以问题形式输出，不输出结论
+这些约束的目的是让各模式输出可被稳定消费——下游（用户、脚本、后续模式）依赖固定形态，偏离会让链路断裂。
+
+- 遵循用户指定的模式：用户用模式参数表达了明确意图，混入其它模式的输出会干扰他的工作节奏。
+- Plan / Modify 模式输出有效 YAML：计划要被 `--commit` 阶段编译成中间产物，YAML 不合法会导致编译失败。
+- Discuss 模式只提问、不下结论：讨论阶段的价值在于把决策权交还用户，过早给结论会替用户做主。
+- Commit 模式严格按执行序列：先清空批次目录、写齐中间产物、确保 `.gitignore`，再调脚本——任一步缺失会让脚本读到残留数据或把中间产物误提交（详见「脚本提交规范」）。
+- Commit 执行后用 `git log` 汇报；失败时给出错误详情并提示重跑脚本可断点续跑，让用户清楚停在哪、怎么继续。
 
 ## 最佳实践
 
@@ -226,10 +290,48 @@ AI: (执行 git add + git commit)
 
 **输入**：`/git-up --commit`
 
-**输出**：
+**Claude 编译出的中间产物**（写入 `<repo-root>/tmp/git-up-<hash4>/`）：
+
+`step-1.files`：
 ```
-[main a1b2c3d] refactor(auth): ♻️登录模块
- 3 files changed, 50 insertions(+), 20 deletions(-)
+src/pages/login/LoginPage.tsx
+src/pages/login/LoginForm.tsx
+src/services/authService.ts
+```
+
+`step-1.msg`：
+```
+fix(auth): 🐛登录页面无法正确加载的问题
+
+- 修复了登录页面在某些情况下无法正确加载的问题
+- 提升了页面响应速度
+```
+
+`step-2.files`：
+```
+src/pages/login/LoginPage.tsx
+src/pages/login/LoginForm.tsx
+```
+
+`step-2.msg`：
+```
+style(auth): 🌈登录模块代码格式
+
+- 调整了登录相关文件的代码格式以提升可读性
+```
+
+**执行**：`sh skills/git-up/scripts/commit.sh`
+
+```
+>>> Step 1/2: fix(auth): 🐛登录页面无法正确加载的问题
+>>> Step 2/2: style(auth): 🌈登录模块代码格式
+✅ All 2 commits done.
+```
+
+**汇报**（`git log --oneline -2`）：
+```
+a1b2c3d style(auth): 🌈登录模块代码格式
+e4f5g6h fix(auth): 🐛登录页面无法正确加载的问题
 ```
 
 ## 初始化指令
