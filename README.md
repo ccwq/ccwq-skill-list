@@ -88,14 +88,15 @@ $git-history-cleaner --repo /path/to/repo --path "*.log" --auto
 Git 提交综合工具，支持规划、讨论、修改和执行提交。
 
 ```text
-/git-up --plan, -p      # 分析 diff，生成并保存 YAML 提交计划
+/git-up --plan, -p      # 分析 diff，在会话中输出 YAML 提交计划
 /git-up --discuss        # 询问用户对计划的意见
-/git-up --modify <内容>  # 根据反馈调整并同步已保存计划
-/git-up --commit, -c    # 执行已保存且未过期的计划
+/git-up --modify <内容>  # 根据反馈调整计划并重新输出
+/git-up --commit, -c    # 用 shell 直接执行会话中的计划
+/git-up --plan --commit, -pc  # 一步规划并提交，跳过中途复核
 /git-up                  # 直接生成 commit message
 ```
 
-模式：plan / discuss / modify / commit / default。`--plan` 可简写为 `-p`，`--commit` 可简写为 `-c`；`--plan` 会在 Git 内部路径保存计划工件，`--commit` 只执行已保存且未过期的计划。详情见 [SKILL.md](skills/git-up/SKILL.md)。
+模式：plan / discuss / modify / commit / plan+commit / default。`--plan` 可简写为 `-p`，`--commit` 可简写为 `-c`，二者合并为 `-pc` 可一步规划并提交（跳过 discuss/modify 复核）。**全程在会话内完成**：计划不落盘、无脚本依赖，`--commit` 直接用 `git add` + `git commit` 执行，故 `-p` 与 `-c` 需在同一会话。详情见 [SKILL.md](skills/git-up/SKILL.md)。
 
 ---
 
@@ -144,23 +145,17 @@ rd-mode --init   # 首次使用，问答补全 RHost / CDP_PORT，写入 ~/.conf
 
 ### lite-team
 
-手动角色协作，按需用 BBS 协作板交接；不自动编排、不自动读取。
+手动角色协作，按需用 BBS 协作板交接；不自动编排、不自动读取。调用全用自然语言（说人话）：
 
 ```text
-/role 开发
+切换到开发角色
 给测试 Agent 留一条交接：登录异常分支已完成，需验证错误凭证、重复提交和超时。
-/role 测试
+切换到测试角色（或“假设你是测试”）
 读取协作板
-/done
+任务结束，帮我归档
 ```
 
-| 快捷命令 | 说明 |
-|------|------|
-| `/role <角色名>` | 切换当前 session 角色 |
-| `/bbs init` | 初始化协作板 |
-| `/bbs read` | 读取协作板 |
-| `/bbs write` | 写入一条交接 |
-| `/done` | 生成拟归档摘要，等用户确认 |
+> 嫌长可用极简词：`role <角色名>` / `bbs init|read|write` / `done`，与上述说法等价。它们是对话简写，**不是**注册的 slash 命令或 skill 参数。
 
 脚本命令（Python 3，≥3.8，统一用 `python3`）：
 

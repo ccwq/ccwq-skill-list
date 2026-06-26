@@ -17,13 +17,16 @@ description: 轻量多 Agent 协作技能，用一个 docs/bbs/lite-team-bbs.md 
 
 ## 角色切换
 
-用户可用自然语言或短命令指定角色，二者等价：
+用户用自然语言指定角色即可，例如：
 
 ```text
-/role 开发
+切换到开发角色
 现在你是测试 Agent
+假设你是测试角色
 切换到安全审计角色
 ```
+
+嫌长时也可用极简词 `role <角色名>`（如 `role 开发`），与上述说法完全等价；偶尔打成 `/role 开发` 也按同样方式理解。注意这只是对话里的简写约定，不是注册的 slash 命令，也不是 skill 参数。
 
 切换后，仅执行该角色职责内的工作。角色边界不清时，简短向用户或目标角色提出问题；不要自行扩展范围。
 
@@ -38,8 +41,8 @@ description: 轻量多 Agent 协作技能，用一个 docs/bbs/lite-team-bbs.md 
 
 BBS 路径固定：`docs/bbs/lite-team-bbs.md`。
 
-- 文件不存在时，只有在确实需要跨角色交接，或用户执行 `/bbs init` 时才创建。
-- 用户说“读取协作板”“查看 BBS”或 `/bbs read` 时读取。
+- 文件不存在时，只有在确实需要跨角色交接，或用户要求初始化协作板（简写 `bbs init`）时才创建。
+- 用户说“读取协作板”“查看 BBS”（简写 `bbs read`）时读取。
 - 主 Agent 可明确要求子 Agent 读取或写入 BBS。
 - 普通新 session、普通单角色任务，不自动读取、不自动创建。
 
@@ -108,13 +111,14 @@ python3 <skill目录>/scripts/bbs.py init --root .
 
 ## 写入与交接
 
-用户可用：
+用户用自然语言提出即可，例如：
 
 ```text
-/bbs write
 给测试 Agent 留一条交接
 把这个风险写入 BBS
 ```
+
+嫌长可用极简词 `bbs write`，与上述说法等价。
 
 优先用脚本写入，由它自动生成 `id`（`m-YYYYMMDD-NN`）、追加消息并守住 7 条上限和 500 字软约束，避免手改 markdown 出错：
 
@@ -134,7 +138,7 @@ python3 <skill目录>/scripts/bbs.py add --root . \
 
 ## 结束与归档
 
-用户可用 `/done` 或自然语言“任务结束”。
+用户用自然语言“任务结束”“帮我归档”即可，嫌长可用极简词 `done`。
 
 ### 第一步：生成拟归档摘要
 
@@ -166,19 +170,19 @@ python3 <skill目录>/scripts/bbs.py archive --root . --summary "拟归档摘要
 python3 <skill目录>/scripts/bbs.py clear --root . --yes
 ```
 
-然后重新执行 `/done` 流程。清理只会清空 `<message>`，不会删除 `<history>`。
+然后重新走一遍归档流程。清理只会清空 `<message>`，不会删除 `<history>`。
 
-## 快捷命令
+## 怎么用（都是说人话）
 
 ```text
-/role <角色名>    切换当前 session 角色
-/bbs init         初始化 docs/bbs/lite-team-bbs.md
-/bbs read         读取当前 BBS
-/bbs write        写入一条必要交接消息
-/done             生成拟归档摘要，等待用户确认
+切换角色：“切换到测试角色” / “假设你是测试”
+留交接：  “给开发留一条：登录分支已完成，需验证错误凭证和超时”
+读板：    “读一下协作板”
+归档：    “任务结束，帮我归档”
 ```
 
-自然语言与命令完全等价。
+> 嫌长可用极简词：`role <角色名>` / `bbs init|read|write` / `done`，与上述说法等价。
+> 这些只是对话简写，自然语言为主、极简词为可选简写；都不是注册的 slash 命令或 skill 参数。
 
 ## 输出约束
 
