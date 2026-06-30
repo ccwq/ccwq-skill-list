@@ -118,6 +118,6 @@ git log --oneline -<step数>
 
 - 各模式输出形态固定，供下游（用户/后续模式）稳定消费。
 - Plan/Modify 输出有效 YAML。
-- Commit 把整份计划拼成**单个 Bash 调用**执行（杜绝逐 step 多次往返）；只 add 计划内显式路径，计划外改动不会被提交。
+- Commit 把整份计划拼成**单个 cmd/powshell/cmd 调用**执行（杜绝逐 step 多次往返）；只 add 计划内显式路径，计划外改动不会被提交。
 - Discuss 只提问、不下结论。
 - 单会话内完成：`-p` 与 `-c` 需在同一会话上下文。
