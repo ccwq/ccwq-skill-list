@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "git-up": {
+      "source": "/home/ps/cheweiqing/proj-ccwq-skill-list/skills/git-up",
+      "sourceType": "local",
+      "computedHash": "0e4aedb16604b6a2ebcb38c8cadfbba110a89cec5bd3e3238203483f8a55f0d9"
+    }
+  }
+}
