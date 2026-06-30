@@ -41,6 +41,7 @@ npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code --
 | `git-up` | Git 提交综合工具，支持规划、讨论、修改和执行提交 | [SKILL.md](skills/git-up/SKILL.md) |
 | `nano-prompt` | AI 图像提示词生成，基于分层结构构建专业级提示词 | [SKILL.md](skills/nano-prompt/SKILL.md) |
 | `ffmpeg-video-processing` | 使用 ffmpeg / ffprobe 处理音视频，包括压缩、转码、裁剪与媒体检查 | [SKILL.md](skills/ffmpeg-video-processing/SKILL.md) |
+| `codex-windows-hooks-fix` | 修复 Windows 环境中 Codex hooks 入口命令、PowerShell 包装器和 stdout JSON schema 问题 | [SKILL.md](skills/codex-windows-hooks-fix/SKILL.md) |
 | `rd-mode` | 远程开发模式规则，约束 host/server 协作并统一 CDP 浏览器操作（abc 命令） | [README.md](skills/rd-mode/README.md) |
 | `lite-team` | 轻量多 Agent 协作，用 docs/bbs/lite-team-bbs.md 协作板在不同 Agent/session 间手动交接 | [README.md](skills/lite-team/README.md) |
 
@@ -124,6 +125,19 @@ AI 图像提示词生成，基于 Nano Banana Pro 的核心提示技巧，输出
 ```
 
 无显式参数，用自然语言描述处理目标。本机缺少 `ffmpeg`/`ffprobe` 时需先提供路径或确认下载。详情见 [SKILL.md](skills/ffmpeg-video-processing/SKILL.md)。
+
+---
+
+### codex-windows-hooks-fix
+
+修复 Windows 环境中 Codex hooks 报错，尤其是 `SessionStart`、`UserPromptSubmit`、`PreToolUse`、`Stop` 的 hook failed、`invalid JSON output`、裸 `sh/python3/.sh`、`decision=allow` 与路径展开问题。
+
+```text
+$codex-windows-hooks-fix Windows 上 PreToolUse hook 报 invalid pre-tool-use JSON output，pre-tool-use.ps1 输出了 decision=allow，帮我修
+$codex-windows-hooks-fix codex 在 Windows 启动时报 SessionStart/UserPromptSubmit hook failed，hooks.json 里用了 sh 和 python3
+```
+
+无显式参数。默认流程是先调查真实 `hooks.json` 和 hook 脚本，再做最小改动，最后用 `Test-Json`、直接执行注册命令和 `codex exec` 子进程验证真实 hook 链路。详情见 [SKILL.md](skills/codex-windows-hooks-fix/SKILL.md)。
 
 ---
 

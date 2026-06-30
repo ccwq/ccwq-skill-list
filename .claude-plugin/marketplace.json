@@ -44,6 +44,13 @@
       "category": "media"
     },
     {
+      "name": "codex-windows-hooks-fix",
+      "source": "./codex-windows-hooks-fix",
+      "description": "修复 Windows 环境中 Codex hooks 入口命令、PowerShell 包装器和 stdout JSON schema 问题",
+      "version": "1.0.0",
+      "category": "devtools"
+    },
+    {
       "name": "lite-team",
       "source": "./lite-team",
       "description": "轻量多 Agent 协作技能，用 docs/bbs/lite-team-bbs.md 协作板在不同 Agent/session 间手动交接",

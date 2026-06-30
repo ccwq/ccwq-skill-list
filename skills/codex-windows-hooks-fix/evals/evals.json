@@ -1,0 +1,23 @@
+{
+  "skill_name": "codex-windows-hooks-fix",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Windows 上 codex 每次启动都报 SessionStart hook failed、UserPromptSubmit hook failed，hooks.json 里用了 sh 和 python3。请调查并给出修复方案，修完要验证。",
+      "expected_output": "应该先检查 hooks.json 和 hooks 目录，识别裸 sh/python3/.sh 入口问题，改成 PowerShell 包装器，并用 Test-Json、直接命令和 codex exec 验证。",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "PreToolUse hook failed: error: hook returned invalid pre-tool-use JSON output。我看到 pre-tool-use.ps1 输出了 {\"decision\":\"allow\"}，帮我修。",
+      "expected_output": "应该指出 decision=allow 是 Claude Code 风格而非当前 Codex PreToolUse 默认允许输出，改成默认空 stdout + exit 0，只在需要注入上下文时输出 systemMessage。",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "我已经把 hook 脚本单独跑通了，但 codex 里还是报 invalid JSON output。请继续排查，不要只跑脚本本身。",
+      "expected_output": "应该强调单独脚本通过不等于 Codex hook runner 解析通过，必须用 codex exec 子进程覆盖无 task_plan.md 和有 task_plan.md 两个分支，并检查 stdout 是否只有合法 JSON 或为空。",
+      "files": []
+    }
+  ]
+}
