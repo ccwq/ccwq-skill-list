@@ -94,11 +94,12 @@ Git 提交综合工具，支持规划、讨论、修改和执行提交。
 /git-up --discuss        # 询问用户对计划的意见
 /git-up --modify <内容>  # 根据反馈调整计划并重新输出
 /git-up --commit, -c    # 用 shell 直接执行会话中的计划
+/git-up --commit, -c    # 优先用 Python fast path 执行会话中的计划
 /git-up --plan --commit, -pc  # 一步规划并提交，跳过中途复核
 /git-up                  # 直接生成 commit message
 ```
 
-模式：plan / discuss / modify / commit / plan+commit / default。`--plan` 可简写为 `-p`，`--commit` 可简写为 `-c`，二者合并为 `-pc` 可一步规划并提交（跳过 discuss/modify 复核）。**全程在会话内完成**：计划不落盘、无脚本依赖，`--commit` 直接用 `git add` + `git commit` 执行，故 `-p` 与 `-c` 需在同一会话。详情见 [SKILL.md](skills/git-up/SKILL.md)。
+模式：plan / discuss / modify / commit / plan+commit / default。`--plan` 可简写为 `-p`，`--commit` 可简写为 `-c`，二者合并为 `-pc` 可一步规划并提交（跳过 discuss/modify 复核）。`-c` 优先用 `scripts/commit_plan.py` 直接执行；解析失败时 LLM 修复 YAML 并重试 1 次，仍失败回退为原有提交路径。计划仍存于对话上下文，故 `-p` 与 `-c` 需在同一会话。详情见 [SKILL.md](skills/git-up/SKILL.md)。
 
 ---
 
