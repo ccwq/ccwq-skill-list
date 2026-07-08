@@ -1,0 +1,23 @@
+{
+  "skill_name": "ntl-script-descriptions",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "这个 Vue 项目已经有 package.json 了，帮我参考 ntl 的 descriptions 机制，把 scripts 的中文说明补进去。已有说明不要覆盖。",
+      "expected_output": "读取 package.json，向 ntl.descriptions 补齐缺失 scripts 的中文说明，保留已有说明，写后校验 JSON，并报告新增/保留/需确认清单。",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "帮这个前端仓库补一下 package scripts 说明，我准备之后用 ntl --descriptions-only。pretest、postbuild 也要有说明。",
+      "expected_output": "覆盖所有 scripts，包括 pre* 和 post*；生成适合 ntl 展示的简短中文说明；不自动安装或运行 ntl；输出校验结果。",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "package.json 里 ntl.descriptions 有几条旧说明，别覆盖。只把缺失的补上，如果发现描述和命令不一致，告诉我。",
+      "expected_output": "保留已有 ntl.descriptions，只补缺失项；对明显过时或冲突的说明做报告，不自动重写；校验 package.json 可解析。",
+      "files": []
+    }
+  ]
+}

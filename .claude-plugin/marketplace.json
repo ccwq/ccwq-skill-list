@@ -51,6 +51,13 @@
       "category": "devtools"
     },
     {
+      "name": "ntl-script-descriptions",
+      "source": "./ntl-script-descriptions",
+      "description": "为包含 package.json 的项目补充 ntl 可读取的 scripts 中文说明，维护 package.json#ntl.descriptions",
+      "version": "1.0.0",
+      "category": "devtools"
+    },
+    {
       "name": "lite-team",
       "source": "./lite-team",
       "description": "轻量多 Agent 协作技能，用 docs/bbs/lite-team-bbs.md 协作板在不同 Agent/session 间手动交接",
