@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "python test-space/git-up-commit-plan-tests/run_tests.py",
+    "test:git-history-cleaner": "python test-space/git-history-cleaner/run_tests.py"
   },
   "keywords": [],
   "author": "",
