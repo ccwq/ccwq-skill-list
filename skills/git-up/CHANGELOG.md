@@ -2,6 +2,15 @@
 
 All notable changes to this skill will be documented in this file.
 
+## [2.2.0] - 2026-07-09
+
+### 新增
+- 新增 `-l` / `--lang` 语言参数，支持 `zh`（默认）和 `en`，用于控制 YAML 计划说明、讨论问题、commit subject/body 和最终汇报语言。
+- 新增 Claude Code `argument-hint`，在支持的环境中提示 `--plan/-p`、`--discuss/-d`、`--commit/-c`、`-pc` 与 `-l zh|en` 等常用参数。
+
+### 变更
+- Skill description 增补关键参数词，提升 Codex/Claude 对 `git-up` 参数用法的发现能力。
+
 ## [2.1.0] - 2026-07-09
 
 ### 新增

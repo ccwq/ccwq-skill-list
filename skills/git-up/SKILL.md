@@ -1,14 +1,16 @@
 ---
 name: git-up
-version: 2.1.0
+version: 2.2.0
+argument-hint: "[--plan|-p|--discuss|-d|--modify <内容>|--commit|-c|-pc] [-l zh|en]"
 description: |
-  Git 提交综合工具：分析改动、规划提交拆分、生成规范 commit message，并优先用 Python fast path 执行提交。
+  Git 提交综合工具：分析改动、规划提交拆分、生成规范 commit message，并优先用 Python fast path 执行提交。支持 --plan/-p、--discuss/-d、--commit/-c、-pc，以及 -l/--lang zh|en 控制输出语言（默认 zh）。
   用户提到以下需求时使用：
   - "提交代码"、"commit 一下"、"帮我 git commit"、"git up"
   - "把改动分成几个提交"、"规划提交"、"拆 commit"、"分批提交"
   - "生成 commit message"、"写提交信息"
   - "讨论/修改提交计划"、"--plan/-p"、"--discuss/-d"、"--modify"、"--commit/-c"
   - "规划并提交"、"一步提交"、"--plan --commit"、"-pc"
+  - "英文提交"、"中文提交"、"-l en"、"--lang en"、"-l zh"、"--lang zh"
 ---
 
 # Git 提交综合工具
@@ -29,6 +31,24 @@ description: |
 | `default` | （无参数） | 直接生成 commit message | Commit Message |
 
 遵循用户指定的模式，不混入其它模式的输出。
+
+## 参数约定
+
+| 参数 | 可选值 | 默认值 | 作用 |
+|------|--------|--------|------|
+| `--plan` / `-p` | - | - | 分析改动并输出 YAML 提交计划 |
+| `--discuss` / `-d` | - | - | 围绕最近计划逐个讨论 1-3 个关键决策 |
+| `--modify <内容>` | 文本 | - | 按反馈调整最近计划 |
+| `--commit` / `-c` | - | - | 执行最近计划；无计划时先生成计划 |
+| `--plan --commit` / `-pc` | - | - | 免确认一步规划并提交 |
+| `--lang <语言>` / `-l <语言>` | `zh` / `en` | `zh` | 控制计划说明、讨论问题、commit subject/body、最终汇报语言 |
+
+语言规则：
+
+- 未传 `-l/--lang` 时默认使用 `zh`。
+- `-l en` / `--lang en` 时，YAML 中的 `subject`、`body`、讨论问题、执行汇报使用英文；commit type、scope、emoji、文件路径和命令保持原样。
+- `-l zh` / `--lang zh` 时使用中文。
+- 若传入未知语言，说明仅支持 `zh` / `en`，然后按默认 `zh` 继续，除非用户明确要求停止。
 
 ## 规划输入（关键：保持轻量，避免读全量 diff）
 
@@ -60,9 +80,9 @@ description: |
 
 ```yaml
 - step: 1
-  subject: <type>(<scope>): <emoji><主题>
+  subject: <type>(<scope>): <emoji><主题，按 -l/--lang 输出>
   body: |
-    <正文，要点列出核心改动>
+    <正文，要点列出核心改动，按 -l/--lang 输出>
   foot: ""
   files:
     - <路径>
