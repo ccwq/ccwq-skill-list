@@ -2,6 +2,16 @@
 
 All notable changes to this skill will be documented in this file.
 
+## [2.3.0] - 2026-07-09
+
+### 新增
+- 新增 `--push` / `-P`，支持 `--commit --push` / `-cP` 与 `--plan --commit --push` / `-pcP`。
+- `-pcP` 表示一步规划、提交并 push；它与 `-pc` 一样跳过 discuss/modify 复核，不等待用户二次确认。
+
+### 约束
+- `--push/-P` 只绑定提交执行模式，不支持单独 push 或 plan/discuss 阶段 push。
+- push 只在网络/传输类错误失败后最多重试 3 次；认证、权限、无 upstream、non-fast-forward、protected branch、hook 拒绝等非网络错误直接停止并报告。
+
 ## [2.2.0] - 2026-07-09
 
 ### 新增

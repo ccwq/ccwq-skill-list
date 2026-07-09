@@ -95,11 +95,12 @@ Git 提交综合工具，支持规划、讨论、修改和执行提交。
 /git-up --modify <内容>  # 根据反馈调整计划并重新输出
 /git-up --commit, -c    # 优先用 Python fast path 执行会话中的计划
 /git-up --plan --commit, -pc  # 一步规划并提交，不等待用户确认
+/git-up --plan --commit --push, -pcP  # 一步规划、提交并 push
 /git-up -l en --plan     # 使用英文输出计划、讨论问题和 commit message
 /git-up                  # 直接生成 commit message
 ```
 
-模式：plan / discuss / modify / commit / plan+commit / default。`--plan` 可简写为 `-p`，`--discuss` 可简写为 `-d`，`--commit` 可简写为 `-c`，`-pc` / `--plan --commit` 可一步规划并提交且不等待用户确认。`-l/--lang` 控制输出语言，支持 `zh`（默认）和 `en`，影响计划说明、讨论问题、commit subject/body 和最终汇报；type/scope/emoji、文件路径和命令保持原样。`--discuss/-d` 内置轻量讨论流程：只围绕提交计划逐个提出 1-3 个关键问题，每问给推荐答案；按拆分边界、文件归属/排除项、commit 顺序等决策分支推进，事实先查代码或 git 状态，决策再问用户，达成共识前不提交。`-c` 优先用 `scripts/commit_plan.py` 直接执行；解析失败时 LLM 修复 YAML 并重试 1 次，仍失败回退为原有提交路径。计划仍存于对话上下文，故 `-p` 与 `-c` 需在同一会话。详情见 [SKILL.md](skills/git-up/SKILL.md)。
+模式：plan / discuss / modify / commit / plan+commit / commit+push / plan+commit+push / default。`--plan` 可简写为 `-p`，`--discuss` 可简写为 `-d`，`--commit` 可简写为 `-c`，`--push` 可简写为 `-P`，`-pcP` / `--plan --commit --push` 可一步规划、提交并 push。`--push/-P` 只支持绑定 `-c` 或 `-pc`，不支持单独 push；push 只在网络/传输类错误失败后最多重试 3 次，认证、权限、无 upstream、non-fast-forward 等非网络错误不重试。`-l/--lang` 控制输出语言，支持 `zh`（默认）和 `en`，影响计划说明、讨论问题、commit subject/body 和最终汇报；type/scope/emoji、文件路径和命令保持原样。`--discuss/-d` 内置轻量讨论流程：只围绕提交计划逐个提出 1-3 个关键问题，每问给推荐答案；按拆分边界、文件归属/排除项、commit 顺序等决策分支推进，事实先查代码或 git 状态，决策再问用户，达成共识前不提交。`-c` 优先用 `scripts/commit_plan.py` 直接执行；解析失败时 LLM 修复 YAML 并重试 1 次，仍失败回退为原有提交路径。计划仍存于对话上下文，故 `-p` 与 `-c` 需在同一会话。详情见 [SKILL.md](skills/git-up/SKILL.md)。
 
 ---
 

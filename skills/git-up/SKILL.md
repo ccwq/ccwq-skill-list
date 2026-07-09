@@ -1,15 +1,16 @@
 ---
 name: git-up
-version: 2.2.0
-argument-hint: "[--plan|-p|--discuss|-d|--modify <内容>|--commit|-c|-pc] [-l zh|en]"
+version: 2.3.0
+argument-hint: "[--plan|-p|--discuss|-d|--modify <内容>|--commit|-c|-pc|-pcP] [--push|-P] [-l zh|en]"
 description: |
-  Git 提交综合工具：分析改动、规划提交拆分、生成规范 commit message，并优先用 Python fast path 执行提交。支持 --plan/-p、--discuss/-d、--commit/-c、-pc，以及 -l/--lang zh|en 控制输出语言（默认 zh）。
+  Git 提交综合工具：分析改动、规划提交拆分、生成规范 commit message，并优先用 Python fast path 执行提交。支持 --plan/-p、--discuss/-d、--commit/-c、-pc、--push/-P、-pcP，以及 -l/--lang zh|en 控制输出语言（默认 zh）。
   用户提到以下需求时使用：
   - "提交代码"、"commit 一下"、"帮我 git commit"、"git up"
   - "把改动分成几个提交"、"规划提交"、"拆 commit"、"分批提交"
   - "生成 commit message"、"写提交信息"
   - "讨论/修改提交计划"、"--plan/-p"、"--discuss/-d"、"--modify"、"--commit/-c"
   - "规划并提交"、"一步提交"、"--plan --commit"、"-pc"
+  - "提交并 push"、"规划提交并推送"、"--push"、"-P"、"-pcP"
   - "英文提交"、"中文提交"、"-l en"、"--lang en"、"-l zh"、"--lang zh"
 ---
 
@@ -28,6 +29,8 @@ description: |
 | `modify` | `--modify <内容>` | 按反馈调整计划 | 更新后 YAML |
 | `commit` | `--commit` / `-c` | 优先用 Python fast path 执行会话中计划 | git log |
 | `plan+commit` | `--plan --commit` / `-pc` | 一步规划并提交，**跳过 discuss/modify 复核** | YAML + git log |
+| `commit+push` | `--commit --push` / `-cP` | 执行计划后 push | git log + push result |
+| `plan+commit+push` | `--plan --commit --push` / `-pcP` | 一步规划、提交并 push，**跳过 discuss/modify 复核** | YAML + git log + push result |
 | `default` | （无参数） | 直接生成 commit message | Commit Message |
 
 遵循用户指定的模式，不混入其它模式的输出。
@@ -41,7 +44,18 @@ description: |
 | `--modify <内容>` | 文本 | - | 按反馈调整最近计划 |
 | `--commit` / `-c` | - | - | 执行最近计划；无计划时先生成计划 |
 | `--plan --commit` / `-pc` | - | - | 免确认一步规划并提交 |
+| `--push` / `-P` | - | - | 仅在 `-c` 或 `-pc` 已执行提交后推送当前分支 |
 | `--lang <语言>` / `-l <语言>` | `zh` / `en` | `zh` | 控制计划说明、讨论问题、commit subject/body、最终汇报语言 |
+
+Push 规则：
+
+- `--push/-P` 只绑定提交执行模式：支持 `--commit --push` / `-cP` 和 `--plan --commit --push` / `-pcP`。
+- 不支持单独 `--push`、`--plan --push`、`--discuss --push`；遇到这些组合时说明 push 必须跟提交执行绑定，然后停止，不猜测执行。
+- push 命令默认使用 `git push` 推送当前分支到已配置 upstream；不要自动创建 upstream 或改 remote，除非用户明确要求。
+- 初次 `git push` 因网络类错误失败后，最多重试 3 次；每次重试前短暂等待并报告 attempt 编号。
+- 只对网络/传输类错误重试，例如 DNS 解析失败、连接超时、连接重置、TLS/SSL 连接失败、HTTP 5xx、early EOF、RPC failed、remote end hung up unexpectedly。
+- 对非网络错误不重试：认证失败、权限不足、repository not found、无 upstream、non-fast-forward/rejected、protected branch、pre-receive hook 拒绝、工作区/提交计划错误。
+- push 最终失败时报告：是否已完成 commit、push 尝试次数、最后一次 stderr、失败分类。
 
 语言规则：
 
@@ -131,6 +145,10 @@ Python fast path 的职责：
 
 **Plan + Commit（`-pc` / `--plan --commit`）**：先 Plan 输出 YAML，再立即按 Commit 执行。仅在用户显式 `-pc` 或 `--plan --commit` 时使用；这是免确认模式，生成计划后不进入 discuss/modify，也不等待用户确认。先展示 YAML，再展示 git log。
 
+**Commit + Push（`-cP` / `--commit --push`）**：先按 Commit 执行最近计划。只有 commit 阶段成功后才执行 Push；commit 失败或没有产生任何提交时不 push。
+
+**Plan + Commit + Push（`-pcP` / `--plan --commit --push`）**：先 Plan 输出 YAML，再立即 Commit，最后 Push。仅在用户显式 `-pcP` 或 `--plan --commit --push` 时使用；这是免确认模式，生成计划后不进入 discuss/modify，也不等待用户确认。
+
 **default（无参数）**：直接生成单条 commit message，不拆分、不提交。
 
 ## 拆分规则
@@ -145,5 +163,6 @@ Python fast path 的职责：
 - 各模式输出形态固定，供下游（用户/后续模式）稳定消费。
 - Plan/Modify 输出有效 YAML。
 - Commit 优先用 `scripts/commit_plan.py` 在一次工具调用内解析并执行整份计划；只 add 计划内显式路径，计划外改动不会被提交。
+- Push 只在 commit 执行成功后运行；只对网络类失败做最多 3 次重试，其它错误 fail-fast。
 - Discuss 只讨论提交计划，最多 1-3 个关键问题，不下结论。
 - 单会话内完成：`-p` 与 `-c` 需在同一会话上下文。
