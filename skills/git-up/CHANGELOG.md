@@ -2,6 +2,16 @@
 
 All notable changes to this skill will be documented in this file.
 
+## [2.1.0] - 2026-07-09
+
+### 新增
+- 新增 `--discuss` 的 `-d` 简写。
+- `--discuss/-d` 内置轻量讨论流程：围绕提交计划逐个提出 1-3 个关键问题，每问给推荐答案；沿拆分边界、文件归属/排除项、commit 顺序等决策分支推进；可调查的事实先查代码、git 状态或 diff，只把提交拆分、排除文件、顺序等决策点交给用户，达成共识前不执行提交。
+
+### 变更
+- 明确 `--plan --commit` / `-pc` 为免确认模式：生成 YAML 计划后立即按计划提交，不进入 discuss/modify，也不等待用户二次确认。
+- 根 README 与 marketplace 元数据同步更新到 `2.1.0`，并修复 marketplace 中重复的 `description` 字段。
+
 ## [2.0.0] - 2026-06-26
 
 ### 破坏性 / 重构（彻底简化：去掉持久化层与脚本层，全程会话内完成）

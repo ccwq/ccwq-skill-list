@@ -1,13 +1,13 @@
 ---
 name: git-up
-version: 2.0.0
+version: 2.1.0
 description: |
   Git 提交综合工具：分析改动、规划提交拆分、生成规范 commit message，并优先用 Python fast path 执行提交。
   用户提到以下需求时使用：
   - "提交代码"、"commit 一下"、"帮我 git commit"、"git up"
   - "把改动分成几个提交"、"规划提交"、"拆 commit"、"分批提交"
   - "生成 commit message"、"写提交信息"
-  - "讨论/修改提交计划"、"--plan/-p"、"--discuss"、"--modify"、"--commit/-c"
+  - "讨论/修改提交计划"、"--plan/-p"、"--discuss/-d"、"--modify"、"--commit/-c"
   - "规划并提交"、"一步提交"、"--plan --commit"、"-pc"
 ---
 
@@ -15,14 +15,14 @@ description: |
 
 分析改动并制定合理的提交拆分，生成规范 commit message，按计划逐步提交。
 
-`-p` 把 YAML 计划输出到对话；`-c` 首选 `scripts/commit_plan.py` 解析 YAML Lite 子集并直接执行 `git add` + `git commit`。计划仍存于对话上下文，故 `-p` 与 `-c` 需在同一会话；若 Python fast path 解析失败，按下文回退规则处理。
+`-p` 把 YAML 计划输出到对话；`-c` 首选 `scripts/commit_plan.py` 解析 YAML Lite 子集并直接执行 `git add` + `git commit`。`-pc` / `--plan --commit` 表示一步规划并提交，不等待用户二次确认。计划仍存于对话上下文，故 `-p` 与 `-c` 需在同一会话；若 Python fast path 解析失败，按下文回退规则处理。
 
 ## 支持模式
 
 | 模式 | 触发 | 功能 | 输出 |
 |------|------|------|------|
 | `plan` | `--plan` / `-p` | 分析改动，输出 YAML 计划 | YAML 计划 |
-| `discuss` | `--discuss` | 围绕会话中计划提问 | 问题 |
+| `discuss` | `--discuss` / `-d` | 围绕会话中计划做轻量讨论 | 1-3 个问题 |
 | `modify` | `--modify <内容>` | 按反馈调整计划 | 更新后 YAML |
 | `commit` | `--commit` / `-c` | 优先用 Python fast path 执行会话中计划 | git log |
 | `plan+commit` | `--plan --commit` / `-pc` | 一步规划并提交，**跳过 discuss/modify 复核** | YAML + git log |
@@ -72,7 +72,16 @@ description: |
 
 **Plan（`-p`）**：用上述「轻量输入」分析改动，在对话中输出 YAML 计划列表。不写任何文件。
 
-**Discuss（`--discuss`）**：围绕会话中最近一份 YAML 计划提问，只提问、不下结论。
+**Discuss（`--discuss` / `-d`）**：围绕会话中最近一份 YAML 计划做内置轻量讨论，只讨论提交计划，不扩展为完整需求访谈。
+
+- 目标是把提交计划打磨到双方理解一致，最多提出 1-3 个关键问题。
+- 沿提交计划的决策分支逐个推进：先确认拆分边界，再确认文件归属/排除项，再确认 commit 顺序；只讨论当前问题依赖的下一步，不跳到无关分支。
+- 每次只问一个问题，并给出推荐答案；不要一次性抛出大量多层问题。
+- 优先覆盖拆分边界、是否排除文件、commit 顺序、是否需要合并/拆细 step。
+- 可通过代码、git 状态或 diff 查清的事实，先调查再提问；事实由工具确认，决策由用户确认。
+- 每个问题都要说明为什么这个决策会影响计划，例如会改变 step 数量、文件归属、提交顺序或是否排除某些路径。
+- 如果会话中没有可用计划，先按 Plan 生成 YAML 计划，再进入 Discuss。
+- 用户确认达成共识前，不执行 commit；如需执行，等待用户使用 `--commit/-c` 或 `--plan --commit/-pc`。
 
 **Modify（`--modify <内容>`）**：按反馈调整计划，重新输出完整 YAML。
 
@@ -100,7 +109,7 @@ Python fast path 的职责：
 3. 第二次仍解析失败时，回退为 LLM 原有提交执行路径，但仍必须只 add 计划内显式路径。
 4. 如果解析成功但 git 执行失败，不自动猜测修复；报告已完成 step、失败 step、git stderr，并停止。
 
-**Plan + Commit（`-pc`）**：先 Plan 输出 YAML，再立即按 Commit 执行。仅在用户显式 `-pc` 时使用；先展示 YAML 再展示 git log。
+**Plan + Commit（`-pc` / `--plan --commit`）**：先 Plan 输出 YAML，再立即按 Commit 执行。仅在用户显式 `-pc` 或 `--plan --commit` 时使用；这是免确认模式，生成计划后不进入 discuss/modify，也不等待用户确认。先展示 YAML，再展示 git log。
 
 **default（无参数）**：直接生成单条 commit message，不拆分、不提交。
 
@@ -116,5 +125,5 @@ Python fast path 的职责：
 - 各模式输出形态固定，供下游（用户/后续模式）稳定消费。
 - Plan/Modify 输出有效 YAML。
 - Commit 优先用 `scripts/commit_plan.py` 在一次工具调用内解析并执行整份计划；只 add 计划内显式路径，计划外改动不会被提交。
-- Discuss 只提问、不下结论。
+- Discuss 只讨论提交计划，最多 1-3 个关键问题，不下结论。
 - 单会话内完成：`-p` 与 `-c` 需在同一会话上下文。

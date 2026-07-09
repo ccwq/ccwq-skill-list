@@ -11,9 +11,8 @@
     {
       "name": "git-up",
       "source": "./git-up",
-      "description": "Git 提交综合工具：会话内规划/讨论/修改 YAML 计划，并用 shell 直接执行提交（-pc 可一步）",
-      "description": "Git 提交综合工具：会话内规划/讨论/修改 YAML 计划，-c 优先用 Python fast path 解析并执行提交（-pc 可一步）",
-      "version": "2.0.0",
+      "description": "Git 提交综合工具：会话内规划/轻量讨论/修改 YAML 计划，-c 优先用 Python fast path 提交，-pc 可免确认一步规划并提交",
+      "version": "2.1.0",
       "category": "git"
     },
     {

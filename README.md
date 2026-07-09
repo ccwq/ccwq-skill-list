@@ -91,15 +91,14 @@ Git 提交综合工具，支持规划、讨论、修改和执行提交。
 
 ```text
 /git-up --plan, -p      # 分析 diff，在会话中输出 YAML 提交计划
-/git-up --discuss        # 询问用户对计划的意见
+/git-up --discuss, -d    # 轻量讨论提交计划，最多 1-3 个关键问题
 /git-up --modify <内容>  # 根据反馈调整计划并重新输出
-/git-up --commit, -c    # 用 shell 直接执行会话中的计划
 /git-up --commit, -c    # 优先用 Python fast path 执行会话中的计划
-/git-up --plan --commit, -pc  # 一步规划并提交，跳过中途复核
+/git-up --plan --commit, -pc  # 一步规划并提交，不等待用户确认
 /git-up                  # 直接生成 commit message
 ```
 
-模式：plan / discuss / modify / commit / plan+commit / default。`--plan` 可简写为 `-p`，`--commit` 可简写为 `-c`，二者合并为 `-pc` 可一步规划并提交（跳过 discuss/modify 复核）。`-c` 优先用 `scripts/commit_plan.py` 直接执行；解析失败时 LLM 修复 YAML 并重试 1 次，仍失败回退为原有提交路径。计划仍存于对话上下文，故 `-p` 与 `-c` 需在同一会话。详情见 [SKILL.md](skills/git-up/SKILL.md)。
+模式：plan / discuss / modify / commit / plan+commit / default。`--plan` 可简写为 `-p`，`--discuss` 可简写为 `-d`，`--commit` 可简写为 `-c`，`-pc` / `--plan --commit` 可一步规划并提交且不等待用户确认。`--discuss/-d` 内置轻量讨论流程：只围绕提交计划逐个提出 1-3 个关键问题，每问给推荐答案；按拆分边界、文件归属/排除项、commit 顺序等决策分支推进，事实先查代码或 git 状态，决策再问用户，达成共识前不提交。`-c` 优先用 `scripts/commit_plan.py` 直接执行；解析失败时 LLM 修复 YAML 并重试 1 次，仍失败回退为原有提交路径。计划仍存于对话上下文，故 `-p` 与 `-c` 需在同一会话。详情见 [SKILL.md](skills/git-up/SKILL.md)。
 
 ---
 
