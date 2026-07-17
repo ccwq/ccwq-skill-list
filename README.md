@@ -38,7 +38,7 @@ npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code --
 |-------|------|------|
 | `software-license-checker` | 评估软件企业内部使用的许可证合规风险，输出法务预警报告 | [SKILL.md](skills/software-license-checker/SKILL.md) |
 | `git-history-cleaner` | 清理 Git 仓库历史中的特定文件或目录 | [SKILL.md](skills/git-history-cleaner/SKILL.md) |
-| `git-up` | Git 提交综合工具，支持规划、讨论、修改和执行提交 | [SKILL.md](skills/git-up/SKILL.md) |
+| `git-up` | Git 提交与 `.gitignore` 维护工具，支持规划、讨论、提交和忽略规则维护 | [SKILL.md](skills/git-up/SKILL.md) |
 | `nano-prompt` | AI 图像提示词生成，基于分层结构构建专业级提示词 | [SKILL.md](skills/nano-prompt/SKILL.md) |
 | `ffmpeg-video-processing` | 使用 ffmpeg / ffprobe 处理音视频，包括压缩、转码、裁剪与媒体检查 | [SKILL.md](skills/ffmpeg-video-processing/SKILL.md) |
 | `codex-windows-hooks-fix` | 修复 Windows 环境中 Codex hooks 入口命令、PowerShell 包装器和 stdout JSON schema 问题 | [SKILL.md](skills/codex-windows-hooks-fix/SKILL.md) |
@@ -87,7 +87,7 @@ $git-history-cleaner --repo /path/to/repo --path "*.log" --auto
 
 ### git-up
 
-Git 提交综合工具，支持规划、讨论、修改和执行提交。
+Git 提交与 `.gitignore` 维护工具，支持规划、讨论、修改和执行提交。
 
 ```text
 /git-up --plan, -p      # 分析 diff，在会话中输出 YAML 提交计划
@@ -96,11 +96,16 @@ Git 提交综合工具，支持规划、讨论、修改和执行提交。
 /git-up --commit, -c    # 优先用 Python fast path 执行会话中的计划
 /git-up --plan --commit, -pc  # 一步规划并提交，不等待用户确认
 /git-up --plan --commit --push, -pcP  # 一步规划、提交并 push
+/git-up --ignore, -i       # 自动识别技术栈，直接创建或增量维护 .gitignore
+/git-up -i node python     # 只维护指定技术栈规则
+/git-up -i --add "tmp/" --reason "本地调试输出"  # 添加有中文说明的自定义规则
+/git-up -i --clean         # 仅预览 Git-up 管理规则的重复项
+/git-up -i --clean --apply # 确认后执行清理
 /git-up -l en --plan     # 使用英文输出计划、讨论问题和 commit message
 /git-up                  # 直接生成 commit message
 ```
 
-模式：plan / discuss / modify / commit / plan+commit / commit+push / plan+commit+push / default。`--plan` 可简写为 `-p`，`--discuss` 可简写为 `-d`，`--commit` 可简写为 `-c`，`--push` 可简写为 `-P`，`-pcP` / `--plan --commit --push` 可一步规划、提交并 push。`--push/-P` 只支持绑定 `-c` 或 `-pc`，不支持单独 push；push 只在网络/传输类错误失败后最多重试 3 次，认证、权限、无 upstream、non-fast-forward 等非网络错误不重试。`-l/--lang` 控制输出语言，支持 `zh`（默认）和 `en`，影响计划说明、讨论问题、commit subject/body 和最终汇报；type/scope/emoji、文件路径和命令保持原样。`--discuss/-d` 内置轻量讨论流程：只围绕提交计划逐个提出 1-3 个关键问题，每问给推荐答案；按拆分边界、文件归属/排除项、commit 顺序等决策分支推进，事实先查代码或 git 状态，决策再问用户，达成共识前不提交。`-c` 优先用 `scripts/commit_plan.py` 直接执行；解析失败时 LLM 修复 YAML 并重试 1 次，仍失败回退为原有提交路径。计划仍存于对话上下文，故 `-p` 与 `-c` 需在同一会话。详情见 [SKILL.md](skills/git-up/SKILL.md)。
+模式：plan / discuss / modify / commit / plan+commit / commit+push / plan+commit+push / ignore / default。`--plan` 可简写为 `-p`，`--discuss` 可简写为 `-d`，`--commit` 可简写为 `-c`，`--push` 可简写为 `-P`，`--ignore` 可简写为 `-i`，`-pcP` / `--plan --commit --push` 可一步规划、提交并 push。`-i` 自动识别 Node.js/Python 项目，只增量加入带中文用途说明的高置信度规则，默认不处理 `.env`；可用技术栈参数限缩范围，并用 `--add <规则> --reason <说明>` 加入自定义规则。已有等价规则会跳过；`--clean` 只预览 Git-up 管理区块的重复项，须额外传 `--apply` 才会删除。`--push/-P` 只支持绑定 `-c` 或 `-pc`，不支持单独 push；push 只在网络/传输类错误失败后最多重试 3 次，认证、权限、无 upstream、non-fast-forward 等非网络错误不重试。`-l/--lang` 控制输出语言，支持 `zh`（默认）和 `en`，影响计划说明、讨论问题、commit subject/body 和最终汇报；type/scope/emoji、文件路径和命令保持原样。`--discuss/-d` 内置轻量讨论流程：只围绕提交计划逐个提出 1-3 个关键问题，每问给推荐答案；按拆分边界、文件归属/排除项、commit 顺序等决策分支推进，事实先查代码或 git 状态，决策再问用户，达成共识前不提交。`-c` 优先用 `scripts/commit_plan.py` 直接执行；解析失败时 LLM 修复 YAML 并重试 1 次，仍失败回退为原有提交路径。计划仍存于对话上下文，故 `-p` 与 `-c` 需在同一会话。详情见 [SKILL.md](skills/git-up/SKILL.md)。
 
 ---
 

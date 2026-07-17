@@ -1,8 +1,9 @@
 ---
 name: git-up
-version: 2.3.0
-argument-hint: "[--plan|-p|--discuss|-d|--modify <内容>|--commit|-c|-pc|-pcP] [--push|-P] [-l zh|en]"
+version: 2.4.0
+argument-hint: "[--plan|-p|--discuss|-d|--modify <内容>|--commit|-c|-pc|-pcP|--ignore|-i] [--push|-P] [-l zh|en]"
 description: |
+  同时支持 --ignore/-i：自动识别项目技术栈，带中文用途说明地创建或增量维护 .gitignore。
   Git 提交综合工具：分析改动、规划提交拆分、生成规范 commit message，并优先用 Python fast path 执行提交。支持 --plan/-p、--discuss/-d、--commit/-c、-pc、--push/-P、-pcP，以及 -l/--lang zh|en 控制输出语言（默认 zh）。
   用户提到以下需求时使用：
   - "提交代码"、"commit 一下"、"帮我 git commit"、"git up"
@@ -31,6 +32,7 @@ description: |
 | `plan+commit` | `--plan --commit` / `-pc` | 一步规划并提交，**跳过 discuss/modify 复核** | YAML + git log |
 | `commit+push` | `--commit --push` / `-cP` | 执行计划后 push | git log + push result |
 | `plan+commit+push` | `--plan --commit --push` / `-pcP` | 一步规划、提交并 push，**跳过 discuss/modify 复核** | YAML + git log + push result |
+| `ignore` | `--ignore` / `-i` | 自动识别项目并创建或增量维护 `.gitignore` | JSON 维护报告 |
 | `default` | （无参数） | 直接生成 commit message | Commit Message |
 
 遵循用户指定的模式，不混入其它模式的输出。
@@ -45,6 +47,7 @@ description: |
 | `--commit` / `-c` | - | - | 执行最近计划；无计划时先生成计划 |
 | `--plan --commit` / `-pc` | - | - | 免确认一步规划并提交 |
 | `--push` / `-P` | - | - | 仅在 `-c` 或 `-pc` 已执行提交后推送当前分支 |
+| `--ignore` / `-i` | 可选 `node` / `python` | 自动识别 | 创建或增量维护 `.gitignore` |
 | `--lang <语言>` / `-l <语言>` | `zh` / `en` | `zh` | 控制计划说明、讨论问题、commit subject/body、最终汇报语言 |
 
 Push 规则：
@@ -63,6 +66,28 @@ Push 规则：
 - `-l en` / `--lang en` 时，YAML 中的 `subject`、`body`、讨论问题、执行汇报使用英文；commit type、scope、emoji、文件路径和命令保持原样。
 - `-l zh` / `--lang zh` 时使用中文。
 - 若传入未知语言，说明仅支持 `zh` / `en`，然后按默认 `zh` 继续，除非用户明确要求停止。
+
+## Ignore 规则
+
+- `-i` 不是提交模式，直接在目标项目根目录创建或增量维护 `.gitignore`，不读取或修改 Git 暂存区。
+- `/git-up -i`：自动检测根目录 `package.json`（Node.js）和 `pyproject.toml` / `requirements.txt` 等（Python），再补充高置信度的 OS 元数据和已存在的 `.idea/`、`.history/` 本地 IDE 目录规则。
+- `/git-up -i node python`：只维护指定技术栈；指定后不得把其它已识别技术栈的规则混入结果。
+- `/git-up -i --add "tmp/" --reason "本地调试输出"`：添加自定义单行规则。`--add` 必须配套 `--reason`；可重复传入 `--add`，共用同一条说明。
+- 默认**不**添加 `.env` 或 `.env.*`，避免改变项目既有环境文件策略；用户需要时必须显式 `--add`。
+- 每个新增组使用 `# Git-up：...` 中文注释，说明忽略用途和可再生性。已有等价规则会跳过；默认只增不删，保留用户手写内容。
+- `/git-up -i --dry-run`：只输出计划的新增/跳过项，不写文件。
+- `/git-up -i --clean`：只预览 Git-up 管理区块的重复规则并说明影响，**不写文件**；必须由用户明确使用 `/git-up -i --clean --apply` 才执行删除。清理不得删除任何非 Git-up 管理的手写规则。
+
+执行时调用独立脚本，保证规则合并可重复测试：
+
+```sh
+python skills/git-up/scripts/gitignore_manager.py --cwd .
+python skills/git-up/scripts/gitignore_manager.py --cwd . node python
+python skills/git-up/scripts/gitignore_manager.py --cwd . --add "tmp/" --reason "本地调试输出"
+python skills/git-up/scripts/gitignore_manager.py --cwd . --clean
+```
+
+向用户汇报 JSON 结果中的：识别/选定技术栈、`.gitignore` 是否创建或变更、每个新增分组和规则、跳过的等价规则、`.env` 默认策略；`--clean` 还需列出待删除规则和后续确认命令。
 
 ## 规划输入（关键：保持轻量，避免读全量 diff）
 

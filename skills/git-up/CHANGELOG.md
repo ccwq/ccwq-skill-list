@@ -2,6 +2,18 @@
 
 All notable changes to this skill will be documented in this file.
 
+## [2.4.0] - 2026-07-17
+
+### 新增
+- 新增 `--ignore` / `-i`：自动识别 Node.js、Python 项目，直接创建或增量维护 `.gitignore`。
+- 新增 `scripts/gitignore_manager.py`：以可测试的确定性逻辑添加 OS、依赖、缓存与已存在本地 IDE 目录的高置信度规则；每个新增分组附带中文用途说明，并输出 JSON 维护报告。
+- 支持 `-i node python` 限缩技术栈，支持 `-i --add <规则> --reason <说明>` 添加具名自定义规则。
+- 支持 `-i --clean` 预览 Git-up 管理区块的重复规则；仅 `-i --clean --apply` 会真正删除，且不会删除用户手写规则。
+
+### 约束
+- 默认不自动添加 `.env` / `.env.*`，用户必须通过 `--add` 显式指定。
+- 日常维护只增不删并跳过等价规则，确保重复执行幂等；`--dry-run` 仅展示拟新增项。
+
 ## [2.3.0] - 2026-07-09
 
 ### 新增

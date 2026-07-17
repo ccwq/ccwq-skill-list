@@ -11,8 +11,8 @@
     {
       "name": "git-up",
       "source": "./git-up",
-      "description": "Git 提交综合工具：会话内规划/轻量讨论/修改 YAML 计划，-c 优先用 Python fast path 提交，-pc 可免确认一步规划并提交，-pcP 可提交后 push，-l/--lang 支持 zh/en",
-      "version": "2.3.0",
+      "description": "Git 提交与 .gitignore 维护工具：会话内规划/轻量讨论/修改 YAML 计划，-i 自动识别技术栈并带中文说明维护忽略规则，-c 优先用 Python fast path 提交，-pc 可免确认一步规划并提交，-pcP 可提交后 push，-l/--lang 支持 zh/en",
+      "version": "2.4.0",
       "category": "git"
     },
     {
