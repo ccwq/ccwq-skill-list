@@ -14,6 +14,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 PROJECT_ROOT = ROOT.parent.parent
 SCRIPT = PROJECT_ROOT / "skills" / "git-up" / "scripts" / "commit_plan.py"
+IGNORE_SCRIPT = PROJECT_ROOT / "skills" / "git-up" / "scripts" / "gitignore_manager.py"
 
 
 class TestFailure(AssertionError):
@@ -49,6 +50,10 @@ def run_plan(mode: str, yaml_text: str, cwd: Path | None = None) -> subprocess.C
     if cwd is not None:
         command.extend(["--cwd", str(cwd)])
     return run_command(command, PROJECT_ROOT, yaml_text)
+
+
+def run_ignore(arguments: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+    return run_command([sys.executable, str(IGNORE_SCRIPT), "--cwd", str(cwd), *arguments], PROJECT_ROOT)
 
 
 def init_repo(repo: Path):
@@ -176,6 +181,93 @@ def test_commit_refuses_pre_staged_changes():
         assert_true(before == after, "拒绝执行时不应产生新提交")
 
 
+def test_ignore_auto_detects_node_and_creates_documented_rules():
+    """
+    Given：一个尚未创建 .gitignore 的 Node.js 项目根目录。
+    When：gitignore_manager.py 不指定技术栈直接执行自动维护。
+    Then：创建带中文用途说明的 Node.js 与 OS 规则，且默认不加入 .env。
+    防回归：防止自动模式漏掉依赖目录，或意外改变用户的环境文件跟踪策略。
+    """
+    with tempfile.TemporaryDirectory(prefix="git-up-ignore-node-") as tmp:
+        repo = Path(tmp)
+        (repo / "package.json").write_text('{"name":"demo"}\n', encoding="utf-8")
+        result = run_ignore([], repo)
+        payload = parse_json(result)
+        content = (repo / ".gitignore").read_text(encoding="utf-8")
+        assert_true(result.returncode == 0, result.stderr or result.stdout)
+        assert_true(payload["changed"] is True, "首次自动维护应创建规则")
+        assert_true(payload["created"] is True, "首次写入不存在的 .gitignore 应报告创建")
+        assert_true(payload["detected_stacks"] == ["node"], "应识别 package.json 对应的 Node.js 项目")
+        assert_true("# Git-up：Node.js 依赖与包管理日志" in content, "规则应有中文分组说明")
+        assert_true("node_modules/" in content, "应忽略可重建的 Node.js 依赖")
+        assert_true(".env" not in content, "默认不得自动添加 .env 规则")
+
+
+def test_ignore_selected_stack_does_not_expand_other_detected_stack():
+    """
+    Given：同时存在 Node.js 和 Python 清单的混合项目。
+    When：用户显式指定 python 技术栈执行维护。
+    Then：只写入 Python 规则，不自动扩展到 Node.js 规则。
+    防回归：确保 `-i node python` 可作为精确控制入口而非提示性参数。
+    """
+    with tempfile.TemporaryDirectory(prefix="git-up-ignore-stack-") as tmp:
+        repo = Path(tmp)
+        (repo / "package.json").write_text('{"name":"demo"}\n', encoding="utf-8")
+        (repo / "pyproject.toml").write_text("[project]\nname = 'demo'\n", encoding="utf-8")
+        result = run_ignore(["python"], repo)
+        content = (repo / ".gitignore").read_text(encoding="utf-8")
+        assert_true(result.returncode == 0, result.stderr or result.stdout)
+        assert_true(".venv/" in content, "指定 python 时应写入 Python 虚拟环境规则")
+        assert_true("node_modules/" not in content, "显式选择不得写入未选择的 Node.js 规则")
+
+
+def test_ignore_custom_rule_is_documented_and_idempotent():
+    """
+    Given：已有用户手写规则的项目，用户提供一条自定义忽略规则和原因。
+    When：以相同参数连续执行两次维护。
+    Then：保留原有内容，仅第一次添加带原因的规则，第二次跳过等价规则。
+    防回归：避免自动维护覆盖手写 .gitignore 或反复追加重复条目。
+    """
+    with tempfile.TemporaryDirectory(prefix="git-up-ignore-custom-") as tmp:
+        repo = Path(tmp)
+        (repo / ".gitignore").write_text("# 用户规则\nmanual-cache/\n", encoding="utf-8")
+        first = run_ignore(["--add", "tmp/", "--reason", "本地调试输出"], repo)
+        second = run_ignore(["--add", "tmp/", "--reason", "本地调试输出"], repo)
+        first_payload = parse_json(first)
+        second_payload = parse_json(second)
+        content = (repo / ".gitignore").read_text(encoding="utf-8")
+        assert_true(first.returncode == 0 and second.returncode == 0, "自定义规则维护应成功")
+        assert_true("# 用户规则" in content and "manual-cache/" in content, "用户原有规则必须保留")
+        assert_true("# Git-up：本地调试输出" in content, "自定义规则必须使用用户提供的说明")
+        assert_true(content.count("tmp/") == 1, "同一自定义规则不得重复追加")
+        assert_true(first_payload["changed"] is True, "首次添加应报告变更")
+        assert_true(second_payload["changed"] is False and "tmp/" in second_payload["skipped_rules"], "再次执行应报告跳过")
+
+
+def test_ignore_clean_previews_before_apply():
+    """
+    Given：Git-up 管理区块中存在一条与用户已有规则重复的模式。
+    When：用户仅传入 --clean 而未传入 --apply。
+    Then：JSON 列出待删除规则，但 .gitignore 内容保持完全不变。
+    防回归：清理模式必须先可见地说明影响，不能因为显式 clean 就直接删除内容。
+    """
+    with tempfile.TemporaryDirectory(prefix="git-up-ignore-clean-") as tmp:
+        repo = Path(tmp)
+        ignore = repo / ".gitignore"
+        original = "node_modules/\n\n# Git-up：Node.js 依赖与包管理日志（可通过包管理器重新生成）\nnode_modules/\n"
+        ignore.write_text(original, encoding="utf-8")
+        result = run_ignore(["--clean"], repo)
+        payload = parse_json(result)
+        assert_true(result.returncode == 0, result.stderr or result.stdout)
+        assert_true(payload["mode"] == "clean_preview" and payload["changed"] is False, "默认 clean 应只预览")
+        assert_true(payload["removals"][0]["rule"] == "node_modules/", "预览应说明重复规则")
+        assert_true(ignore.read_text(encoding="utf-8") == original, "预览阶段不得改写 .gitignore")
+        applied = run_ignore(["--clean", "--apply"], repo)
+        applied_payload = parse_json(applied)
+        assert_true(applied.returncode == 0 and applied_payload["changed"] is True, "明确 apply 后才应执行删除")
+        assert_true(ignore.read_text(encoding="utf-8").count("node_modules/") == 1, "应用清理后应只保留一个规则")
+
+
 def main() -> int:
     tests = [
         test_parse_full_plan,
@@ -183,6 +275,10 @@ def main() -> int:
         test_missing_files_fails,
         test_commit_plan_executes_only_planned_files,
         test_commit_refuses_pre_staged_changes,
+        test_ignore_auto_detects_node_and_creates_documented_rules,
+        test_ignore_selected_stack_does_not_expand_other_detected_stack,
+        test_ignore_custom_rule_is_documented_and_idempotent,
+        test_ignore_clean_previews_before_apply,
     ]
     failures: list[str] = []
     for test in tests:
