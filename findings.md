@@ -1,5 +1,12 @@
 # lite-team 第一轮改进发现记录
 
+## Gemini Mirror 安全融合发现（2026-07-20）
+
+- `gemin-mirror/HANDOFF.md` 与 `skills/gemin-mirror/` 已存在，但后者尚未跟踪；README 和 marketplace 已有对应修改。
+- `node --check` 已通过，`.claude-plugin/marketplace.json` 为合法 JSON，README 详情链接与 marketplace source 均存在。
+- 原脚本固定默认 session `CUsersAdministratorag-sys`，不符合本项目按当前工作目录派生 session 的约束。
+- 原脚本没有 CLI 级删除确认、预期账号核验或账号标识脱敏；本轮补齐并用不访问浏览器的 mock 输入测试验证。
+
 ## 已确认事实
 
 - `skills/lite-team/scripts/bbs.py` 的 `bbs_path()` 返回 `docs/bbs/lite-team-bbs.md`。
@@ -23,4 +30,3 @@
 - `mock` backend 能证明 SkillOpt-Sleep 管线读取目标 skill 和任务文件，但 mock 不是语义验证；它不能证明 lite-team 真能指导 Agent。
 - `claude` backend 能运行，但 dry-run JSON 摘要不暴露 replay response；自定义 tasks 得到 0 分时，难以仅凭 SkillOpt-Sleep 输出判断是 skill 失败还是任务评分设计不适配。
 - 诊断性 `claude -p` 直接运行同类 Skill + Task prompt 时，能输出正确的 `python3 scripts/bbs.py add --root . --from 开发 --to 测试 --type handoff ...` 操作方式。
-

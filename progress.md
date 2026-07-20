@@ -1,5 +1,14 @@
 # lite-team 第一轮改进进度
 
+## 2026-07-20 Gemini Mirror 安全融合
+
+- Completed：读取 HANDOFF、Skill、脚本、README 和 marketplace；未调用浏览器或访问目标站点。
+- Completed：5 轮 Grill 确认正式入库、删除双重确认、唯一账号面板核验、离线 mock 测试和审计脱敏。
+- In progress：实施脚本和文档护栏，随后进行离线验证与敏感信息复查。
+- Verified：`node --test` 3/3 通过；两个 Node 模块语法检查与 marketplace JSON 检查通过；缺少 `--confirm-delete` 的脚本调用退出码为 1，且错误发生在 browser runner 初始化前。
+- Note：首次敏感词扫描把参数解析变量 `token` 误报为凭据，已切换为赋值型凭据规则后复查。
+- Verified：赋值型凭据扫描无命中；补正了 `SKILL.md` 示例中的两处旧 session 字面量；最终约束与文档一致。
+
 ## 2026-06-25
 
 - Started：用户要求一步一步实现，边做边学习，同时提升 `skills/lite-team/`。

@@ -45,6 +45,7 @@ npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code --
 | `ntl-script-descriptions` | 为包含 package.json 的项目补充 ntl 可读取的 scripts 中文说明 | [SKILL.md](skills/ntl-script-descriptions/SKILL.md) |
 | `rd-mode` | 远程开发模式规则，约束 host/server 协作并统一 CDP 浏览器操作（abc 命令） | [README.md](skills/rd-mode/README.md) |
 | `lite-team` | 轻量多 Agent 协作，用 docs/bbs/lite-team-bbs.md 协作板在不同 Agent/session 间手动交接 | [README.md](skills/lite-team/README.md) |
+| `gemin-mirror` | Gemini 镜像站的全面操作：页面探查、账号切换、内容与会话管理 | [SKILL.md](skills/gemin-mirror/SKILL.md) |
 
 > 触发形式：`/skill-name` 偏 slash command 风格，`$skill-name` 偏按 skill 名触发；实际以你的 Claude Code / skills 运行环境为准。
 
@@ -203,6 +204,34 @@ rd-mode --init   # 首次使用，问答补全 RHost / CDP_PORT，写入 ~/.conf
 | `archive --summary` | 确认归档后写入历史 |
 
 BBS 会提交 Git，勿写密钥/Token；message 最多 7 条，history 最多 9 条。详情见 [README.md](skills/lite-team/README.md)。
+
+---
+
+### gemin-mirror
+
+操作 `gemini-d-google-d-com-s-gmn.tuangouai.com/app`：探查页面、切换账号、管理会话和内容。必须在已有 Gemini 标签页中运行，并先确认本次授权范围。
+
+```text
+$gemin-mirror 调查当前账号和账号面板，不做修改
+$gemin-mirror 手动切换指定账号，列出当前会话数
+$gemin-mirror 在已授权账号中删除全部会话，并生成审计记录
+```
+
+脚本调用示例（先使用 `--dry-run` 验证，不会点击确认删除）：
+
+```powershell
+node skills/gemin-mirror/scripts/delete-current-account-sessions.mjs --expected-account "#3069" --dry-run
+node skills/gemin-mirror/scripts/delete-current-account-sessions.mjs --expected-account "#3069" --confirm-delete
+```
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `--expected-account <账号 ID>` | 必填；与唯一展开账号卡片精确匹配 | 无 |
+| `--confirm-delete` | 实际删除的必填确认标记；`--dry-run` 不需要 | false |
+| `--dry-run` | 只验证删除交互，不点击最终确认按钮 | false |
+| `--session <名称>` | 覆盖由当前项目路径派生的 browser session | 当前项目路径派生值 |
+
+无固定自然语言参数；按任务描述声明操作类别、目标账号、自动/手动切换方式和是否允许破坏性操作。审计日志只记录账号短哈希。脚本使用 Node.js，运行时自动选择 Windows `w abc`、Linux/macOS `abc` 或原生 `agent-browser`。详情见 [SKILL.md](skills/gemin-mirror/SKILL.md)。
 
 ---
 

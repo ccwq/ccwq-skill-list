@@ -1,5 +1,31 @@
 # lite-team 教学式第一轮改进计划
 
+> 历史任务已完成。以下为本轮 `gemin-mirror` 安全融合计划。
+
+## Gemini Mirror 安全融合
+
+### Goal
+
+将已交接的 `gemin-mirror` Skill 正式纳入仓库，并把删除会话操作收敛为可离线验证的 fail-closed 契约；不访问真实站点。
+
+### Phases
+
+1. **收敛需求** — complete：已完成 5 轮 Grill，确认双重确认、精确账号核验、脱敏审计和离线测试。
+2. **实施护栏** — complete：已改造删除脚本、Skill/README/marketplace 文档，并新增 mock 契约测试。
+3. **验证与复查** — complete：Node test、语法、JSON、guard、敏感信息与遗留 session 复查均已通过。
+
+### Decisions
+
+- 仅对非 dry-run 删除要求 `--confirm-delete`；所有运行均要求 `--expected-account`。
+- 当前账号只能从面板中唯一的展开账号卡片读取；缺失、重复或不匹配都停止。
+- 审计仅保存账号短哈希，不保存完整账号 ID、Cookie、Token 或会话正文。
+
+### Errors Encountered
+
+| Error | Attempt | Resolution |
+|---|---|---|
+| 敏感词扫描把 `const token` 参数解析变量误报为凭据 | 1 | 改为匹配赋值型凭据模式，并保留对实际敏感字段的复查。 |
+
 ## Goal
 
 边做边讲，使用小步迭代提升 `skills/lite-team/` 的可信度和可维护性。
