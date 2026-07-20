@@ -1,98 +1,51 @@
 ---
 name: gemin-mirror
-description: Gemini 镜像站的全面浏览器操作、账号切换、页面探查、会话与内容管理。
+description: Gemini/兼容镜像站的多账号会话探针与安全删除。
 disable-model-invocation: true
 ---
 
-# Gemini 镜像站操作
+# Gemini mirror session management
 
-这是一个 user-invoked skill。只有用户明确输入 `$gemin-mirror` 或明确要求使用本 skill 时才运行。
+本 skill 的核心是**证据链**：每次操作都把目标页面、唯一活动账号、会话计数和刷新后的结果连成可复核的记录。它只处理用户明确授权的数据，并复用已有 CDP 标签页。
 
-## 运行契约
+默认适配器及其可覆盖字段见 [`references/site-map.md`](references/site-map.md)。适配器缺少所需证据时，本次操作止于只读探针。
 
-- 目标站点：`https://gemini-d-google-d-com-s-gmn.tuangouai.com/app`。
-- 复用已打开的 Gemini 标签页；找不到目标标签页时暂停，不新建标签页。
-- 所有 `agent-browser` 调用携带 `--cdp 9696 --session <当前项目路径派生值>`；可用 `--session` 显式覆盖。
-- LLM 和脚本不得直接绕过命令解析器调用 CLI；统一按“Windows `w -l` → `w abc` → 原生 CLI，Linux/macOS `source ~/.bashrc` → `abc` → 原生 CLI”执行。
-- 每次运行固定实际 runner，并在审计中记录；失败时按既定顺序有限回退并记录原因。
-- 默认先做只读能力探针，再执行用户授权范围内的动作。
-- 运行开始确认操作类别与目标清单；范围内的动作可连续执行，超出范围立即暂停。
+## 1. 选择分支
 
-## 操作步骤
+- **探针**：只读取页面、登录状态、账号证据和会话计数。
+- **当前账号删除**：以唯一活动账号为目标；优先 API runner，DOM runner 是用户明确选择的回退。
+- **多账号删除**：先从默认适配器发现候选，再逐个切换、核验和删除。
 
-### 1. 绑定与探针
+完成条件：已声明操作分支、目标范围和是否允许删除；多账号分支已确认使用默认适配器。
 
-1. 列出标签页并选中现有 Gemini 标签页，核对 URL 和页面标题。
-2. 检查页面是否为 401/登录失效；是则停止并报告。
-3. 探测原生导航、账号面板、会话列表、库、笔记本、输入框和模式选择器。
-4. 完成标准：输出当前 URL、可用入口、面板是否存在、当前账号标识及可读的会话计数来源。
+## 2. 建立证据链
 
-常用探针（必须通过统一 resolver 执行；以下仅展示参数形态）：
+删除前，证据链必须同时包含：
 
-```bash
-<resolved-runner> --cdp 9696 --session <当前项目路径派生值> tab list
-<resolved-runner> --cdp 9696 --session <当前项目路径派生值> eval "({url:location.href,title:document.title,loggedIn:!document.body.innerText.includes('登录已失效'),nativeChats:document.querySelectorAll('#sidenav-section-content-chats gem-nav-list-item').length,accountPanel:!!document.querySelector('#_my_chat_list_container')})"
-```
+1. 页面 URL 位于允许的 origin，且登录状态有效；
+2. `--expected-account` 与唯一活动账号证据完全匹配；
+3. 删除前的原生会话计数；
+4. 多账号分支额外具备：目标 dashboard 卡片唯一选中、唯一活动邮箱，以及原生列表重新加载。
 
-`<resolved-runner>` 只能由 `scripts/delete-current-account-sessions.mjs` 中的 resolver 解析为 `w abc`、`abc` 或原生 `agent-browser`；LLM 不得自行替换。
+完成条件：每个目标账号均具备完整证据链；任一账号证据不唯一时，停止该批操作并报告。
 
-### 2. 账号面板与切换
+## 3. 删除与复核
 
-- 面板是镜像侧注入的 `#_my_chat_list_container`，账号卡片为 `.-my-chat-account`。
-- 卡片字段：`.account-id`、`.chat-count`、`.load-full`/`.load-low`、`.account-indicators`、`data-expanded`。
-- 面板打开时，以卡片数据为准；此时原生会话选择器为 0 不代表账号为空。
-- 手动模式：真实鼠标点击用户指定卡片。
-- 自动模式：先读取并展示账号 ID、会话数、负载、媒体标记和顺序；用户确认筛选条件后才切换。每次切换后重新探针核验实际账号。
-- 账号切换完成标准：URL/页面状态稳定，账号标识或会话列表发生预期变化，且未出现 401。
+API runner 先捕获当前页面的同源请求模板和运行时参数，再删除会话；仅对限流与服务端失败进行有限重试。模板、账号证据或响应语义不完整时，保留现场并报告。
 
-### 3. 普通页面操作
+DOM runner 使用实时元素位置完成单条删除，只在用户明确要求其作为回退时使用。
 
-- 优先语义选择器和 accessibility ref；需要悬停或菜单时使用真实鼠标。
-- 坐标只从当前元素 `getBoundingClientRect()` 实时计算，不复用旧坐标。
-- 点击后等待页面状态变化，再读取 DOM 或网络结果；不要把表面点击当作成功。
-- 复杂页面先保存截图或快照到 `%TEMP%\agent-browser-captures`。
+完成条件：每个成功目标在稳定等待并强制刷新后，会话计数仍为 0；未达标目标与原因写入审计。
 
-### 4. 会话与内容管理
+## 4. 审计
 
-仅在授权范围包含对应类别时执行。删除/重命名等不可逆动作先输出目标数量和账号，再执行。
+审计记录时间、runner、账号短哈希、动作、before/after、重试次数、错误和 URL。运行时认证参数、完整账号 ID、会话 ID、Cookie 与会话正文不进入审计。
 
-原生会话列表选择器：
+完成条件：每个目标都有 after 状态；审计可区分已完成与未完成目标。
 
-```js
-document.querySelectorAll('#sidenav-section-content-chats gem-nav-list-item')
-```
+## 入口
 
-删除单条会话的稳定交互：
-
-1. 将首项 `scrollIntoView({block:'center'})`。
-2. hover 首项标题，读取该项更多按钮的 `getBoundingClientRect()`。
-3. 用真实鼠标点击更多按钮，读取可见 `[role=menuitem]` 中文本为“删除”的菜单项并点击。
-4. 读取确认对话框中可见的“删除”按钮并点击。
-5. 等待约 700–1000ms，重新读取会话数量。
-
-完成标准：目标账号的会话计数为 0，且刷新/重新探针后仍为 0。跨平台 Node.js 脚本见 `scripts/delete-current-account-sessions.mjs`。
-
-### 5. API 加速分支
-
-站点使用 `/_/BardChatUi/data/batchexecute` RPC。只有已调查、已建立参数契约并与当前页面/账号绑定的 RPC 才能封装；未知 `rpcids` 不直接猜测调用。API 失败时回退 UI/CDP；若响应语义不明确，停止而不是继续。
-
-### 6. 验证、重试与审计
-
-- 每批动作记录 before/after 计数、账号标识、动作、重试次数、错误和页面 URL。
-- 删除脚本所有运行均须提供 `--expected-account <账号 ID>`；实际删除还须提供 `--confirm-delete`。只读 `--dry-run` 不需要确认标记。
-- 脚本只接受账号面板中唯一展开卡片的精确账号 ID；缺失、重复或不匹配均 fail-closed。
-- 记录保存为 JSONL/Markdown；账号标识只保存短哈希，不得保存完整账号 ID、cookies、token 或完整会话正文。
-- 单步失败最多有限重试（默认 3 次）；状态不一致、关键元素缺失、账号不确定或页面出现 401 时立即停止。
-- 运行完成标准：所有目标账号和动作均有 after 状态，未完成项明确列出，审计文件路径可交付。
-
-## 版本漂移护栏
-
-运行前执行能力探针。优先稳定语义选择器；坐标只作实时回退。以下任一情况触发 fail-closed：
-
-- 目标域名或标签页不匹配；
-- 登录状态失效；
-- 面板/会话元素缺失或出现多个无法区分的候选；
-- 菜单文本、确认文本或计数来源改变；
-- API 响应无法映射到已知契约。
-
-详细 DOM、注入脚本和 RPC 观察记录见 [`references/site-map.md`](references/site-map.md)。
+- `scripts/delete-sessions-via-api.mjs`：当前已核验账号的 API-first 删除。
+- `scripts/delete-current-account-sessions.mjs`：当前已核验账号的 DOM 回退。
+- `scripts/delete-candidate-accounts.mjs`：默认适配器的多账号遍历，必须带 `--confirm-delete-all`。
+- `scripts/session-safety.mjs`：账号规范化、唯一性核验与审计脱敏。
