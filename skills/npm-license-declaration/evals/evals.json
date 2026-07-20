@@ -1,0 +1,23 @@
+{
+  "skill_name": "npm-license-declaration",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "为当前 Vue 项目生成第三方 npm 依赖许可证声明，输出到 docs/npm-license-declaration.md。",
+      "expected_output": "读取 dependencies 和 devDependencies，查询 npm latest 元数据，按许可证分级，生成完整 Markdown 并报告分类统计。",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "这个前端仓库里有 package-lock.json，其中一个私有依赖查不到 npm。帮我导出许可证声明。",
+      "expected_output": "私有或查询失败的包被列为不可用；若 lock 存在 resolved，则仅将原 URL 作为降级 GitHub 字段，不猜测仓库地址。",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "给 E:\\project\\portal 输出依赖许可证文档。devDependencies 也要包含，但同名依赖只出现一次。",
+      "expected_output": "去重并按包名排序 dependencies 与 devDependencies，条目版本使用 npm latest version，输出固定到目标目录 docs/npm-license-declaration.md。",
+      "files": []
+    }
+  ]
+}

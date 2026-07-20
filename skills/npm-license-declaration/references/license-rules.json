@@ -1,0 +1,53 @@
+{
+  "groups": [
+    {
+      "grade": "🟢 宽松",
+      "representativeLicenses": "MIT, ISC, BSD, Unlicense",
+      "meaning": "几乎无限制，只需保留版权声明",
+      "recommendation": "可直接使用，无需特殊处理",
+      "summaryRecommendation": "✅ 可直接使用，无需特殊处理",
+      "licenses": {
+        "MIT": "MIT License",
+        "ISC": "ISC License",
+        "BSD-2-Clause": "BSD 2-Clause License",
+        "BSD-3-Clause": "BSD 3-Clause License",
+        "Unlicense": "The Unlicense",
+        "CC0-1.0": "CC0 1.0 Universal"
+      }
+    },
+    {
+      "grade": "🟡 一般",
+      "representativeLicenses": "Apache-2.0, LGPL, MPL",
+      "meaning": "有附加条件但商业友好",
+      "recommendation": "需遵守附加条款，建议查阅原文",
+      "summaryRecommendation": "⚠️ 需遵守附加条款，建议查阅原文",
+      "licenses": {
+        "Apache-2.0": "Apache License 2.0",
+        "LGPL-2.1": "GNU Lesser General Public License v2.1",
+        "LGPL-3.0": "GNU Lesser General Public License v3.0",
+        "MPL-2.0": "Mozilla Public License 2.0"
+      }
+    },
+    {
+      "grade": "🔴 收紧",
+      "representativeLicenses": "GPL, AGPL, SSPL",
+      "meaning": "强 Copyleft，衍生作品须开源",
+      "recommendation": "谨慎评估，必要时咨询法务",
+      "summaryRecommendation": "谨慎评估，必要时咨询法务",
+      "licenses": {
+        "GPL-2.0": "GNU General Public License v2.0",
+        "GPL-3.0": "GNU General Public License v3.0",
+        "AGPL-3.0": "GNU Affero General Public License v3.0",
+        "EUPL-1.2": "European Union Public Licence 1.2",
+        "SSPL-1.0": "Server Side Public License 1.0"
+      }
+    }
+  ],
+  "unavailable": {
+    "grade": "⚪ 不可用",
+    "representativeLicenses": "许可证缺失或未知",
+    "meaning": "无法判断风险",
+    "recommendation": "建议手动核实",
+    "summaryRecommendation": "❓ 建议手动核实"
+  }
+}
