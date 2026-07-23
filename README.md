@@ -44,6 +44,7 @@ npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code --
 | `codex-windows-hooks-fix` | 修复 Windows 环境中 Codex hooks 入口命令、PowerShell 包装器和 stdout JSON schema 问题 | [SKILL.md](skills/codex-windows-hooks-fix/SKILL.md) |
 | `ntl-script-descriptions` | 为包含 package.json 的项目补充 ntl 可读取的 scripts 中文说明 | [SKILL.md](skills/ntl-script-descriptions/SKILL.md) |
 | `npm-license-declaration` | 为前端项目生成 npm 第三方依赖许可证声明文档 | [SKILL.md](skills/npm-license-declaration/SKILL.md) |
+| `debug-instrumentation` | 为调试问题添加、采集和分析可清理的 token 化日志埋点 | [SKILL.md](skills/debug-instrumentation/SKILL.md) |
 | `rd-mode` | 远程开发模式规则，约束 host/server 协作并统一 CDP 浏览器操作（abc 命令） | [README.md](skills/rd-mode/README.md) |
 | `lite-team` | 轻量多 Agent 协作，用 docs/bbs/lite-team-bbs.md 协作板在不同 Agent/session 间手动交接 | [README.md](skills/lite-team/README.md) |
 | `gemin-mirror` | Gemini/兼容镜像站的探针、账号切换与 API-first 安全会话删除 | [SKILL.md](skills/gemin-mirror/SKILL.md) |
@@ -174,6 +175,19 @@ $npm-license-declaration 检查 E:\project\portal，并输出 docs/npm-license-d
 ```
 
 无显式参数。读取 `dependencies` 与 `devDependencies` 后去重排序，统一查询 npm Registry 的 latest 元数据；npm 查询失败时仅用 `package-lock.json` 或 `yarn.lock` 的 `resolved` URL 兜底。许可证未知或不在内置分级中的包会列为“⚪ 不可用”，需手动核实。详情见 [SKILL.md](skills/npm-license-declaration/SKILL.md)。
+
+---
+
+### debug-instrumentation
+
+为调试问题生成、采集和分析带统一 token 的临时日志埋点，完成后按确认流程清理。
+
+```text
+$debug-instrumentation 这个异步 bug 偶发，帮我在 submitOrder 和 refreshStatus 加日志追踪
+$debug-instrumentation 我已经加了一些 log，日志在 E:\logs\worker.log，帮我看看 [DBG_worker-retry 前缀的输出
+```
+
+无显式参数。日志统一以 `[DBG_<语义标签>_<4位随机字符>]` 开头；新建前会检索历史 `[DBG_]`，命中后可选择清理后新增、沿用现有或仅新增，多标签在写入前一次确认。分析结束后默认先询问是否清理，展示 diff 后再等待最终删除确认。详情见 [SKILL.md](skills/debug-instrumentation/SKILL.md)。
 
 ---
 

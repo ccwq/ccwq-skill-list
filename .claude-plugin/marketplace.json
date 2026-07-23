@@ -65,6 +65,13 @@
       "category": "compliance"
     },
     {
+      "name": "debug-instrumentation",
+      "source": "./skills/debug-instrumentation",
+      "description": "为调试新增和分析带统一 token 的日志埋点，按埋点、采集、假设归因与询问式清理闭环执行",
+      "version": "1.0.0",
+      "category": "devtools"
+    },
+    {
       "name": "lite-team",
       "source": "./lite-team",
       "description": "轻量多 Agent 协作技能，用 docs/bbs/lite-team-bbs.md 协作板在不同 Agent/session 间手动交接",

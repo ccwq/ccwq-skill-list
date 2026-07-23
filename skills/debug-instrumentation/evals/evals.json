@@ -1,0 +1,45 @@
+{
+  "skill_name": "debug-instrumentation",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "支付页偶发重复提交，但开发环境不好复现。请在前端的 submitOrder 和 refreshPaymentStatus 两条路径加 console.log 追踪；前者关注请求发起和 await 边界，后者关注轮询结果。历史埋点在 evals/files/existing-batches.log；先搜索 DBG_。如果有语义匹配的历史批次，默认沿用；两个模块开始改之前把本轮 token 计划列给我确认。",
+      "expected_output": "先以固定字符串发现历史批次，只沿用与两个当前模块语义匹配的完整 token，不复用无关的 auth 批次；说明各自验证的假设和少量埋点位置，并把沿用结果与多标签确认合并为一次交互。",
+      "files": [
+        "evals/files/existing-batches.log"
+      ],
+      "expectations": [
+        "先固定字符串搜索 [DBG_，并仅沿用语义匹配的完整历史 token。",
+        "所有沿用或提议 token 均匹配 [DBG_<kebab-case>_<4位小写字母或数字>]。",
+        "每个标签关联具体函数、关注字段和可证伪假设。",
+        "多标签场景将历史批次决定与写入计划合并为一次确认。"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Python worker 偶尔重复投递任务。我已经把日志放在 evals/files/python-worker.log，帮我只看 [DBG_worker-retry 前缀的记录，判断是不是 retry 状态没有落盘；如果证据不够，按假设驱动方式给出下一批要加的日志。",
+      "expected_output": "以固定字符串方式过滤文件中的目标批次，区分日志事实和推断；证据不足时提出不超过两个假设，并给出带新 token 的精确追加位置和字段。",
+      "files": [
+        "evals/files/python-worker.log"
+      ],
+      "expectations": [
+        "分析只引用目标 DBG 前缀的记录。",
+        "不把不完整日志直接表述为确定根因。",
+        "追加方案使用新 token，且不扩大为全面埋点。"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "上周加入的 cleanup-sample.js 中的 [DBG_auth-flow_q7m2] 已经帮助确认是 refreshToken 为空导致的失败，这批可以清理。请按流程处理。",
+      "expected_output": "即使不是当前会话，也按完整 token 定位本轮源码埋点并展示可删除 diff；在实际删除前再次等待最终确认，不删除历史日志或文档内容。",
+      "files": [
+        "evals/files/cleanup-sample.js"
+      ],
+      "expectations": [
+        "删除预览仅包含本轮源码中的 token 埋点。",
+        "输出明确要求 diff 后的最终执行确认。",
+        "不会在展示 diff 的同一轮自动删除源码，且不依赖当前会话记忆。"
+      ]
+    }
+  ]
+}
