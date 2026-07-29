@@ -9,6 +9,8 @@
   {"query":"看看线上部署为什么健康检查一直 503。", "should_trigger":true},
   {"query":"定位这个仓库构建在 Windows 上失败的根因。", "should_trigger":true},
   {"query":"迁移这个项目的鉴权方案并验证 Cookie 行为。", "should_trigger":true},
+  {"query":"$project-self-memory -g 盘点这次支付改造中哪些经验值得沉淀", "should_trigger":true},
+  {"query":"这次线上 503 已修复，哪些可复用结论应该写进项目记忆？", "should_trigger":true},
   {"query":"把这句话翻成英文：部署完成后再检查日志。", "should_trigger":false},
   {"query":"JavaScript 怎么把数组去重？", "should_trigger":false},
   {"query":"给我一个 curl GET 请求的例子。", "should_trigger":false},
@@ -18,5 +20,7 @@
   {"query":"只告诉我 git diff 的命令，不要执行。", "should_trigger":false},
   {"query":"把这段 JSON 格式化一下。", "should_trigger":false},
   {"query":"给变量起一个更清晰的英文名。", "should_trigger":false},
-  {"query":"解释 OAuth 的 authorization code flow。", "should_trigger":false}
+  {"query":"解释 OAuth 的 authorization code flow。", "should_trigger":false},
+  {"query":"把这次登录问题总结成三条周报要点，不需要更新项目记忆。", "should_trigger":false},
+  {"query":"复盘一下今天的排障过程，给团队发一段简短说明。", "should_trigger":false}
 ]

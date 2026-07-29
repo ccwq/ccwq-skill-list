@@ -20,9 +20,9 @@ def write_memory(path: Path, extra: str = "") -> None:
 
 
 class ValidateMemoryTests(unittest.TestCase):
-    def make_project(self) -> tuple[Path, Path]:
+    def make_project(self, skill_root: str = ".agents") -> tuple[Path, Path]:
         project_root = Path(tempfile.mkdtemp()) / "demo-project"
-        skill_path = project_root / ".agents" / "skills" / "project-self-memory"
+        skill_path = project_root / skill_root / "skills" / "project-self-memory"
         skill_path.mkdir(parents=True)
         return project_root, skill_path
 
@@ -38,11 +38,23 @@ class ValidateMemoryTests(unittest.TestCase):
 
         self.assertEqual(MODULE.validate(project_root, skill_path, True), [])
 
+    def test_accepts_claude_project_local_skill_and_complete_memory(self) -> None:
+        """
+        Given：skill 位于 Claude Code 的项目级 `.claude/skills/` 路径且 memory.md 包含完整来源头
+        When：执行项目记忆契约校验
+        Then：校验不返回错误
+        防回归：Claude Code 项目级安装被错误视为全局安装而拒绝写入记忆
+        """
+        project_root, skill_path = self.make_project(".claude")
+        write_memory(project_root / "self-memory" / "memory.md")
+
+        self.assertEqual(MODULE.validate(project_root, skill_path, True), [])
+
     def test_rejects_non_project_skill_location(self) -> None:
         """
         Given：memory.md 合法但 skill 位于项目外的用户级目录
         When：执行项目记忆契约校验
-        Then：结果指出必须迁移到项目 `.agents/skills/` 路径
+        Then：结果指出必须迁移到 `.agents/skills/` 或 `.claude/skills/` 项目路径
         防回归：全局安装仍能读写任意项目记忆
         """
         project_root, _ = self.make_project()
@@ -53,6 +65,8 @@ class ValidateMemoryTests(unittest.TestCase):
 
         self.assertEqual(len(errors), 1)
         self.assertIn("必须安装在", errors[0])
+        self.assertIn(".agents", errors[0])
+        self.assertIn(".claude", errors[0])
 
     def test_rejects_missing_source_header(self) -> None:
         """

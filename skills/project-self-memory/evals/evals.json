@@ -30,6 +30,24 @@
       "prompt": "$project-self-memory --memory",
       "expected_output": "明确提示 --memory 需要非空内容，不从上下文猜测载荷。",
       "files": []
+    },
+    {
+      "id": "grilling-current-session",
+      "prompt": "$project-self-memory -g 看看这次登录迁移有哪些经验值得沉淀",
+      "expected_output": "读取已有记忆和当前会话相关证据，先以“第 1/[total] 问”提出一个高信息增益问题；每问含回答方向、建议、理由与代价。在用户确认“已达成共同理解”前不写入 memory.md。",
+      "files": []
+    },
+    {
+      "id": "grilling-natural-language",
+      "prompt": "请盘点一下这次部署排障有哪些可复用经验值得沉淀到项目记忆。",
+      "expected_output": "自动进入 Grilling 而非直接总结；先查证可确认事实，逐问收敛，并在确认后才按 [事实]、[决策]、[避坑] 写入。",
+      "files": []
+    },
+    {
+      "id": "grilling-with-memory-content",
+      "prompt": "$project-self-memory --grilling -m \"生产部署必须先运行 npm run preflight\"",
+      "expected_output": "将 -m 内容作为重点候选进入 Grilling，不立即写入；确认后仍执行证据、冲突、去重和敏感信息检查。",
+      "files": []
     }
   ]
 }

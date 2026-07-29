@@ -1,6 +1,6 @@
 ---
 name: project-self-memory
-description: 维护项目级、可自进化的结论记忆 / Maintain a project-local, self-evolving conclusion memory. 在调查、诊断、实现、验证、维护或确立长期项目决策等非简单仓库任务中使用；开始时读取项目记忆，结束时沉淀已验证事实、长期决策和可复现避坑 / Use for nontrivial repository work such as investigation, diagnosis, implementation, verification, maintenance, or durable decisions; read project memory first and capture verified reusable conclusions at completion.
+description: 维护项目级、可自进化的结论记忆 / Maintain a project-local, self-evolving conclusion memory. 在调查、诊断、实现、验证、维护或确立长期项目决策等非简单仓库任务中使用；开始时读取项目记忆，结束时沉淀已验证事实、长期决策和可复现避坑。用户明确要求盘点哪些经验或结论值得沉淀时，进入逐问的 Grilling 模式 / Use for nontrivial repository work such as investigation, diagnosis, implementation, verification, maintenance, or durable decisions; read project memory first and capture verified reusable conclusions at completion. Enter one-question-at-a-time Grilling when the user explicitly asks which experience or conclusions merit memory.
 ---
 
 # 项目自记忆
@@ -9,9 +9,11 @@ description: 维护项目级、可自进化的结论记忆 / Maintain a project-
 
 ## 确认项目边界
 
-1. 解析本技能所在目录；仅当其位于 `<project-root>/.agents/skills/project-self-memory/` 时有效。
+1. 解析本技能所在目录；仅当其位于以下任一项目级路径时有效：
+   - `<project-root>/.agents/skills/project-self-memory/`
+   - `<project-root>/.claude/skills/project-self-memory/`（Claude Code）
 2. 从该目录推导 `<project-root>`，并将 `<project-root>/self-memory/memory.md` 作为唯一经验存储。
-3. 若技能位于其他位置，在读写记忆前停止，并报告迁移目标：`<project-root>/.agents/skills/project-self-memory/`。
+3. 若技能位于其他位置，在读写记忆前停止，并报告两个可用迁移目标。
 
 完成条件：skill 所在位置及唯一可写的记忆路径均无歧义。
 
@@ -37,6 +39,27 @@ description: 维护项目级、可自进化的结论记忆 / Maintain a project-
 
 完成条件：载荷已安全地形成记忆候选，或调用方收到无法存储的明确原因。
 
+## 经验盘点：`-g` 和 `--grilling`
+
+以下任一情况进入 **Grilling**：
+
+- 使用 `-g` 或 `--grilling`，可在参数后追加一个可选主题；裸参数盘点当前会话，附带主题时只盘点该主题。
+- 用户明确询问哪些经验、结论或项目知识值得沉淀到项目记忆。
+
+普通总结、复盘、回顾不自动进入 Grilling。开始前读取已有 `self-memory/memory.md`，并将其与当前会话中相关的已验证内容一同作为上下文。若同时出现 `-m <内容>` / `--memory <内容>`，该内容是本轮 Grilling 的重点候选，而不是立即写入请求；缺少内容的 `-m` / `--memory` 仍应说明正确调用形式。
+
+### 逐层厘清
+
+1. 先判断事项复杂度、主要信息缺口，并预估总轮次；总数可以随新发现动态调整。
+2. 每次只提出一个信息增益最高、最可能影响结论的问题，开头标注“第 n/[total] 问”。每问提供可选回答方向、建议答案、简短推荐理由及主要代价；重大决策可补充对后续路径的影响。
+3. 自行查明文件、工具、环境和可靠资料可确认的事实；把目标、偏好、优先级、风险承受与关键取舍交给用户选择。
+4. 按当前事项需要沿“目标 → 现状 → 障碍 → 根因 → 隐含假设 → 关键矛盾 → 重要取舍 → 验证标准 → 行动边界”推进。前提错误或问题定义失效时，回退并重构当前分支。
+5. 真实目标、成功标准、关键约束、核心取舍、依赖、主要风险和验证方式已明确时，停止扩展问题并总结：当前共识、已确认决策、主要依赖与风险、验收标准、剩余未决项。若未决项不实质影响结果，建议结束；否则只继续影响最大的一个。
+
+在用户明确确认“已达成共同理解”前，只能分析、查证、比较和总结，不写入 `memory.md`，也不直接产出最终行动方案。确认后，将原会话内容及追问中新确立的长期约束按既有证据规则分类为 `[事实]`、`[决策]` 或 `[避坑]`；合并、替换或保留候选后再写入，并报告新增、合并、替换和移除数量。
+
+完成条件：已获得明确确认，且所有合格结论均已写入或说明不写入原因。
+
 ## 更新当前结论
 
 创建或更新 `memory.md` 前，阅读[记忆契约](references/memory-contract.md)，保留可见来源头并采用其中的主题与标签格式。
@@ -54,7 +77,9 @@ description: 维护项目级、可自进化的结论记忆 / Maintain a project-
 每次直接更新后，简要报告新增、合并、替换和移除的结论数。环境可执行 Python 时，在交付前运行内置校验器：
 
 ```powershell
+# 按实际安装位置选择一条：
 python .agents/skills/project-self-memory/scripts/validate_memory.py --project-root . --skill-path .agents/skills/project-self-memory --require-memory
+python .claude/skills/project-self-memory/scripts/validate_memory.py --project-root . --skill-path .claude/skills/project-self-memory --require-memory
 ```
 
 完成条件：记忆保持当前、带来源标识、结构有效，且回复已报告变更。

@@ -21,6 +21,11 @@ SENSITIVE_PATTERNS = (
     re.compile(r"(?i)\b(?:password|passwd|secret|token)\s*[:=]\s*[^\s<]{8,}"),
 )
 
+SUPPORTED_SKILL_RELATIVE_PATHS = (
+    Path(".agents") / "skills" / "project-self-memory",
+    Path(".claude") / "skills" / "project-self-memory",
+)
+
 
 def resolve(path: Path) -> Path:
     return path.expanduser().resolve()
@@ -29,11 +34,12 @@ def resolve(path: Path) -> Path:
 def validate(project_root: Path, skill_path: Path, require_memory: bool) -> list[str]:
     """返回全部契约违规项，使调用方一次获得可操作的报告。"""
     errors: list[str] = []
-    expected_skill = project_root / ".agents" / "skills" / "project-self-memory"
-    if skill_path != expected_skill:
+    expected_skills = tuple(project_root / relative for relative in SUPPORTED_SKILL_RELATIVE_PATHS)
+    if skill_path not in expected_skills:
+        targets = " 或 ".join(str(expected_skill) for expected_skill in expected_skills)
         errors.append(
-            "技能必须安装在 "
-            f"{expected_skill}，当前路径为 {skill_path}。"
+            "技能必须安装在以下项目级路径之一："
+            f"{targets}；当前路径为 {skill_path}。"
         )
 
     memory_path = project_root / "self-memory" / "memory.md"

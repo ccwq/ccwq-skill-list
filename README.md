@@ -283,13 +283,16 @@ node skills/gemin-mirror/scripts/delete-candidate-accounts.mjs --confirm-delete-
 ```text
 $project-self-memory 调查当前仓库的登录刷新失败，修复后完成浏览器验证
 $project-self-memory -m "生产部署必须先运行 npm run preflight"
+$project-self-memory -g 鉴权迁移
+$project-self-memory --grilling -m "生产部署必须先运行 npm run preflight"
 ```
 
 | 参数 | 说明 | 默认值 |
 |------|------|--------|
 | `-m <内容>` / `--memory <内容>` | 显式提交一条记忆候选；内容不能为空 | 无 |
+| `-g [主题]` / `--grilling [主题]` | 逐问盘点当前会话或指定主题中值得沉淀的经验；确认“已达成共同理解”后写入 | 当前会话 |
 
-消费者项目中该 skill 必须位于 `.agents/skills/project-self-memory/`，记忆文件固定为 `self-memory/memory.md`；不记录凭据、个人数据、易失机器状态或未经验证的推断。详情见 [SKILL.md](skills/project-self-memory/SKILL.md)。
+消费者项目中该 skill 必须位于 `.agents/skills/project-self-memory/` 或 Claude Code 的 `.claude/skills/project-self-memory/`，记忆文件固定为 `self-memory/memory.md`；不记录凭据、个人数据、易失机器状态或未经验证的推断。详情见 [SKILL.md](skills/project-self-memory/SKILL.md)。
 
 ---
 

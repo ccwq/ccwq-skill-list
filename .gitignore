@@ -18,6 +18,9 @@ Thumbs.db
 node_modules/
 npm-debug.log*
 
+# Python bytecode cache
+__pycache__/
+
 test-space/git-history-cleaner/*
 !test-space/git-history-cleaner/report.md
 !test-space/git-history-cleaner/run_tests.py

@@ -88,8 +88,8 @@
     {
       "name": "project-self-memory",
       "source": "./skills/project-self-memory",
-      "description": "维护项目级、可自进化的结论记忆：任务开始时读取，完成后仅沉淀已验证的事实、长期决策和避坑结论",
-      "version": "1.0.0",
+      "description": "维护项目级、可自进化的结论记忆：任务开始时读取；支持 -g/--grilling 逐问盘点值得沉淀的经验",
+      "version": "1.1.0",
       "category": "devtools"
     }
   ]

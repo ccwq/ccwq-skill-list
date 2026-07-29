@@ -4,7 +4,7 @@
 
 ## 规范位置
 
-记忆文件固定为 `<project-root>/self-memory/memory.md`。`references/` 只保存技能的说明与格式规则，不保存项目经验。
+记忆文件固定为 `<project-root>/self-memory/memory.md`。技能可安装于 `<project-root>/.agents/skills/project-self-memory/` 或 Claude Code 的 `<project-root>/.claude/skills/project-self-memory/`。`references/` 只保存技能的说明与格式规则，不保存项目经验。
 
 ## 必需的可见来源头
 
