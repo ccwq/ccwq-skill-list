@@ -1,0 +1,22 @@
+[
+  {"query":"排查这个仓库为什么登录刷新失败，修完后用浏览器验证。", "should_trigger":true},
+  {"query":"给当前项目新增一个上传接口，并覆盖关键错误分支。", "should_trigger":true},
+  {"query":"调查 compose 的启动失败，确认真实原因后给出修复。", "should_trigger":true},
+  {"query":"请审阅这次项目改动是否遵循现有路由约定。", "should_trigger":true},
+  {"query":"把这个前端页面的筛选交互改好，完成后做真实验收。", "should_trigger":true},
+  {"query":"这个项目未来只允许从服务端读取支付密钥，记录为长期约束。", "should_trigger":true},
+  {"query":"$project-self-memory -m \"导出前必须通过 npm run preflight\"", "should_trigger":true},
+  {"query":"看看线上部署为什么健康检查一直 503。", "should_trigger":true},
+  {"query":"定位这个仓库构建在 Windows 上失败的根因。", "should_trigger":true},
+  {"query":"迁移这个项目的鉴权方案并验证 Cookie 行为。", "should_trigger":true},
+  {"query":"把这句话翻成英文：部署完成后再检查日志。", "should_trigger":false},
+  {"query":"JavaScript 怎么把数组去重？", "should_trigger":false},
+  {"query":"给我一个 curl GET 请求的例子。", "should_trigger":false},
+  {"query":"把 README 这一段改得更通顺，不需要查项目。", "should_trigger":false},
+  {"query":"今天北京天气怎样？", "should_trigger":false},
+  {"query":"解释一下 CSS Grid 的 minmax。", "should_trigger":false},
+  {"query":"只告诉我 git diff 的命令，不要执行。", "should_trigger":false},
+  {"query":"把这段 JSON 格式化一下。", "should_trigger":false},
+  {"query":"给变量起一个更清晰的英文名。", "should_trigger":false},
+  {"query":"解释 OAuth 的 authorization code flow。", "should_trigger":false}
+]

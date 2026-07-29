@@ -1,0 +1,35 @@
+{
+  "skill_name": "project-self-memory",
+  "evals": [
+    {
+      "id": "verified-runtime-fact",
+      "prompt": "调查当前仓库的鉴权刷新流程，完成浏览器验证后修复失败分支。",
+      "expected_output": "先读取项目记忆；在验证完成后，将可复用的刷新流程事实以 [事实] 写入或合并到 self-memory/memory.md。",
+      "files": []
+    },
+    {
+      "id": "durable-user-decision",
+      "prompt": "这个项目以后所有会话都必须使用 HttpOnly Cookie，不允许浏览器存储 token。请落实这个决定。",
+      "expected_output": "将用户明确的长期约束作为 [决策] 直接写入项目记忆，并报告更新。",
+      "files": []
+    },
+    {
+      "id": "ambiguous-pitfall",
+      "prompt": "我怀疑本次超时是 DNS 引起的，先看看。",
+      "expected_output": "不把未复现的怀疑写入 memory.md；若形成候选，展示并等待确认。",
+      "files": []
+    },
+    {
+      "id": "forced-memory-content",
+      "prompt": "$project-self-memory -m \"生产部署必须先运行 npm run preflight\"",
+      "expected_output": "处理指定内容，并继续执行敏感信息、冲突和证据判断；不把 -m 视为无条件原文追加。",
+      "files": []
+    },
+    {
+      "id": "missing-forced-memory-content",
+      "prompt": "$project-self-memory --memory",
+      "expected_output": "明确提示 --memory 需要非空内容，不从上下文猜测载荷。",
+      "files": []
+    }
+  ]
+}

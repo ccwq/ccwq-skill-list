@@ -84,6 +84,13 @@
       "description": "Gemini/兼容镜像站操作：CDP 探针、账号唯一核验与 API-first 安全会话删除，内置审计和跨平台 runner",
       "version": "1.0.3",
       "category": "automation"
+    },
+    {
+      "name": "project-self-memory",
+      "source": "./skills/project-self-memory",
+      "description": "维护项目级、可自进化的结论记忆：任务开始时读取，完成后仅沉淀已验证的事实、长期决策和避坑结论",
+      "version": "1.0.0",
+      "category": "devtools"
     }
   ]
 }

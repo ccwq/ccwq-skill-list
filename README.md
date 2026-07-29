@@ -48,6 +48,7 @@ npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code --
 | `rd-mode` | 远程开发模式规则，约束 host/server 协作并统一 CDP 浏览器操作（abc 命令） | [README.md](skills/rd-mode/README.md) |
 | `lite-team` | 轻量多 Agent 协作，用 docs/bbs/lite-team-bbs.md 协作板在不同 Agent/session 间手动交接 | [README.md](skills/lite-team/README.md) |
 | `gemin-mirror` | Gemini/兼容镜像站的探针、账号切换与 API-first 安全会话删除 | [SKILL.md](skills/gemin-mirror/SKILL.md) |
+| `project-self-memory` | 维护项目级、可自进化的已验证结论记忆 | [SKILL.md](skills/project-self-memory/SKILL.md) |
 
 > 触发形式：`/skill-name` 偏 slash command 风格，`$skill-name` 偏按 skill 名触发；实际以你的 Claude Code / skills 运行环境为准。
 
@@ -272,6 +273,23 @@ node skills/gemin-mirror/scripts/delete-candidate-accounts.mjs --confirm-delete-
 | `--confirm-delete-all` | 多账号入口的必填确认标记 | false |
 
 运行时认证参数只在内存中使用。无固定自然语言参数；按任务描述声明操作类别、目标账号和是否允许破坏性操作。审计日志只记录账号短哈希。默认适配器的站点契约见 [site-map.md](skills/gemin-mirror/references/site-map.md)，完整流程见 [SKILL.md](skills/gemin-mirror/SKILL.md)。
+
+---
+
+### project-self-memory
+
+在非简单项目任务开始时读取项目记忆，并在完成后仅沉淀已验证、可复用的事实、长期决策和避坑结论。
+
+```text
+$project-self-memory 调查当前仓库的登录刷新失败，修复后完成浏览器验证
+$project-self-memory -m "生产部署必须先运行 npm run preflight"
+```
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `-m <内容>` / `--memory <内容>` | 显式提交一条记忆候选；内容不能为空 | 无 |
+
+消费者项目中该 skill 必须位于 `.agents/skills/project-self-memory/`，记忆文件固定为 `self-memory/memory.md`；不记录凭据、个人数据、易失机器状态或未经验证的推断。详情见 [SKILL.md](skills/project-self-memory/SKILL.md)。
 
 ---
 
