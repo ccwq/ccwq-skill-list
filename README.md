@@ -50,6 +50,7 @@ npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code --
 | `gemin-mirror` | Gemini/兼容镜像站的探针、账号切换与 API-first 安全会话删除 | [SKILL.md](skills/gemin-mirror/SKILL.md) |
 | `project-self-memory` | 维护项目级、可自进化的已验证结论记忆 | [SKILL.md](skills/project-self-memory/SKILL.md) |
 | `pro-grilling` | 手动逐层厘清复杂决策，在共同理解前保持只读 | [SKILL.md](skills/pro-grilling/SKILL.md) |
+| `aria-filedown` | 手动授权的 aria2 稳定下载工具，支持代理优先级与项目 `.env` | [SKILL.md](skills/aria-filedown/SKILL.md) |
 
 > 触发形式：`/skill-name` 偏 slash command 风格，`$skill-name` 偏按 skill 名触发；实际以你的 Claude Code / skills 运行环境为准。
 
@@ -311,6 +312,26 @@ $pro-grilling 我们要重做登录态方案，但先把安全、兼容和上线
 | `[待讨论事项]` | 需要逐层澄清的计划、决策或复杂任务；不传时会先询问事项 | 无 |
 
 Codex 使用 `$pro-grilling` 显式调用。调查档位为“直接继续 / 快速核验 / 充分调查”，只有结论或后续路径可能改变时才会询问选择。详情见 [SKILL.md](skills/pro-grilling/SKILL.md)。
+
+---
+
+### aria-filedown
+
+只在用户显式调用，或普通下载已发生网络异常且用户同意切换时使用；不会自动接管下载。当前目标的下载切换授权不等同于 aria2 安装授权。
+
+```text
+$aria-filedown 使用代理下载 https://example.com/model.zip 到 ./downloads
+python scripts/aria2-wrapper.py -p http://localhost:7897 -- https://example.com/file.zip
+```
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `--proxy <URL>` / `-p <URL>` | 本次下载或 aria2 安装使用的代理，优先级最高 | 无 |
+| `--install` | 缺少 aria2c 时安装；仍需先获得安装目录确认 | `false` |
+| `--install-dir <目录>` | aria2 安装目录 | `ARIA2C` 或无 |
+| `--progress <模式>` | `auto`、`tty`、`jsonl`、`off` | `auto` |
+
+代理优先级为命令行 > 进程环境 > 项目 `.env`，每层内 `ARIA2_PROXY` > `PROXY`。项目 `.env` 位于 Git 根目录；代理凭据不会回显。详情见 [SKILL.md](skills/aria-filedown/SKILL.md)。
 
 ---
 

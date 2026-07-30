@@ -98,6 +98,13 @@
       "description": "手动逐层厘清复杂决策，在共同理解前保持只读",
       "version": "1.0.0",
       "category": "productivity"
+    },
+    {
+      "name": "aria-filedown",
+      "source": "./skills/aria-filedown",
+      "description": "手动授权的 aria2 稳定下载工具：网络异常后提示，支持 --proxy/-p、ARIA2_PROXY/PROXY 与项目 .env 代理配置",
+      "version": "1.1.0",
+      "category": "automation"
     }
   ]
 }
