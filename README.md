@@ -49,6 +49,7 @@ npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code --
 | `lite-team` | 轻量多 Agent 协作，用 docs/bbs/lite-team-bbs.md 协作板在不同 Agent/session 间手动交接 | [README.md](skills/lite-team/README.md) |
 | `gemin-mirror` | Gemini/兼容镜像站的探针、账号切换与 API-first 安全会话删除 | [SKILL.md](skills/gemin-mirror/SKILL.md) |
 | `project-self-memory` | 维护项目级、可自进化的已验证结论记忆 | [SKILL.md](skills/project-self-memory/SKILL.md) |
+| `pro-grilling` | 手动逐层厘清复杂决策，在共同理解前保持只读 | [SKILL.md](skills/pro-grilling/SKILL.md) |
 
 > 触发形式：`/skill-name` 偏 slash command 风格，`$skill-name` 偏按 skill 名触发；实际以你的 Claude Code / skills 运行环境为准。
 
@@ -293,6 +294,23 @@ $project-self-memory --grilling -m "生产部署必须先运行 npm run prefligh
 | `-g [主题]` / `--grilling [主题]` | 逐问盘点当前会话或指定主题中值得沉淀的经验；确认“已达成共同理解”后写入 | 当前会话 |
 
 消费者项目中该 skill 必须位于 `.agents/skills/project-self-memory/` 或 Claude Code 的 `.claude/skills/project-self-memory/`，记忆文件固定为 `self-memory/memory.md`；不记录凭据、个人数据、易失机器状态或未经验证的推断。详情见 [SKILL.md](skills/project-self-memory/SKILL.md)。
+
+---
+
+### pro-grilling
+
+在需要逐层厘清复杂目标、依赖、风险和取舍时手动调用。每轮只问一个高信息增益问题；可自行核验低成本的只读事实，但目标、偏好、优先级和关键取舍始终由用户决定。未确认“已达成共同理解”前，不会执行实际操作或输出最终方案。
+
+```text
+$pro-grilling 评估是否把现有单体前端拆成微前端，并厘清迁移边界
+$pro-grilling 我们要重做登录态方案，但先把安全、兼容和上线风险讨论清楚
+```
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `[待讨论事项]` | 需要逐层澄清的计划、决策或复杂任务；不传时会先询问事项 | 无 |
+
+Codex 使用 `$pro-grilling` 显式调用。调查档位为“直接继续 / 快速核验 / 充分调查”，只有结论或后续路径可能改变时才会询问选择。详情见 [SKILL.md](skills/pro-grilling/SKILL.md)。
 
 ---
 
