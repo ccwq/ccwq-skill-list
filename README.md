@@ -292,7 +292,7 @@ $project-self-memory --grilling -m "生产部署必须先运行 npm run prefligh
 | 参数 | 说明 | 默认值 |
 |------|------|--------|
 | `-m <内容>` / `--memory <内容>` | 显式提交一条记忆候选；内容不能为空 | 无 |
-| `-g [主题]` / `--grilling [主题]` | 逐问盘点当前会话或指定主题中值得沉淀的经验；确认“已达成共同理解”后写入 | 当前会话 |
+| `-g [主题]` / `--grilling [主题]` | 逐问盘点当前会话或指定主题中值得沉淀的经验；确认“ok”后写入 | 当前会话 |
 
 消费者项目中该 skill 必须位于 `.agents/skills/project-self-memory/` 或 Claude Code 的 `.claude/skills/project-self-memory/`，记忆文件固定为 `self-memory/memory.md`；不记录凭据、个人数据、易失机器状态或未经验证的推断。详情见 [SKILL.md](skills/project-self-memory/SKILL.md)。
 
@@ -300,7 +300,7 @@ $project-self-memory --grilling -m "生产部署必须先运行 npm run prefligh
 
 ### pro-grilling
 
-在需要逐层厘清复杂目标、依赖、风险和取舍时手动调用。每轮只问一个高信息增益问题；可自行核验低成本的只读事实，但目标、偏好、优先级和关键取舍始终由用户决定。未确认“已达成共同理解”前，不会执行实际操作或输出最终方案。
+在需要逐层厘清复杂目标、依赖、风险和取舍时手动调用。每轮只问一个高信息增益问题；可自行核验低成本的只读事实，但目标、偏好、优先级和关键取舍始终由用户决定。未确认“ok”前，不会执行实际操作或输出最终方案。
 
 ```text
 $pro-grilling 评估是否把现有单体前端拆成微前端，并厘清迁移边界

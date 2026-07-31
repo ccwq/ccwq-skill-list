@@ -34,7 +34,7 @@
     {
       "id": "grilling-current-session",
       "prompt": "$project-self-memory -g 看看这次登录迁移有哪些经验值得沉淀",
-      "expected_output": "读取已有记忆和当前会话相关证据，先以“第 1/[total] 问”提出一个高信息增益问题；每问含回答方向、建议、理由与代价。在用户确认“已达成共同理解”前不写入 memory.md。",
+      "expected_output": "读取已有记忆和当前会话相关证据，先以“第 1/[total] 问”提出一个高信息增益问题；每问含回答方向、建议、理由与代价。在用户确认“ok”前不写入 memory.md。",
       "files": []
     },
     {

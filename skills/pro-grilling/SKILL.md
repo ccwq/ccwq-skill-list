@@ -11,7 +11,7 @@ disable-model-invocation: true
 1. 将用户随 Skill 名提供的事项视为当前事项；若事项缺失，只询问用户要讨论的事项。
 2. 读取并严格执行 [PROTOCOL.md](./PROTOCOL.md)。
 3. 需要固定措辞或输出结构时，读取 [TEMPLATES.md](./TEMPLATES.md)。
-4. 用户明确确认“已达成共同理解”后，本次 grilling 才算完成。
+4. 用户明确确认“ok”后，本次 grilling 才算完成。
 
 ## 模块映射
 
