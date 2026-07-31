@@ -15,10 +15,10 @@
 - **入口：** `button[aria-label="Open project options for agents-op"]` 菜单有 Share/Rename/Project settings/Delete；settings 中有 Chats、Sources、`textarea#instructions`、Library access 与 Memory。
 - **规则：** 以上设置是持久状态，获得明确授权才改。写入 instructions 时设置值后必须合成 `input` 和 `change`，再读回比对预期；保存获批文本及读回证据。
 
-## 2026-07-24 — 每任务浏览器隔离
+## 2026-07-24 — 浏览器会话与 tab 边界
 
-- 每个 ChatGPT Web 任务使用专用 session、新建 tab、并在 `agents-op` 内新建 chat。
-- 成功、取消或失败时仅关闭任务 tab；重新枚举 tabs 确认其消失。现有 ChatGPT tabs 可能含用户无关工作，仅凭 URL/domain 不能证明所有权。
+- 使用当前项目派生的 session；只有任务新建 tab 时才在结束后关闭它并重新枚举确认。现有 ChatGPT tabs 可能含用户无关工作，仅凭 URL/domain 不能证明所有权。
+- 有既有 CDP 端口配置时接入该浏览器；没有配置时不传 `--cdp`。
 
 ## 2026-07-25 — 跨平台图片流转
 
@@ -40,3 +40,14 @@ canv.toDataURL('image/jpeg', 0.92)
 - 从 HTTPS ChatGPT 页面 `fetch(file://...)` 和 `fetch(http://localhost:...)` 会受安全策略阻断。用原生 file input；必要时 base64 → `File` → `DataTransfer` → `change`，并核验 UI 接收结果。
 - 不混用不同控制通道。若 poll 与 composer 状态冲突，截图为最高优先级的可见证据。
 - 以上是特定日期的现场观察，不是 API 契约；每次 session 重新验证 selector 与图片 URL 形态。
+
+## 2026-07-31 — ref 与 Project home 的实时验证
+
+- DOM selector 与 agent-browser ref 均会因页面更新失效；每个 UI 操作前后均以实时 snapshot 验证，不能依赖旧 ref。
+- PowerShell 调用必须给 ref 加引号，如 `click '@e123'`；PowerShell 不支持 `&&`。
+- Enter 不保证发送成功；snapshot 中确认用户消息渲染后才视为已提交。未渲染时重新定位并点击实时 `Send prompt`。
+- Project home 的普通 ref click 无效时，在同一 agent-browser session 通过实时 DOM 定位 `agents-op` 控件并触发 click，再同时确认 `/project` URL 与 `New chat in agents-op`。
+
+## 2026-07-31 — CLI 配置固化
+
+- 可将项目会话名和可选 CDP 参数固化到 Python 入口；入口只调用 `agent-browser` CLI，不固化会漂移的 DOM selector 或 ref。

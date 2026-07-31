@@ -3,7 +3,7 @@ name: chatgpt-web-skill
 description: 通过 ChatGPT Web 进行信息搜集、Deep Research，以及图片生成和编辑。
 license: MIT
 metadata:
-  version: 1.3.0
+  version: 1.5.0
   tags: [chatgpt, chatgpt-web, agent-browser, image-generation, image-editing, research]
   related_skills: [agent-browser]
 ---
@@ -12,27 +12,27 @@ metadata:
 
 ## 适用范围 / Scope
 
-通过 `agent-browser` 操作 ChatGPT Web UI。`agents-op` 指 **ChatGPT Web Project**，不是本地 Git/workspace 项目；它是图片生成与编辑的指定工作区，也可用于聊天、图片审阅、网页研究和讨论。
+本 skill 依赖 `agent-browser` skill 与其 CLI 操作 ChatGPT Web UI；不提供独立的浏览器自动化实现。`agents-op` 指 **ChatGPT Web Project**，不是本地 Git/workspace 项目；它是图片生成与编辑的指定工作区，也可用于聊天、图片审阅、网页研究和讨论。
 
-浏览器操作统一直接调用 `npx -y agent-browser`。会话名默认取当前项目绝对路径去除 `/` 后的字符串，截图保存到 `%temp%\agent-browser-captures\`。默认不要传 `--cdp`；仅当系统或任务明确指定需要接入既有浏览器及其端口时，才传 `--cdp <port>`。例如：
+优先通过 `scripts/run_agent_browser.py` 调用 `agent-browser` CLI，统一传递 session 和可选 CDP 配置。会话名默认取当前项目绝对路径去除 `/` 后的字符串，截图保存到 `%temp%\agent-browser-captures\`。仅在系统、任务或环境变量已设定 CDP 端口时传入该值；没有设定时不传 `--cdp`。先枚举现有 tabs；目标 URL 已打开时复用该 tab，不要重复打开。例如：
 
 ```powershell
-npx -y agent-browser --session <session-name> open https://chatgpt.com
-npx -y agent-browser --session <session-name> --cdp <port> snapshot -i
+python scripts/run_agent_browser.py tabs
+python scripts/run_agent_browser.py --cdp <configured-port> snapshot -i
 ```
 
 此 skill 的全部业务动作都在 ChatGPT Web 对话内完成；不把它用作直接浏览、抓取或自动化外部网站的通用工具。普通讨论可直接在 chat 中进行。只有确有必要使用 ChatGPT Web 的 Search 或 Deep Research 时，发送前先向用户说明理由并取得本次明确授权；未获授权则继续普通对话，或报告信息边界。
 
 ## 经验演进 / Evolution Memory
 
-每次触发此 Skill 后、任何浏览器操作前，读取**当前版本专属**的经验文件。经验目录为系统临时根目录下的 `chatgpt-web-skill-exp/`：Windows 为 `%TEMP%\chatgpt-web-skill-exp\`；macOS/Linux 为 `${TMPDIR:-/tmp}/chatgpt-web-skill-exp/`。当前版本文件固定为 `chatgpt-web-<metadata.version>.md`，例如 `chatgpt-web-1.3.0.md`。文件不存在时按空经验库继续；不要为此单独创建空文件。
+每次触发此 Skill 后、任何浏览器操作前，读取**当前版本专属**的经验文件。经验目录为系统临时根目录下的 `chatgpt-web-skill-exp/`：Windows 为 `%TEMP%\chatgpt-web-skill-exp\`；macOS/Linux 为 `${TMPDIR:-/tmp}/chatgpt-web-skill-exp/`。当前版本文件固定为 `chatgpt-web-<metadata.version>.md`，例如 `chatgpt-web-1.5.0.md`。文件不存在时按空经验库继续；不要为此单独创建空文件。
 
 经验文件的开头必须是：
 
 ```markdown
 # chatgpt-web-skill 经验库
 Skill: chatgpt-web-skill
-Skill-Version: 1.3.0
+Skill-Version: 1.5.0
 ```
 
 只读取文件名与当前 `metadata.version` 一致的文件；不得读取、迁移、重命名或删除旧版本文件，也不得读取旧的 `chatgpt-web-skill.md`。读取当前版本文件时先核对 `Skill` 与 `Skill-Version`；任一字段缺失或不匹配时，停止使用该文件并报告，不覆盖原内容。
@@ -52,11 +52,11 @@ Skill-Version: 1.3.0
 
 每次任务按以下顺序执行；每项完成后才进入下一项：
 
-1. 新建专用 agent-browser session 和一个 ChatGPT tab，不复用历史任务的 session、tab 或 chat。
+1. 使用当前项目对应的 agent-browser session；按已有 CDP 配置决定是否接入既有浏览器。先枚举 tabs，只有不存在可复用的 ChatGPT tab 时才新建 tab。
 2. 通过实时 agent-browser 页面证据确认页面是 ChatGPT Web 且 Project 名为 `agents-op`。禁止相信旧 tab ID、旧 URL 或记忆中的页面文本。
 3. `agents-op` 不存在时，先报告并请求创建 Project 的持久化状态授权；存在时直接使用，名称重复也以实时证据选择正确 Project。
 4. 为当前任务在 `agents-op` 内新建 chat；以当前 session 和 tab 作为本次任务的最小隔离边界。
-5. 终态（成功、取消、平台阻断或不可恢复失败）关闭**本任务创建的** tab，重新枚举 tabs 并确认其消失。不得关闭既有 tab。
+5. 终态（成功、取消、平台阻断或不可恢复失败）关闭**本任务创建的** tab，重新枚举 tabs 并确认其消失；复用的既有 tab 不关闭。
 
 可接受的 Project 实时证据至少两项：页面 title 含 `agents-op`、Project URL 以 `/project` 结尾、composer 标注/placeholder 为 `New chat in agents-op`、页面内容表明该 Project 的 chats/sources。无法确认归属时，诊断并报告，不在普通 Chat 或其他 Project 静默执行。
 
@@ -68,7 +68,11 @@ Skill-Version: 1.3.0
 
 ## 每次先重新发现 UI / Live Discovery
 
-ChatGPT UI 会变化。每一轮根据页面实时 DOM 重新发现控件；下列 selector 仅为线索，不是永久契约：
+ChatGPT UI 会变化。DOM selector 与 agent-browser ref（如 `@e123`）都可能随页面更新失效；每次点击、输入或提交前后都必须取得实时 snapshot 验证控件与页面状态，绝不跳过验证。Python 入口仅固化 CLI 参数和会话配置，不能替代 DOM 的实时发现。下列 selector 仅为线索，不是永久契约：
+
+- 在 PowerShell 中把 ref 作为字符串传入，例如 `click '@e123'`；PowerShell 不支持 `&&`，需要顺序执行的命令改为独立命令或使用 `;`。
+- Enter 不一定会提交 prompt。提交后先在实时 snapshot 确认用户消息已经渲染；未渲染时，重新发现并点击当前页面的 `Send prompt` 控件，再次 snapshot 确认。
+- Project home 中普通 ref `click` 无效时，不猜测或复用旧 ref。在同一 agent-browser session 内通过实时 DOM 定位 `agents-op` 的对应控件并触发 click；随后同时以 `/project` URL 和 `New chat in agents-op` 作为归属证据。
 
 - `Create image` 菜单项；选择后确认 placeholder 变为 `Describe or edit an image`。
 - 已观察到的图片模式 pill：`data-id="picture_v2"`。
@@ -117,8 +121,9 @@ Project instructions 是用户可见持久化配置，默认先用中文拟稿�
 
 ## 完成检查 / Completion Checklist
 
-- [ ] 使用了专用 session、任务新建的 tab 与 `agents-op` 内的新 chat。
+- [ ] 使用当前项目对应 session；仅在无可复用 tab 时新建，并在 `agents-op` 内新建 chat。
 - [ ] 至少两条实时证据确认 `agents-op` Project 归属。
+- [ ] 每次 UI 操作前后均由实时 snapshot 验证；prompt 已确认渲染为用户消息。
 - [ ] 图片模式（如需要）已由实时 UI 确认。
 - [ ] 每轮均完成可见结果与质量核验；已向用户说明推荐候选和依据。
 - [ ] 已关闭且重新枚举确认任务 tab 消失；未影响原有 tabs。

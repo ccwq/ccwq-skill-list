@@ -51,7 +51,7 @@ npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code --
 | `project-self-memory` | 维护项目级、可自进化的已验证结论记忆 | [SKILL.md](skills/project-self-memory/SKILL.md) |
 | `pro-grilling` | 手动逐层厘清复杂决策，在共同理解前保持只读 | [SKILL.md](skills/pro-grilling/SKILL.md) |
 | `aria-filedown` | 手动授权的 aria2 稳定下载工具，支持代理优先级与项目 `.env` | [SKILL.md](skills/aria-filedown/SKILL.md) |
-| `chatgpt-web-skill` | 在固定 ChatGPT Project 中受授权地生图、编辑或审阅图片 | [SKILL.md](skills/chatgpt-web-skill/SKILL.md) |
+| `chatgpt-web-skill` | 依赖 agent-browser 在指定 ChatGPT Project 中受授权地生图、编辑或审阅图片 | [SKILL.md](skills/chatgpt-web-skill/SKILL.md) |
 
 > 触发形式：`/skill-name` 偏 slash command 风格，`$skill-name` 偏按 skill 名触发；实际以你的 Claude Code / skills 运行环境为准。
 
@@ -318,7 +318,7 @@ Codex 使用 `$pro-grilling` 显式调用。调查档位为“直接继续 / 快
 
 ### chatgpt-web-skill
 
-在 ChatGPT Web 的固定 `agents-op` Project 中生成、编辑或审阅图片时使用。ChatGPT Search / Deep Research 不是默认行为，发送前必须说明理由并取得当次明确授权；不得将其用作通用外站浏览或抓取工具。
+依赖 `agent-browser` skill 与 CLI，在指定的 `agents-op` ChatGPT Project 中生成、编辑或审阅图片时使用。ChatGPT Search / Deep Research 不是默认行为，发送前必须说明理由并取得当次明确授权；不得将其用作通用外站浏览或抓取工具。
 
 ```text
 $chatgpt-web-skill 在 agents-op 中生成一张简洁的蓝色立方体图
@@ -328,9 +328,9 @@ $chatgpt-web-skill 审阅当前 chat 附带的商品主图，并给出可执行�
 | 参数 | 说明 | 默认值 |
 |------|------|--------|
 | `[图片任务]` | 生图、编辑或审阅图片的需求；Research 必须另获当次授权 | 无 |
-| `--cdp <port>` | 仅在系统或任务已明确既有浏览器端口时接入 | 不传，创建专用 session |
+| `--cdp <port>` / `AGENT_BROWSER_CDP_PORT` | 仅在已设定的既有浏览器 CDP 端口下接入；未设定时不传 | 不传 |
 
-Project instructions、Memory、Library access、重命名/分享/删除 Project 或 chat 均为持久化变更，必须单独明确授权。Skill 会在系统临时目录维护按版本隔离的脱敏经验库；每个版本只读取自己的经验，达到 20 条时提醒审核升级，不会自动改写规则。详情见 [SKILL.md](skills/chatgpt-web-skill/SKILL.md)。
+可通过 `python skills/chatgpt-web-skill/scripts/run_agent_browser.py <command>` 调用 `agent-browser`；Python 入口仅固化 session/CDP 参数，DOM selector 与 ref 均须在每次操作前后由实时 snapshot 验证。PowerShell 中 ref 必须加引号，且 Enter 后须确认用户消息已渲染。Project instructions、Memory、Library access、重命名/分享/删除 Project 或 chat 均为持久化变更，必须单独明确授权。Skill 会在系统临时目录维护按版本隔离的脱敏经验库；每个版本只读取自己的经验，达到 20 条时提醒审核升级，不会自动改写规则。详情见 [SKILL.md](skills/chatgpt-web-skill/SKILL.md)。
 
 ---
 
