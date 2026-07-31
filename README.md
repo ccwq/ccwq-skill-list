@@ -51,6 +51,7 @@ npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code --
 | `project-self-memory` | 维护项目级、可自进化的已验证结论记忆 | [SKILL.md](skills/project-self-memory/SKILL.md) |
 | `pro-grilling` | 手动逐层厘清复杂决策，在共同理解前保持只读 | [SKILL.md](skills/pro-grilling/SKILL.md) |
 | `aria-filedown` | 手动授权的 aria2 稳定下载工具，支持代理优先级与项目 `.env` | [SKILL.md](skills/aria-filedown/SKILL.md) |
+| `chatgpt-web-skill` | 在固定 ChatGPT Project 中受授权地生图、编辑或审阅图片 | [SKILL.md](skills/chatgpt-web-skill/SKILL.md) |
 
 > 触发形式：`/skill-name` 偏 slash command 风格，`$skill-name` 偏按 skill 名触发；实际以你的 Claude Code / skills 运行环境为准。
 
@@ -312,6 +313,24 @@ $pro-grilling 我们要重做登录态方案，但先把安全、兼容和上线
 | `[待讨论事项]` | 需要逐层澄清的计划、决策或复杂任务；不传时会先询问事项 | 无 |
 
 Codex 使用 `$pro-grilling` 显式调用。调查档位为“直接继续 / 快速核验 / 充分调查”，只有结论或后续路径可能改变时才会询问选择。详情见 [SKILL.md](skills/pro-grilling/SKILL.md)。
+
+---
+
+### chatgpt-web-skill
+
+在 ChatGPT Web 的固定 `agents-op` Project 中生成、编辑或审阅图片时使用。ChatGPT Search / Deep Research 不是默认行为，发送前必须说明理由并取得当次明确授权；不得将其用作通用外站浏览或抓取工具。
+
+```text
+$chatgpt-web-skill 在 agents-op 中生成一张简洁的蓝色立方体图
+$chatgpt-web-skill 审阅当前 chat 附带的商品主图，并给出可执行改图建议
+```
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `[图片任务]` | 生图、编辑或审阅图片的需求；Research 必须另获当次授权 | 无 |
+| `--cdp <port>` | 仅在系统或任务已明确既有浏览器端口时接入 | 不传，创建专用 session |
+
+Project instructions、Memory、Library access、重命名/分享/删除 Project 或 chat 均为持久化变更，必须单独明确授权。Skill 会在系统临时目录维护按版本隔离的脱敏经验库；每个版本只读取自己的经验，达到 20 条时提醒审核升级，不会自动改写规则。详情见 [SKILL.md](skills/chatgpt-web-skill/SKILL.md)。
 
 ---
 
