@@ -1,6 +1,6 @@
 ---
 name: chatgpt-web-skill
-description: 当需要在固定 `agents-op` Project 中通过 ChatGPT Web 对话生图、编辑或审阅图片，或在获授权后进行 ChatGPT Research 时使用。Use agent-browser for ChatGPT Web image work and explicitly authorized Research in `agents-op`.
+description: 通过 ChatGPT Web 进行信息搜集、Deep Research，以及图片生成和编辑。
 license: MIT
 metadata:
   version: 1.3.0
