@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -31,6 +32,61 @@ def run_command(command: list[str], cwd: Path, stdin: str | None = None) -> subp
         encoding="utf-8",
         errors="replace",
     )
+
+
+def run_shell_pipe(shell: str, producer_script: str, yaml_text: str) -> subprocess.CompletedProcess[str]:
+    """通过指定 shell 产出计划字节，再交给 commit_plan.py 解析。"""
+    environment = dict(os.environ, GIT_UP_PLAN=yaml_text)
+    producer = subprocess.Popen(
+        [shell, "-NoProfile", "-NonInteractive", "-Command", producer_script]
+        if Path(shell).name.lower() == "powershell.exe"
+        else [shell, "-lc", producer_script],
+        cwd=PROJECT_ROOT,
+        env=environment,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    assert producer.stdout is not None
+    consumer = subprocess.Popen(
+        [sys.executable, str(SCRIPT), "parse"],
+        cwd=PROJECT_ROOT,
+        stdin=producer.stdout,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    producer.stdout.close()
+    consumer_stdout, consumer_stderr = consumer.communicate()
+    producer.wait()
+    producer_stderr = producer.stderr.read() if producer.stderr is not None else b""
+    stderr = "".join(
+        part.decode("utf-8", errors="replace") if isinstance(part, bytes) else part
+        for part in (producer_stderr, consumer_stderr)
+    )
+    if producer.returncode != 0 and not stderr:
+        stderr = f"shell producer exited with code {producer.returncode}"
+    return subprocess.CompletedProcess(
+        [shell, producer_script],
+        consumer.returncode if consumer.returncode != 0 else producer.returncode,
+        consumer_stdout,
+        stderr,
+    )
+
+
+def powershell_path() -> str:
+    command = shutil.which("powershell")
+    if not command:
+        raise TestFailure("找不到 Windows PowerShell，无法验证 PowerShell 管道输入")
+    return command
+
+
+def git_bash_path() -> str:
+    command = shutil.which("bash")
+    if not command:
+        raise TestFailure("找不到 Git Bash，无法验证 printf 管道输入")
+    return command
 
 
 def assert_true(condition: bool, message: str):
@@ -125,6 +181,58 @@ def test_missing_files_fails():
     payload = parse_json(result)
     assert_true(result.returncode == 2, "缺 files 应返回解析错误码 2")
     assert_true(payload["code"] == "missing_files", "错误码应可被 LLM 识别")
+
+
+def test_powershell_pipe_preserves_utf8_plan_variants():
+    """
+    Given：PowerShell 管道输出带 UTF-8 BOM 的 ASCII、中文和 emoji 计划。
+    When：commit_plan.py parse 从该管道读取计划。
+    Then：每种合法计划都能成功解析，非法计划仍返回内容校验错误。
+    防回归：区分 PowerShell 编码边界问题与计划自身的结构错误。
+    """
+    shell = powershell_path()
+    producer_script = (
+        "$bytes = [Text.Encoding]::UTF8.GetPreamble() + "
+        "[Text.Encoding]::UTF8.GetBytes($env:GIT_UP_PLAN); "
+        "[Console]::OpenStandardOutput().Write($bytes, 0, $bytes.Length)"
+    )
+    valid_plans = [
+        "- step: 1\n  subject: \"fix(parser): handle bom\"\n  files:\n    - parser.py\n",
+        "- step: 1\n  subject: \"修复：解析计划\"\n  body: \"保留中文\"\n  files:\n    - 中文.txt\n",
+        "- step: 1\n  subject: \"test: emoji ✅\"\n  files:\n    - emoji.txt\n",
+    ]
+    for yaml_text in valid_plans:
+        result = run_shell_pipe(shell, producer_script, yaml_text)
+        payload = parse_json(result)
+        assert_true(result.returncode == 0, result.stderr or result.stdout)
+        assert_true(payload["ok"] is True, "PowerShell 管道中的合法计划应解析成功")
+
+    invalid = "- step: 1\n  subject: \"缺少 files\"\n"
+    result = run_shell_pipe(shell, producer_script, invalid)
+    payload = parse_json(result)
+    assert_true(result.returncode == 2, "非法计划应返回解析错误码 2")
+    assert_true(payload["code"] == "missing_files", "非法计划应报告内容校验错误")
+
+
+def test_git_bash_printf_pipe_preserves_plan_variants():
+    """
+    Given：Git Bash printf 管道输出 ASCII、中文和 emoji 计划。
+    When：commit_plan.py parse 从该管道读取计划。
+    Then：合法计划都能成功解析。
+    防回归：确保 Git Bash 输入路径与 PowerShell 输入路径使用同一解析契约。
+    """
+    shell = git_bash_path()
+    producer_script = 'printf "%s" "$GIT_UP_PLAN"'
+    valid_plans = [
+        "- step: 1\n  subject: \"feat: add parser test\"\n  files:\n    - test.py\n",
+        "- step: 1\n  subject: \"中文计划\"\n  files:\n    - 中文.txt\n",
+        "- step: 1\n  subject: \"emoji ✅\"\n  files:\n    - emoji.txt\n",
+    ]
+    for yaml_text in valid_plans:
+        result = run_shell_pipe(shell, producer_script, yaml_text)
+        payload = parse_json(result)
+        assert_true(result.returncode == 0, result.stderr or result.stdout)
+        assert_true(payload["ok"] is True, "Git Bash printf 管道中的合法计划应解析成功")
 
 
 def test_commit_plan_executes_only_planned_files():
@@ -273,6 +381,8 @@ def main() -> int:
         test_parse_full_plan,
         test_parse_optional_body_and_foot,
         test_missing_files_fails,
+        test_powershell_pipe_preserves_utf8_plan_variants,
+        test_git_bash_printf_pipe_preserves_plan_variants,
         test_commit_plan_executes_only_planned_files,
         test_commit_refuses_pre_staged_changes,
         test_ignore_auto_detects_node_and_creates_documented_rules,

@@ -72,6 +72,8 @@ def split_key_value(text: str, line_no: int) -> tuple[str, str]:
 
 
 def parse_plan(text: str) -> list[Step]:
+    # Windows PowerShell 可能在管道文本开头携带 UTF-8 BOM；它不是计划内容。
+    text = text.removeprefix("\ufeff")
     lines = text.splitlines()
     steps: list[dict[str, object]] = []
     current: dict[str, object] | None = None
