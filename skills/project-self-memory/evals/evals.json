@@ -48,6 +48,18 @@
       "prompt": "$project-self-memory --grilling -m \"生产部署必须先运行 npm run preflight\"",
       "expected_output": "将 -m 内容作为重点候选进入 Grilling，不立即写入；确认后仍执行证据、冲突、去重和敏感信息检查。",
       "files": []
+    },
+    {
+      "id": "trim-current-memory",
+      "prompt": "$project-self-memory -t 鉴权",
+      "expected_output": "先读取 memory.md，并在本地只读核验相关源码、配置、文档、测试和 Git 历史；按主题逐问给出保留、改写、合并或删除建议。用户回复 ok 前不写入，确认后只整理既有结论，不新增记忆。",
+      "files": []
+    },
+    {
+      "id": "trim-insufficient-evidence",
+      "prompt": "$project-self-memory --trim 清理已经过时的部署经验",
+      "expected_output": "未找到更强的当前证据时，把条目标为本轮未证实并保留；不得因为暂时无关、措辞旧或未核验而删除。",
+      "files": []
     }
   ]
 }

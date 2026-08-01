@@ -288,14 +288,16 @@ $project-self-memory 调查当前仓库的登录刷新失败，修复后完成�
 $project-self-memory -m "生产部署必须先运行 npm run preflight"
 $project-self-memory -g 鉴权迁移
 $project-self-memory --grilling -m "生产部署必须先运行 npm run preflight"
+$project-self-memory -t 鉴权
 ```
 
 | 参数 | 说明 | 默认值 |
 |------|------|--------|
 | `-m <内容>` / `--memory <内容>` | 显式提交一条记忆候选；内容不能为空 | 无 |
 | `-g [主题]` / `--grilling [主题]` | 逐问盘点当前会话或指定主题中值得沉淀的经验；确认“ok”后写入 | 当前会话 |
+| `-t [主题]` / `--trim [主题]` | 先本地核验再按主题逐问整理已有记忆；确认“ok”后自动改写、合并或删除，不新增结论 | 全部主题 |
 
-消费者项目中该 skill 必须位于 `.agents/skills/project-self-memory/` 或 Claude Code 的 `.claude/skills/project-self-memory/`，记忆文件固定为 `self-memory/memory.md`；不记录凭据、个人数据、易失机器状态或未经验证的推断。详情见 [SKILL.md](skills/project-self-memory/SKILL.md)。
+消费者项目中该 skill 必须位于 `.agents/skills/project-self-memory/` 或 Claude Code 的 `.claude/skills/project-self-memory/`，记忆文件固定为 `self-memory/memory.md`；不记录凭据、个人数据、易失机器状态或未经验证的推断。`-t/--trim` 默认只读检查源码、配置、文档、测试与 Git 历史，不自动运行测试或联网。详情见 [SKILL.md](skills/project-self-memory/SKILL.md)。
 
 ---
 
@@ -323,18 +325,20 @@ Codex 使用 `$pro-grilling` 显式调用。调查档位为“直接继续 / 快
 ```text
 $chatgpt-web-skill 在 agents-op 中生成一张简洁的蓝色立方体图
 $chatgpt-web-skill 审阅当前 chat 附带的商品主图，并给出可执行改图建议
+$chatgpt-web-skill -t 整理当前版本经验库
 ```
 
 | 参数 | 说明 | 默认值 |
 |------|------|--------|
 | `[图片任务]` | 生图、编辑或审阅图片的需求；Research 必须另获当次授权 | 无 |
+| `-t [主题]` / `--trim [主题]` | 本地与实时 UI 核验后逐主题讨论经验整理；最终 `ok` 后原子改写、合并或删除当前版本经验 | 全部经验 |
 | `--cdp <port>` / `AGENT_BROWSER_CDP_PORT` | 必须接入已登录的既有浏览器；项目 `.env` 默认使用 `9696`，调用期参数或环境变量可覆盖 | `9696` |
 | `--tab <tab-id>` | 每次脚本命令前切换到实时 tab list 返回的稳定任务 tab ID，避免读取其他 CDP tab | 不传 |
 | `browser_task.py acquire/status/action/release` | 必须通过已登录 CDP 浏览器运行；以临时 lease 管理 URL 精确复用或 `--force-new` 专用 tab，动作前后保存 snapshot，release 只关闭本次创建的 tab | 项目 `.env` 的 `9696` |
 | `runtime_checks.py project/images/message` | 机械验证 Project 双证据、生成图尺寸或 prompt 渲染；仍需实时 snapshot/截图复核 | 按当前 session |
-| `experience_memory.py status/append` | 校验、原子追加并计数版本隔离的脱敏经验 | 当前 `metadata.version` |
+| `experience_memory.py status/append/trim` | 校验、原子追加或按确认计划整理版本隔离的脱敏经验 | 当前 `metadata.version` |
 
-可通过 `python skills/chatgpt-web-skill/scripts/run_agent_browser.py --tab <tab-id> <command>` 调用 `agent-browser`；跨命令任务可通过 `browser_task.py` 获取 lease 并在动作前后保存 snapshot，`runtime_checks.py` 将 Project 双证据、提交状态和图片可见/尺寸检查下沉为结构化结果，图片已出现在 snapshot 时会立刻截图返回，避免无效等待。`experience_memory.py` 负责经验库格式与原子写入。DOM selector/ref、视觉质量和授权判断仍须实时验证。PowerShell 中 ref 必须加引号，且 Enter 后须确认用户消息已渲染。Project instructions、Memory、Library access、重命名/分享/删除 Project 或 chat 均为持久化变更，必须单独明确授权。详情见 [SKILL.md](skills/chatgpt-web-skill/SKILL.md)。
+可通过 `python skills/chatgpt-web-skill/scripts/run_agent_browser.py --tab <tab-id> <command>` 调用 `agent-browser`；跨命令任务可通过 `browser_task.py` 获取 lease 并在动作前后保存 snapshot，`runtime_checks.py` 将 Project 双证据、提交状态和图片可见/尺寸检查下沉为结构化结果，图片已出现在 snapshot 时会立刻截图返回，避免无效等待。`experience_memory.py` 负责经验库格式与原子写入；`trim` 必须提供覆盖全部原始条目的确认计划与 `--confirm`，只处理当前版本经验库。DOM selector/ref、视觉质量和授权判断仍须实时验证。PowerShell 中 ref 必须加引号，且 Enter 后须确认用户消息已渲染。Project instructions、Memory、Library access、重命名/分享/删除 Project 或 chat 均为持久化变更，必须单独明确授权。详情见 [SKILL.md](skills/chatgpt-web-skill/SKILL.md)。
 
 ---
 

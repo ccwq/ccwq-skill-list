@@ -1,6 +1,6 @@
 ---
 name: project-self-memory
-description: 维护项目级、可自进化的结论记忆 / Maintain a project-local, self-evolving conclusion memory. 在调查、诊断、实现、验证、维护或确立长期项目决策等非简单仓库任务中使用；开始时读取项目记忆，结束时沉淀已验证事实、长期决策和可复现避坑。用户明确要求盘点哪些经验或结论值得沉淀时，进入逐问的 Grilling 模式 / Use for nontrivial repository work such as investigation, diagnosis, implementation, verification, maintenance, or durable decisions; read project memory first and capture verified reusable conclusions at completion. Enter one-question-at-a-time Grilling when the user explicitly asks which experience or conclusions merit memory.
+description: 维护项目级、可自进化的结论记忆 / Maintain a project-local, self-evolving conclusion memory. 在调查、诊断、实现、验证、维护或确立长期项目决策等非简单仓库任务中使用；开始时读取项目记忆，结束时沉淀已验证事实、长期决策和可复现避坑。用户明确要求盘点值得沉淀的经验时进入逐问 Grilling；要求整理、精简或清理项目记忆时进入逐问 Trim / Use for nontrivial repository work such as investigation, diagnosis, implementation, verification, maintenance, or durable decisions; read project memory first and capture verified reusable conclusions at completion. Enter one-question-at-a-time Grilling when the user explicitly asks which experience merits memory, or Trim when they ask to consolidate or clean project memory.
 ---
 
 # 项目自记忆
@@ -59,6 +59,20 @@ description: 维护项目级、可自进化的结论记忆 / Maintain a project-
 在用户明确确认“ok”前，只能分析、查证、比较和总结，不写入 `memory.md`，也不直接产出最终行动方案。确认后，将原会话内容及追问中新确立的长期约束按既有证据规则分类为 `[事实]`、`[决策]` 或 `[避坑]`；合并、替换或保留候选后再写入，并报告新增、合并、替换和移除数量。
 
 完成条件：已获得明确确认，且所有合格结论均已写入或说明不写入原因。
+
+## 记忆整理：`-t` 和 `--trim`
+
+使用 `-t` 或 `--trim` 时，整理已有 `memory.md`；参数后可追加一个可选主题。裸参数扫描全部主题，附带主题时只处理匹配主题。此模式的职责是让现有结论保持当前，**不新增**项目记忆；发现新的合格结论时，只在最终摘要中提示可用 `-g` 或 `-m` 沉淀。
+
+### 调查与讨论
+
+1. 读取已有 `memory.md`，并对每条候选结论进行本地只读核验：其关联的源码、配置、文档、测试和 Git 历史。默认不运行构建、测试、服务或联网查询；调用方明确要求时才将这些操作纳入证据范围。
+2. 将候选按主题归组；每个主题只提出一个问题，给出该主题内的“保留 / 改写 / 合并 / 删除”建议、证据锚点、影响和推荐方案。没有足够证据的条目归为“本轮未证实”，建议保留，不得借此删除。
+3. 只有项目权威文件、已验证的代码或运行时行为、或用户明确的新长期决策构成更强的当前证据时，才建议删除或替换旧结论。措辞陈旧、暂时无关或本轮无法核验不是删除理由。
+4. 全部受影响主题达成共识后，汇总拟执行的变更。用户明确回复 `ok` 前，只能调查、比较和讨论；不得写入 `memory.md`。
+5. 收到 `ok` 后，自动将已确认的改写、合并和删除写回 `memory.md`，保留无关的用户编辑，并报告保留、改写、合并、删除和未证实的数量。历史恢复交由版本控制提供。
+
+完成条件：范围内的每个既有结论都被归为保留、改写、合并、删除或本轮未证实；写入后记忆契约有效，且没有新增结论。
 
 ## 更新当前结论
 
