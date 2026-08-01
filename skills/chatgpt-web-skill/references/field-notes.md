@@ -51,3 +51,30 @@ canv.toDataURL('image/jpeg', 0.92)
 ## 2026-07-31 — CLI 配置固化
 
 - 可将项目会话名和可选 CDP 参数固化到 Python 入口；入口只调用 `agent-browser` CLI，不固化会漂移的 DOM selector 或 ref。
+
+## 2026-07-31 — 验证经验的脚本化边界
+
+- 已验证的 Project 双证据、生成图尺寸轮询与经验文件格式适合由脚本机械执行；脚本输出结构化结果，减少 LLM 反复解析。
+- selector、ref、tab ID 和视觉质量仍随页面或任务变化，继续由实时 snapshot 和截图复核；不纳入固定脚本契约。
+
+## 2026-08-01 — 提交结果的结构化分类
+
+- Prompt 的成功信号应同时检查 marker 是否离开可见 composer、是否出现在 snapshot，以及是否被认证/登录页中断。
+- `pending` 时不盲目连点 Send，`interrupted` 时停止；这两个状态都不能当作已发送。
+
+## 2026-08-01 — 跨命令 tab 锁定
+
+- 同一 CDP 浏览器下，新 session 不等于后续命令自动选中刚创建的 tab；每条检查命令必须显式切换到任务 tab ID 或唯一 label。
+- tab ID/label 是调用期输入，不写死进脚本；切换失败时停止，避免把其他 tab 的证据误判为当前任务。
+
+## 2026-08-01 — Windows 的 eval 传输
+
+- 复杂 JavaScript 作为命令行参数时可被 PowerShell 拆分；由 Python 以 `agent-browser eval --stdin` 和标准输入传递，避免 shell 参与解析。
+- CLI 可能在 JSON array 前输出诊断文本；解析时从首个可解码 array 提取载荷，不能假设输出首字符就是 `[`。
+- 调用 eval 时启用 CLI 的 `--json`；兼容 array、嵌套 JSON 与字符串化 JSON，错误仅报告输出形状而不泄露页面内容。
+
+## 2026-08-01 — 图片出现后的即时收敛
+
+- 图片检查每轮先读取 snapshot；一旦出现 `Generated image` 可见证据，立即截图并结束，不能在图片已出现后继续等待尺寸轮询。
+- 跨命令调用使用实时 tab list 返回的稳定 tab ID；label 只用于人为识别，不能作为脚本锁定依据。
+- 枚举标签页使用 `tab list`（不是 `tabs`）；辅助入口优先复用 PATH 中已安装的 `agent-browser`，以避免 `npx` 启动造成 daemon 会话不一致。

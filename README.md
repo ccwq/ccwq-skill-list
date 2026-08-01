@@ -51,7 +51,7 @@ npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code --
 | `project-self-memory` | 维护项目级、可自进化的已验证结论记忆 | [SKILL.md](skills/project-self-memory/SKILL.md) |
 | `pro-grilling` | 手动逐层厘清复杂决策，在共同理解前保持只读 | [SKILL.md](skills/pro-grilling/SKILL.md) |
 | `aria-filedown` | 手动授权的 aria2 稳定下载工具，支持代理优先级与项目 `.env` | [SKILL.md](skills/aria-filedown/SKILL.md) |
-| `chatgpt-web-skill` | 依赖 agent-browser 在指定 ChatGPT Project 中受授权地生图、编辑或审阅图片 | [SKILL.md](skills/chatgpt-web-skill/SKILL.md) |
+| `chatgpt-web-skill` | 依赖 agent-browser 在指定 ChatGPT Project 中受授权地生图、编辑或审阅图片，并脚本化验证经验 | [SKILL.md](skills/chatgpt-web-skill/SKILL.md) |
 
 > 触发形式：`/skill-name` 偏 slash command 风格，`$skill-name` 偏按 skill 名触发；实际以你的 Claude Code / skills 运行环境为准。
 
@@ -329,8 +329,11 @@ $chatgpt-web-skill 审阅当前 chat 附带的商品主图，并给出可执行�
 |------|------|--------|
 | `[图片任务]` | 生图、编辑或审阅图片的需求；Research 必须另获当次授权 | 无 |
 | `--cdp <port>` / `AGENT_BROWSER_CDP_PORT` | 仅在已设定的既有浏览器 CDP 端口下接入；未设定时不传 | 不传 |
+| `--tab <tab-id>` | 每次脚本命令前切换到实时 tab list 返回的稳定任务 tab ID，避免读取其他 CDP tab | 不传 |
+| `runtime_checks.py project/images/message` | 机械验证 Project 双证据、生成图尺寸或 prompt 渲染；仍需实时 snapshot/截图复核 | 按当前 session |
+| `experience_memory.py status/append` | 校验、原子追加并计数版本隔离的脱敏经验 | 当前 `metadata.version` |
 
-可通过 `python skills/chatgpt-web-skill/scripts/run_agent_browser.py <command>` 调用 `agent-browser`；Python 入口仅固化 session/CDP 参数，DOM selector 与 ref 均须在每次操作前后由实时 snapshot 验证。PowerShell 中 ref 必须加引号，且 Enter 后须确认用户消息已渲染。Project instructions、Memory、Library access、重命名/分享/删除 Project 或 chat 均为持久化变更，必须单独明确授权。Skill 会在系统临时目录维护按版本隔离的脱敏经验库；每个版本只读取自己的经验，达到 20 条时提醒审核升级，不会自动改写规则。详情见 [SKILL.md](skills/chatgpt-web-skill/SKILL.md)。
+可通过 `python skills/chatgpt-web-skill/scripts/run_agent_browser.py --tab <tab-id> <command>` 调用 `agent-browser`；`runtime_checks.py` 将 Project 双证据、提交状态和图片可见/尺寸检查下沉为结构化结果，图片已出现在 snapshot 时会立刻截图返回，避免无效等待。`experience_memory.py` 负责经验库格式与原子写入。DOM selector/ref、视觉质量和授权判断仍须实时验证。PowerShell 中 ref 必须加引号，且 Enter 后须确认用户消息已渲染。Project instructions、Memory、Library access、重命名/分享/删除 Project 或 chat 均为持久化变更，必须单独明确授权。详情见 [SKILL.md](skills/chatgpt-web-skill/SKILL.md)。
 
 ---
 

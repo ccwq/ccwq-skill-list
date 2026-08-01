@@ -109,8 +109,8 @@
     {
       "name": "chatgpt-web-skill",
       "source": "./skills/chatgpt-web-skill",
-      "description": "依赖 agent-browser 在指定 agents-op ChatGPT Project 中受授权地生图、编辑或审阅图片；实时快照验证 selector/ref 与 prompt 提交，Research 与持久化 Project 变更均需当次明确授权",
-      "version": "1.5.0",
+      "description": "依赖 agent-browser 在指定 agents-op ChatGPT Project 中受授权地生图、编辑或审阅图片；脚本化 tab 锁定、Project、提交和图片验证与经验库维护，Research 与持久化 Project 变更均需当次明确授权",
+      "version": "1.12.0",
       "category": "automation"
     }
   ]

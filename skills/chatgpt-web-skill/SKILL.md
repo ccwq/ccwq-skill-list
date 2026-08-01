@@ -3,7 +3,7 @@ name: chatgpt-web-skill
 description: 通过 ChatGPT Web 进行信息搜集、Deep Research，以及图片生成和编辑。
 license: MIT
 metadata:
-  version: 1.5.0
+  version: 1.12.0
   tags: [chatgpt, chatgpt-web, agent-browser, image-generation, image-editing, research]
   related_skills: [agent-browser]
 ---
@@ -17,7 +17,7 @@ metadata:
 优先通过 `scripts/run_agent_browser.py` 调用 `agent-browser` CLI，统一传递 session 和可选 CDP 配置。会话名默认取当前项目绝对路径去除 `/` 后的字符串，截图保存到 `%temp%\agent-browser-captures\`。仅在系统、任务或环境变量已设定 CDP 端口时传入该值；没有设定时不传 `--cdp`。先枚举现有 tabs；目标 URL 已打开时复用该 tab，不要重复打开。例如：
 
 ```powershell
-python scripts/run_agent_browser.py tabs
+python scripts/run_agent_browser.py tab list
 python scripts/run_agent_browser.py --cdp <configured-port> snapshot -i
 ```
 
@@ -25,35 +25,53 @@ python scripts/run_agent_browser.py --cdp <configured-port> snapshot -i
 
 ## 经验演进 / Evolution Memory
 
-每次触发此 Skill 后、任何浏览器操作前，读取**当前版本专属**的经验文件。经验目录为系统临时根目录下的 `chatgpt-web-skill-exp/`：Windows 为 `%TEMP%\chatgpt-web-skill-exp\`；macOS/Linux 为 `${TMPDIR:-/tmp}/chatgpt-web-skill-exp/`。当前版本文件固定为 `chatgpt-web-<metadata.version>.md`，例如 `chatgpt-web-1.5.0.md`。文件不存在时按空经验库继续；不要为此单独创建空文件。
+每次触发此 Skill 后、任何浏览器操作前，读取**当前版本专属**的经验文件。经验目录为系统临时根目录下的 `chatgpt-web-skill-exp/`：Windows 为 `%TEMP%\chatgpt-web-skill-exp\`；macOS/Linux 为 `${TMPDIR:-/tmp}/chatgpt-web-skill-exp/`。当前版本文件固定为 `chatgpt-web-<metadata.version>.md`，例如 `chatgpt-web-1.12.0.md`。文件不存在时按空经验库继续；不要为此单独创建空文件。
 
 经验文件的开头必须是：
 
 ```markdown
 # chatgpt-web-skill 经验库
 Skill: chatgpt-web-skill
-Skill-Version: 1.5.0
+Skill-Version: 1.12.0
 ```
 
 只读取文件名与当前 `metadata.version` 一致的文件；不得读取、迁移、重命名或删除旧版本文件，也不得读取旧的 `chatgpt-web-skill.md`。读取当前版本文件时先核对 `Skill` 与 `Skill-Version`；任一字段缺失或不匹配时，停止使用该文件并报告，不覆盖原内容。
 
-仅在任务结论已验证后、最终汇报前追加简短条目；不记录 prompt、图片、chat 内容、账户标识、cookie、私有 URL 或凭据。格式固定：
+每次触发时先运行 `python scripts/experience_memory.py status`。仅在任务结论已验证后、最终汇报前运行 `append` 追加脱敏条目；不得手动编辑经验文件。脚本会校验版本头、原子写入、去重并在条目达到 20 条时输出 `review_required`。不记录 prompt、图片、chat 内容、账户标识、cookie、私有 URL 或凭据。头部异常时停止使用该文件并报告，不覆盖、迁移或修复旧文件。
 
-```markdown
-## YYYY-MM-DD — 简短主题
-- 场景: 触发条件
-- 结论: 已验证的可复用做法
-- 边界: 不适用条件或风险
+## 经验收敛 / Experience Promotion
+
+把每条已验证经验按稳定性分流，避免以自然语言反复执行机械步骤：
+
+- 对跨页面和跨任务不变、可观察且无副作用的步骤，先为 `scripts/` 增加标准库 Python 辅助逻辑和离线单元测试，再在 skill 中调用脚本。
+- 对依赖当前页面、角色、Project 或构图的判断，只记录为现场线索；继续使用实时 snapshot、DOM 和截图核验，不把 selector、ref、tab ID 或私有 URL 写死到脚本。
+- 对账户、单次任务或未复现的现象，只留在版本经验库；未获得明确确认时不据此修改 `SKILL.md`。
+
+当前可直接复用的辅助脚本：
+
+```powershell
+# 返回至少两条 Project 实时归属证据，否则退出码为 1。
+python scripts/runtime_checks.py --cdp <configured-port> --tab <tab-id> project --name agents-op
+
+# 每轮先检查快照；一旦图片已可见就立即截图并返回，不再空等尺寸轮询。
+python scripts/runtime_checks.py --cdp <configured-port> --tab <tab-id> images --min-width 1000 --screenshot <temp-path>
+
+# 确认 marker 已离开 composer 并渲染；认证中断会以退出码 2 停止。
+python scripts/runtime_checks.py --cdp <configured-port> --tab <tab-id> message --marker <unique-marker>
+
+# 校验或原子追加版本隔离的脱敏经验。
+python scripts/experience_memory.py status
+python scripts/experience_memory.py append --topic <topic> --scene <scene> --conclusion <conclusion> --boundary <boundary>
 ```
 
-当当前版本文件的有效经验条目达到或超过 20 条时，提醒用户审核可提炼的规则以升级 Skill；未经用户明确确认，不自动修改 `SKILL.md`。创建当前版本文件及追加已验证经验均仅作用于本机临时目录。
+`runtime_checks.py` 只机械判定 Project 证据、消息提交状态和图片可见性/尺寸；它不能授权持久化操作、选择动态控件或替代截图质量审阅。
 
 ## 路由契约 / Routing Contract
 
 每次任务按以下顺序执行；每项完成后才进入下一项：
 
-1. 使用当前项目对应的 agent-browser session；按已有 CDP 配置决定是否接入既有浏览器。先枚举 tabs，只有不存在可复用的 ChatGPT tab 时才新建 tab。
-2. 通过实时 agent-browser 页面证据确认页面是 ChatGPT Web 且 Project 名为 `agents-op`。禁止相信旧 tab ID、旧 URL 或记忆中的页面文本。
+1. 使用当前项目对应的 agent-browser session；按已有 CDP 配置决定是否接入既有浏览器。先枚举 tabs，只有不存在可复用的 ChatGPT tab 时才新建 tab。为任务创建 tab 后读取其稳定 tab ID，并把该 ID 传给每个 `run_agent_browser.py --tab` 与 `runtime_checks.py --tab` 调用。
+2. 运行 `runtime_checks.py project --name agents-op` 并结合实时 snapshot，确认页面是 ChatGPT Web 且 Project 名为 `agents-op`。禁止相信旧 tab ID、旧 URL 或记忆中的页面文本。
 3. `agents-op` 不存在时，先报告并请求创建 Project 的持久化状态授权；存在时直接使用，名称重复也以实时证据选择正确 Project。
 4. 为当前任务在 `agents-op` 内新建 chat；以当前 session 和 tab 作为本次任务的最小隔离边界。
 5. 终态（成功、取消、平台阻断或不可恢复失败）关闭**本任务创建的** tab，重新枚举 tabs 并确认其消失；复用的既有 tab 不关闭。
@@ -68,10 +86,10 @@ Skill-Version: 1.5.0
 
 ## 每次先重新发现 UI / Live Discovery
 
-ChatGPT UI 会变化。DOM selector 与 agent-browser ref（如 `@e123`）都可能随页面更新失效；每次点击、输入或提交前后都必须取得实时 snapshot 验证控件与页面状态，绝不跳过验证。Python 入口仅固化 CLI 参数和会话配置，不能替代 DOM 的实时发现。下列 selector 仅为线索，不是永久契约：
+ChatGPT UI 会变化。DOM selector 与 agent-browser ref（如 `@e123`）都可能随页面更新失效；每次点击、输入或提交前后都必须取得实时 snapshot 验证控件与页面状态，绝不跳过验证。Python 入口仅固化 CLI 参数、Project 证据和图片尺寸轮询，不能替代 DOM 的实时发现。下列 selector 仅为线索，不是永久契约：
 
 - 在 PowerShell 中把 ref 作为字符串传入，例如 `click '@e123'`；PowerShell 不支持 `&&`，需要顺序执行的命令改为独立命令或使用 `;`。
-- Enter 不一定会提交 prompt。提交后先在实时 snapshot 确认用户消息已经渲染；未渲染时，重新发现并点击当前页面的 `Send prompt` 控件，再次 snapshot 确认。
+- Enter 不一定会提交 prompt。提交后先运行 `runtime_checks.py message --marker <unique-marker>`；未发送时重新发现并点击当前页面的 `Send prompt`，再运行该检查。若仍为 `pending`，不要盲目重复提交；若为 `interrupted`，报告认证/导航中断并停止。
 - Project home 中普通 ref `click` 无效时，不猜测或复用旧 ref。在同一 agent-browser session 内通过实时 DOM 定位 `agents-op` 的对应控件并触发 click；随后同时以 `/project` URL 和 `New chat in agents-op` 作为归属证据。
 
 - `Create image` 菜单项；选择后确认 placeholder 变为 `Describe or edit an image`。
@@ -90,7 +108,7 @@ ChatGPT UI 会变化。DOM selector 与 agent-browser ref（如 `@e123`）都可
 1. 新建 `agents-op` chat，选择 Create image 并从实时 placeholder 验证图片模式。
 2. 把 brief 结构化为中文记录与英文执行 prompt（subject、composition、camera/view、lighting、material、palette、constraints；必要时 negative constraints）。
 3. 默认避免图片内可读文字；若用户要求文字，使用精确字符串并逐字审阅。
-4. 已观察到 composer 清空表示 prompt 被消费，但这不是生成成功证据。轮询可见 `document.images` 中 `naturalWidth >= 1000` 的图片，并结合 composer 状态和截图确认。
+4. 已观察到 composer 清空表示 prompt 被消费，但这不是生成成功证据。优先运行 `runtime_checks.py images --min-width 1000`；每轮先检查 snapshot，已出现 `Generated image` 时立即保存截图并结束检查，不再空等尺寸轮询。随后结合 composer 状态和截图确认。
 5. 下载优先走页面可见按钮；如无按钮，只有当前页能访问的已渲染资源才可经页面内 fetch/canvas 导出。不要用 host `curl` 直取 ChatGPT CDN（常见 403）。
 
 ### 编辑与参考图
@@ -121,7 +139,7 @@ Project instructions 是用户可见持久化配置，默认先用中文拟稿�
 
 ## 完成检查 / Completion Checklist
 
-- [ ] 使用当前项目对应 session；仅在无可复用 tab 时新建，并在 `agents-op` 内新建 chat。
+- [ ] 使用当前项目对应 session；仅在无可复用 tab 时新建，并在 `agents-op` 内新建 chat；辅助脚本均已通过 `--tab` 锁定任务 tab。
 - [ ] 至少两条实时证据确认 `agents-op` Project 归属。
 - [ ] 每次 UI 操作前后均由实时 snapshot 验证；prompt 已确认渲染为用户消息。
 - [ ] 图片模式（如需要）已由实时 UI 确认。
