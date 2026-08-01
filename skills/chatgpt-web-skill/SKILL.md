@@ -3,7 +3,7 @@ name: chatgpt-web-skill
 description: 通过 ChatGPT Web 进行信息搜集、Deep Research，以及图片生成和编辑。
 license: MIT
 metadata:
-  version: 1.12.0
+  version: 1.12.1
   tags: [chatgpt, chatgpt-web, agent-browser, image-generation, image-editing, research]
   related_skills: [agent-browser]
 ---
@@ -14,7 +14,7 @@ metadata:
 
 本 skill 依赖 `agent-browser` skill 与其 CLI 操作 ChatGPT Web UI；不提供独立的浏览器自动化实现。`agents-op` 指 **ChatGPT Web Project**，不是本地 Git/workspace 项目；它是图片生成与编辑的指定工作区，也可用于聊天、图片审阅、网页研究和讨论。
 
-优先通过 `scripts/run_agent_browser.py` 调用 `agent-browser` CLI，统一传递 session 和 CDP 配置。ChatGPT Web 任务必须连接已登录的既有浏览器，禁止在未配置 CDP 时启动新的浏览器会话；项目 `.env` 默认提供 `AGENT_BROWSER_CDP_PORT=9696` 和 `AGENT_BROWSER_USE_DEFAULT_CDP_SESSION=1`。在该模式下省略自定义 `--session`，复用 CDP 默认 daemon；调用期显式 `--cdp` 或环境变量可覆盖端口。没有默认 CDP daemon 时应报告阻断，不创建新浏览器。会话名默认取当前项目绝对路径去除 `/` 后的字符串（非 CDP 默认 daemon 场景），截图保存到 `%temp%\agent-browser-captures\`。先枚举现有 tabs；目标 URL 已打开时复用该 tab，不要重复打开。例如：
+优先通过 `scripts/run_agent_browser.py` 调用 `agent-browser` CLI，统一传递 session 和 CDP 配置。ChatGPT Web 任务必须连接已登录的既有浏览器，禁止在未配置 CDP 时启动新的浏览器会话；项目 `.env` 默认提供 `AGENT_BROWSER_CDP_PORT=9696` 和 `AGENT_BROWSER_USE_DEFAULT_CDP_SESSION=1`。在该模式下省略自定义 `--session`，复用 CDP 默认 daemon；调用期显式 `--cdp` 或环境变量可覆盖端口。没有默认 CDP daemon 时应报告阻断，不创建新浏览器。会话名默认取当前项目绝对路径去除 `/` 后的字符串（非 CDP 默认 daemon 场景），截图保存到 `%temp%\agent-browser-captures\`。先枚举现有 tabs；目标 URL 已打开时复用该 tab，不要重复打开。tab ID 只在当前 daemon 生命周期内有效：看到 `daemon version mismatch`、daemon restart 或 tab 切换失败时，立刻重新执行 `tab list`，废弃旧 ID 与旧 lease，不按编号猜测替代 tab。例如：
 
 ```powershell
 python scripts/run_agent_browser.py tab list
@@ -25,14 +25,14 @@ python scripts/run_agent_browser.py --cdp <configured-port> snapshot -i
 
 ## 经验演进 / Evolution Memory
 
-每次触发此 Skill 后、任何浏览器操作前，读取**当前版本专属**的经验文件。经验目录为系统临时根目录下的 `chatgpt-web-skill-exp/`：Windows 为 `%TEMP%\chatgpt-web-skill-exp\`；macOS/Linux 为 `${TMPDIR:-/tmp}/chatgpt-web-skill-exp/`。当前版本文件固定为 `chatgpt-web-<metadata.version>.md`，例如 `chatgpt-web-1.12.0.md`。文件不存在时按空经验库继续；不要为此单独创建空文件。
+每次触发此 Skill 后、任何浏览器操作前，读取**当前版本专属**的经验文件。经验目录为系统临时根目录下的 `chatgpt-web-skill-exp/`：Windows 为 `%TEMP%\chatgpt-web-skill-exp\`；macOS/Linux 为 `${TMPDIR:-/tmp}/chatgpt-web-skill-exp/`。当前版本文件固定为 `chatgpt-web-<metadata.version>.md`，例如 `chatgpt-web-1.12.1.md`。文件不存在时按空经验库继续；不要为此单独创建空文件。
 
 经验文件的开头必须是：
 
 ```markdown
 # chatgpt-web-skill 经验库
 Skill: chatgpt-web-skill
-Skill-Version: 1.12.0
+Skill-Version: 1.12.1
 ```
 
 只读取文件名与当前 `metadata.version` 一致的文件；不得读取、迁移、重命名或删除旧版本文件，也不得读取旧的 `chatgpt-web-skill.md`。读取当前版本文件时先核对 `Skill` 与 `Skill-Version`；任一字段缺失或不匹配时，停止使用该文件并报告，不覆盖原内容。
@@ -73,7 +73,7 @@ python scripts/browser_task.py action <lease-path> -- click '@e123'
 python scripts/browser_task.py release <lease-path> [--purge]
 ```
 
-`acquire` 默认只复用规范化后完整 URL 精确匹配的 tab；回归测试使用 `--force-new`。lease 记录 session、可选 CDP、稳定 tab ID 和是否由本次创建。`release` 只关闭 `created=true` 的 tab，并重新执行 `tab list` 确认其消失；复用 tab 不关闭。`action` 允许透传任意 agent-browser 子命令，但会在动作前后重新选择 lease tab 并保存 snapshot。动作后的 snapshot 失败会标记 lease 为 `uncertain`，不会覆盖动作本身的退出码。lease、snapshot 和截图保存到 `%temp%\agent-browser-captures\chatgpt-web-skill\`；默认不清理证据，只有显式 `--purge` 才删除已验证的专用 lease 目录。
+`acquire` 默认只复用规范化后完整 URL 精确匹配的 tab；回归测试使用 `--force-new`。lease 记录 session、可选 CDP、稳定 tab ID 和是否由本次创建；它不跨 daemon restart 生效。`release` 只关闭 `created=true` 的 tab，并重新执行 `tab list` 确认其消失；复用 tab 不关闭。`action` 允许透传任意 agent-browser 子命令，但会在动作前后重新选择 lease tab 并保存 snapshot。动作后的 snapshot 失败会标记 lease 为 `uncertain`，不会覆盖动作本身的退出码。发生 daemon restart 或 `status` 返回 stale 时，终止旧 lease、重新获取并重新验证 Project，不能把新 tab 的数字 ID 写回旧 lease。lease、snapshot 和截图保存到 `%temp%\agent-browser-captures\chatgpt-web-skill\`；默认不清理证据，只有显式 `--purge` 才删除已验证的专用 lease 目录。
 
 `runtime_checks.py` 只机械判定 Project 证据、消息提交状态和图片可见性/尺寸；它不能授权持久化操作、选择动态控件或替代截图质量审阅。
 
@@ -104,12 +104,11 @@ ChatGPT UI 会变化。DOM selector 与 agent-browser ref（如 `@e123`）都可
 - Enter 不一定会提交 prompt。提交后先运行 `runtime_checks.py message --marker <unique-marker>`；未发送时重新发现并点击当前页面的 `Send prompt`，再运行该检查。若仍为 `pending`，不要盲目重复提交；若为 `interrupted`，报告认证/导航中断并停止。
 - Project home 中普通 ref `click` 无效时，不猜测或复用旧 ref。在同一 agent-browser session 内通过实时 DOM 定位 `agents-op` 的对应控件并触发 click；随后同时以 `/project` URL 和 `New chat in agents-op` 作为归属证据。
 
-- `Create image` 菜单项；选择后确认 placeholder 变为 `Describe or edit an image`。
-- 已观察到的图片模式 pill：`data-id="picture_v2"`。
+- `Create image` 菜单项；选择后同时确认图片模式 pill（已观察到 `data-id="picture_v2"`）与 placeholder 变为 `Describe or edit an image`。仅出现文字 `Create image` 不是模式成功证据。
 - 图片上传：`#upload-photos[accept="image/*"]`；通用文件上传：`#upload-files`。
 - Project options：`button[aria-label="Open project options for agents-op"]`，菜单应含 `Share project`、`Rename project`、`Project settings`、`Delete project`。
 
-对 composer：先聚焦 `[aria-label="Add files and more"]`，确认可见 `.ProseMirror.ProseMirror-focused`，再向 ProseMirror 写入。常用可靠写入方式为 `document.execCommand('insertText', false, prompt)`；在该 editor 上分派 Enter 的 `keydown`。不要对激活后的 inert `textarea` 直接设值或按 Enter。
+对 composer：先聚焦 `[aria-label="Add files and more"]`，确认可见 `.ProseMirror.ProseMirror-focused`，再向 ProseMirror 写入。常用可靠写入方式为 `document.execCommand('insertText', false, prompt)`；在该 editor 上分派 Enter 的 `keydown`。已有工具 pill 时，只向 ProseMirror 追加 prompt，不能 `selectAll` 或清空 editor，否则会移除工具模式。通过 CDP eval 以 base64 写入中文时，先将 `atob()` 结果转为 `Uint8Array`，再用 `TextDecoder` 按 UTF-8 解码后 `insertText`。不要对激活后的 inert `textarea` 直接设值或按 Enter。
 
 ## 图片任务 / Image Tasks
 
@@ -117,11 +116,11 @@ ChatGPT UI 会变化。DOM selector 与 agent-browser ref（如 `@e123`）都可
 
 ### 新图生成
 
-1. 新建 `agents-op` chat，选择 Create image 并从实时 placeholder 验证图片模式。
+1. 新建 `agents-op` chat，选择 Create image；确认图片模式 pill 与实时 placeholder 后，向保留 pill 的 ProseMirror 追加执行 prompt。
 2. 把 brief 结构化为中文记录与英文执行 prompt（subject、composition、camera/view、lighting、material、palette、constraints；必要时 negative constraints）。
 3. 默认避免图片内可读文字；若用户要求文字，使用精确字符串并逐字审阅。
 4. 已观察到 composer 清空表示 prompt 被消费，但这不是生成成功证据。优先运行 `runtime_checks.py images --min-width 1000`；每轮先检查 snapshot，已出现 `Generated image` 时立即保存截图并结束检查，不再空等尺寸轮询。随后结合 composer 状态和截图确认。
-5. 下载优先走页面可见按钮；如无按钮，只有当前页能访问的已渲染资源才可经页面内 fetch/canvas 导出。不要用 host `curl` 直取 ChatGPT CDN（常见 403）。
+5. 下载优先走页面可见 `Save`/下载按钮；如无按钮，只有当前页能访问的已渲染资源才可经页面内 fetch/canvas 导出。下载完成条件是目标文件已落盘且非空；通用 download 命令返回 canceled、按钮点击成功或浏览器提示都不能单独作为成功证据。用户指定桌面时，先确认下载文件后再移动/命名到桌面。不要用 host `curl` 直取 ChatGPT CDN（常见 403）。
 
 ### 编辑与参考图
 
@@ -155,8 +154,9 @@ Project instructions 是用户可见持久化配置，默认先用中文拟稿�
 - [ ] 跨命令任务已通过 `browser_task.py` 记录 lease；结束时只释放本次创建的 tab，并重新枚举确认。
 - [ ] 至少两条实时证据确认 `agents-op` Project 归属。
 - [ ] 每次 UI 操作前后均由实时 snapshot 验证；prompt 已确认渲染为用户消息。
-- [ ] 图片模式（如需要）已由实时 UI 确认。
+- [ ] 图片模式（如需要）已由图片模式 pill 与实时 placeholder 共同确认，且执行 prompt 未移除 pill。
 - [ ] 每轮均完成可见结果与质量核验；已向用户说明推荐候选和依据。
+- [ ] 用户要求下载时，目标文件已落盘且非空；桌面交付已核验最终路径。
 - [ ] 已关闭且重新枚举确认任务 tab 消失；未影响原有 tabs。
 - [ ] ChatGPT Search / Deep Research（如使用）已在发送前获得本次明确授权。
 - [ ] 未经授权未改变任何持久化 Project 状态。

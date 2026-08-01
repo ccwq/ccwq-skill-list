@@ -110,7 +110,7 @@
       "name": "chatgpt-web-skill",
       "source": "./skills/chatgpt-web-skill",
       "description": "依赖 agent-browser 在指定 agents-op ChatGPT Project 中受授权地生图、编辑或审阅图片；以可选 CDP、session 与临时 lease 隔离 tab，动作前后保存实时 snapshot，并脚本化 Project、提交、图片验证与经验库维护，Research 与持久化 Project 变更均需当次明确授权",
-      "version": "1.12.0",
+      "version": "1.12.1",
       "category": "automation"
     }
   ]
