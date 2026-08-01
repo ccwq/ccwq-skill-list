@@ -14,7 +14,7 @@ from unittest.mock import patch
 SCRIPTS = Path(__file__).resolve().parents[2] / "skills" / "chatgpt-web-skill" / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
-from experience_memory import append_entry, entry_count, expected_header, status  # noqa: E402
+from experience_memory import append_entry, entry_count, expected_header, status, trim_entries  # noqa: E402
 from run_agent_browser import build_command, cli_prefix, load_project_env  # noqa: E402
 from runtime_checks import (  # noqa: E402
     check_images,
@@ -463,6 +463,44 @@ class ExperienceMemoryTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 append_entry(path, "1.6.0", "a", "b", "c", "d")
             self.assertEqual(path.read_text(encoding="utf-8"), "invalid\n")
+
+    def test_trim_rewrites_merges_and_removes_only_confirmed_entries(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "memory.md"
+            for topic, conclusion in (("旧 ref", "复用旧 ref"), ("ref 失效", "旧 ref 会漂移"), ("废弃流程", "使用失效入口")):
+                append_entry(path, "1.6.0", topic, "页面变动", conclusion, "实时 snapshot", date(2026, 7, 1))
+            result = trim_entries(
+                path,
+                "1.6.0",
+                [
+                    {
+                        "operation": "merge",
+                        "source_indexes": [1, 2],
+                        "verified": True,
+                        "topic": "ref 实时发现",
+                        "scene": "页面更新后",
+                        "conclusion": "旧 ref 失效时重新 snapshot 并使用实时控件",
+                        "boundary": "不得复用旧 ref",
+                    },
+                    {"operation": "remove", "source_indexes": [3], "verified": True},
+                ],
+                date(2026, 8, 2),
+            )
+            content = path.read_text(encoding="utf-8")
+            self.assertEqual(result["entries"], 1)
+            self.assertEqual(result["merged"], 1)
+            self.assertEqual(result["removed"], 1)
+            self.assertIn("## 2026-07-01 — ref 实时发现", content)
+            self.assertIn("- 最近核验: 2026-08-02", content)
+
+    def test_trim_refuses_to_remove_unverified_or_omit_an_entry(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "memory.md"
+            append_entry(path, "1.6.0", "a", "场景", "结论", "边界", date(2026, 7, 1))
+            original = path.read_text(encoding="utf-8")
+            with self.assertRaises(ValueError):
+                trim_entries(path, "1.6.0", [{"operation": "remove", "source_indexes": [1]}])
+            self.assertEqual(path.read_text(encoding="utf-8"), original)
 
 
 if __name__ == "__main__":

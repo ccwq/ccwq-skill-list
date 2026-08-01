@@ -88,8 +88,8 @@
     {
       "name": "project-self-memory",
       "source": "./skills/project-self-memory",
-      "description": "维护项目级、可自进化的结论记忆：任务开始时读取；支持 -g/--grilling 逐问盘点值得沉淀的经验",
-      "version": "1.1.0",
+      "description": "维护项目级、可自进化的结论记忆：任务开始时读取；支持 -g/--grilling 逐问盘点经验，以及 -t/--trim 讨论后自动整理已有记忆",
+      "version": "1.2.0",
       "category": "devtools"
     },
     {
@@ -109,8 +109,8 @@
     {
       "name": "chatgpt-web-skill",
       "source": "./skills/chatgpt-web-skill",
-      "description": "依赖 agent-browser 在指定 agents-op ChatGPT Project 中受授权地生图、编辑或审阅图片；以可选 CDP、session 与临时 lease 隔离 tab，动作前后保存实时 snapshot，并脚本化 Project、提交、图片验证与经验库维护，Research 与持久化 Project 变更均需当次明确授权",
-      "version": "1.12.1",
+      "description": "依赖 agent-browser 在指定 agents-op ChatGPT Project 中受授权地生图、编辑或审阅图片；以可选 CDP、session 与临时 lease 隔离 tab，动作前后保存实时 snapshot，并支持讨论后整理当前版本经验库，Research 与持久化 Project 变更均需当次明确授权",
+      "version": "1.13.0",
       "category": "automation"
     }
   ]

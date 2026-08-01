@@ -1,9 +1,9 @@
 ---
 name: chatgpt-web-skill
-description: 通过 ChatGPT Web 进行信息搜集、Deep Research，以及图片生成和编辑。
+description: 通过 ChatGPT Web 进行信息搜集、Deep Research，以及图片生成、编辑和版本经验整理。
 license: MIT
 metadata:
-  version: 1.12.1
+  version: 1.13.0
   tags: [chatgpt, chatgpt-web, agent-browser, image-generation, image-editing, research]
   related_skills: [agent-browser]
 ---
@@ -25,19 +25,35 @@ python scripts/run_agent_browser.py --cdp <configured-port> snapshot -i
 
 ## 经验演进 / Evolution Memory
 
-每次触发此 Skill 后、任何浏览器操作前，读取**当前版本专属**的经验文件。经验目录为系统临时根目录下的 `chatgpt-web-skill-exp/`：Windows 为 `%TEMP%\chatgpt-web-skill-exp\`；macOS/Linux 为 `${TMPDIR:-/tmp}/chatgpt-web-skill-exp/`。当前版本文件固定为 `chatgpt-web-<metadata.version>.md`，例如 `chatgpt-web-1.12.1.md`。文件不存在时按空经验库继续；不要为此单独创建空文件。
+每次触发此 Skill 后、任何浏览器操作前，读取**当前版本专属**的经验文件。经验目录为系统临时根目录下的 `chatgpt-web-skill-exp/`：Windows 为 `%TEMP%\chatgpt-web-skill-exp\`；macOS/Linux 为 `${TMPDIR:-/tmp}/chatgpt-web-skill-exp/`。当前版本文件固定为 `chatgpt-web-<metadata.version>.md`，例如 `chatgpt-web-1.13.0.md`。文件不存在时按空经验库继续；不要为此单独创建空文件。
 
 经验文件的开头必须是：
 
 ```markdown
 # chatgpt-web-skill 经验库
 Skill: chatgpt-web-skill
-Skill-Version: 1.12.1
+Skill-Version: 1.13.0
 ```
 
 只读取文件名与当前 `metadata.version` 一致的文件；不得读取、迁移、重命名或删除旧版本文件，也不得读取旧的 `chatgpt-web-skill.md`。读取当前版本文件时先核对 `Skill` 与 `Skill-Version`；任一字段缺失或不匹配时，停止使用该文件并报告，不覆盖原内容。
 
 每次触发时先运行 `python scripts/experience_memory.py status`。仅在任务结论已验证后、最终汇报前运行 `append` 追加脱敏条目；不得手动编辑经验文件。脚本会校验版本头、原子写入、去重并在条目达到 20 条时输出 `review_required`。不记录 prompt、图片、chat 内容、账户标识、cookie、私有 URL 或凭据。头部异常时停止使用该文件并报告，不覆盖、迁移或修复旧文件。
+
+### 经验整理：`-t` 和 `--trim`
+
+使用 `-t` 或 `--trim` 时，只整理当前 `metadata.version` 对应的经验文件；可追加主题，裸参数处理全部经验。不得读取、迁移、重命名或删除旧版本文件。此模式只处理既有经验，不新增条目。
+
+1. 先运行 `experience_memory.py status`，读取当前经验库，并核验本地 `SKILL.md`、`scripts/` 与 `references/`。默认可接入已有 CDP 浏览器，复用现有 ChatGPT tab 做实时 snapshot 的只读核验。
+2. 按主题逐问展示“保留 / 改写 / 合并 / 删除 / 本轮未证实”建议及其证据。只读核验不足时，先展示主动验证计划、影响和成功判据；用户确认该主题后，才可创建专用 chat、发送最小测试 prompt，并使用既有浏览器核验脚本。
+3. 主动验证默认不生成图片、不上传内容、不改 Project 设置、不触发付费/权限；这些操作均需用户在该轮额外明确授权。无法取得更强当前证据的条目归为“本轮未证实”并保留。
+4. 所有主题达成共识且用户明确回复 `ok` 后，生成含全部原始条目处理结果的 JSON 计划，并通过脚本原子写回。删除、改写和合并必须带已验证证据；改写或合并保留最早“首次记录日”，并写入“最近核验”。
+
+```powershell
+# 仅在用户确认最终计划后执行；计划中每个 source_indexes 必须恰好出现一次。
+python scripts/experience_memory.py trim --plan <confirmed-plan.json> --confirm
+```
+
+完成条件：当前版本的每条原始经验都被恰好归为保留、改写、合并、删除或本轮未证实；写入结果结构有效，且旧版本经验文件未被访问或修改。
 
 ## 经验收敛 / Experience Promotion
 
@@ -59,9 +75,10 @@ python scripts/runtime_checks.py --cdp <configured-port> --tab <tab-id> images -
 # 确认 marker 已离开 composer 并渲染；认证中断会以退出码 2 停止。
 python scripts/runtime_checks.py --cdp <configured-port> --tab <tab-id> message --marker <unique-marker>
 
-# 校验或原子追加版本隔离的脱敏经验。
+# 校验、原子追加或按已确认计划整理版本隔离的脱敏经验。
 python scripts/experience_memory.py status
 python scripts/experience_memory.py append --topic <topic> --scene <scene> --conclusion <conclusion> --boundary <boundary>
+python scripts/experience_memory.py trim --plan <confirmed-plan.json> --confirm
 ```
 
 任务 tab 的稳定生命周期使用 `browser_task.py`：
