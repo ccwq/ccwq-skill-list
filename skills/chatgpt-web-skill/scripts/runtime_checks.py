@@ -12,7 +12,7 @@ import time
 from pathlib import Path
 from typing import Sequence
 
-from run_agent_browser import build_command, default_session_name, parse_port
+from run_agent_browser import build_command, load_project_env, parse_port, session_for_cdp
 
 
 def run_cli(session: str, cdp: str | None, args: Sequence[str], tab: str | None = None) -> str:
@@ -230,8 +230,9 @@ def check_message(
 
 
 def main() -> int:
+    load_project_env()
     parser = argparse.ArgumentParser(description="执行 ChatGPT Web 的确定性运行时检查。")
-    parser.add_argument("--session", default=os.environ.get("AGENT_BROWSER_SESSION") or default_session_name())
+    parser.add_argument("--session", default=session_for_cdp())
     parser.add_argument("--cdp", type=parse_port, default=os.environ.get("AGENT_BROWSER_CDP_PORT"))
     parser.add_argument("--tab", help="每个读取前强制选中的稳定 agent-browser tab ID。")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -253,6 +254,9 @@ def main() -> int:
     message_parser.add_argument("--timeout", type=float, default=20)
     message_parser.add_argument("--interval", type=float, default=2)
     args = parser.parse_args()
+    if not args.cdp:
+        print(json.dumps({"ok": False, "error": "未配置已登录浏览器 CDP，拒绝启动新的浏览器会话。"}, ensure_ascii=False))
+        return 2
 
     try:
         if args.command == "project":

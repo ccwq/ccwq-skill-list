@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import os
 import sys
 import tempfile
 import unittest
 from datetime import date
 from pathlib import Path
 from subprocess import CompletedProcess
+from typing import Any
 from unittest.mock import patch
 
 
@@ -13,7 +15,7 @@ SCRIPTS = Path(__file__).resolve().parents[2] / "skills" / "chatgpt-web-skill" /
 sys.path.insert(0, str(SCRIPTS))
 
 from experience_memory import append_entry, entry_count, expected_header, status  # noqa: E402
-from run_agent_browser import build_command, cli_prefix  # noqa: E402
+from run_agent_browser import build_command, cli_prefix, load_project_env  # noqa: E402
 from runtime_checks import (  # noqa: E402
     check_images,
     composer_expression,
@@ -23,6 +25,14 @@ from runtime_checks import (  # noqa: E402
     has_visual_image_evidence,
     image_expression,
     run_cli,
+)
+from browser_task import (  # noqa: E402
+    acquire_task,
+    action_task,
+    normalize_url,
+    parse_tab_list,
+    release_task,
+    status_task,
 )
 
 
@@ -44,6 +54,17 @@ class RunAgentBrowserTests(unittest.TestCase):
             self.assertEqual(cli_prefix(), ["agent-browser.cmd"])
         with patch("run_agent_browser.shutil.which", return_value=None):
             self.assertEqual(cli_prefix(), ["npx", "-y", "agent-browser"])
+
+    def test_project_env_supplies_cdp_without_overriding_calling_environment(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            env_path = Path(temporary) / ".env"
+            env_path.write_text("AGENT_BROWSER_CDP_PORT=9696\n", encoding="utf-8")
+            with patch.dict(os.environ, {}, clear=True):
+                load_project_env(env_path)
+                self.assertEqual(os.environ["AGENT_BROWSER_CDP_PORT"], "9696")
+            with patch.dict(os.environ, {"AGENT_BROWSER_CDP_PORT": "9222"}, clear=True):
+                load_project_env(env_path)
+                self.assertEqual(os.environ["AGENT_BROWSER_CDP_PORT"], "9222")
 
 
 class RuntimeChecksTests(unittest.TestCase):
@@ -123,6 +144,297 @@ class RuntimeChecksTests(unittest.TestCase):
                 )
         commands = [call.args[2] for call in runner.call_args_list]
         self.assertEqual(commands, [["snapshot", "-i"], ["screenshot", screenshot]])
+
+
+class ScenarioRegressionTests(unittest.TestCase):
+    """对应 LIVE_CASES.md 的四个主功能回归场景。"""
+
+    def test_case_1_project_routing_needs_two_live_evidences(self) -> None:
+        url_only = evaluate_project(
+            "https://chatgpt.com/g/example/project",
+            "ChatGPT",
+            "textbox Ask anything",
+            "agents-op",
+        )
+        confirmed = evaluate_project(
+            "https://chatgpt.com/g/example/project",
+            "ChatGPT - agents-op",
+            "textbox New chat in agents-op",
+            "agents-op",
+        )
+        self.assertEqual(url_only["evidence_count"], 1)
+        self.assertLess(url_only["evidence_count"], 2)
+        self.assertGreaterEqual(confirmed["evidence_count"], 2)
+
+    def test_case_2_submit_requires_rendered_marker_not_enter_alone(self) -> None:
+        marker = "case-2-unique-marker"
+        after_enter = evaluate_message("https://chatgpt.com/g/example/project", "", marker, marker)
+        after_realtime_send = evaluate_message(
+            "https://chatgpt.com/g/example/project",
+            f"user message {marker}",
+            "",
+            marker,
+        )
+        self.assertEqual(after_enter["status"], "pending")
+        self.assertEqual(after_realtime_send["status"], "sent")
+
+    def test_case_3_visible_image_screenshots_without_extra_polling(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            screenshot = str(Path(temporary) / "case-3-image.png")
+            with patch(
+                "runtime_checks.run_cli",
+                side_effect=['image "Generated image: case 3"', "screenshot saved"],
+            ) as runner:
+                result = check_images(
+                    "case-3-session",
+                    None,
+                    "t-case-3",
+                    'img[alt^="Generated image"]',
+                    1000,
+                    180,
+                    5,
+                    screenshot,
+                    "Generated image",
+                )
+        self.assertEqual(result, 0)
+        self.assertEqual(
+            [call.args[2] for call in runner.call_args_list],
+            [["snapshot", "-i"], ["screenshot", screenshot]],
+        )
+
+    def test_case_4_session_tab_and_cdp_are_runtime_parameters(self) -> None:
+        command_prefix = ["agent-browser"]
+        first_tab = build_command("case-4-a", "9222", ["tab", "t-a"], command_prefix)
+        second_tab = build_command("case-4-b", None, ["tab", "t-b"], command_prefix)
+        self.assertEqual(first_tab, ["agent-browser", "--session", "case-4-a", "--cdp", "9222", "tab", "t-a"])
+        self.assertEqual(second_tab, ["agent-browser", "--session", "case-4-b", "tab", "t-b"])
+        self.assertNotIn("case-4-a", second_tab)
+        self.assertNotIn("--cdp", second_tab)
+
+
+class BrowserTaskTests(unittest.TestCase):
+    def test_normalize_url_only_removes_trailing_slash(self) -> None:
+        self.assertEqual(normalize_url("https://chatgpt.com/project/"), "https://chatgpt.com/project")
+        self.assertEqual(
+            normalize_url("https://chatgpt.com/project/?a=1#chat"),
+            "https://chatgpt.com/project/?a=1#chat",
+        )
+
+    def test_parse_tab_list_accepts_json_and_ignores_diagnostics(self) -> None:
+        output = 'diagnostic [{"id":"t1","url":"https://chatgpt.com"},{"id":"t2","url":"https://example.com"}]'
+        self.assertEqual(parse_tab_list(output)[0]["id"], "t1")
+
+    def test_acquire_reuses_exact_url_without_creating_tab(self) -> None:
+        calls: list[list[str]] = []
+
+        def runner(args: list[str]) -> str:
+            calls.append(args)
+            if args[-2:] == ["tab", "list"]:
+                return '[{"id":"t7","url":"https://chatgpt.com/project"}]'
+            raise AssertionError(args)
+
+        with tempfile.TemporaryDirectory() as temporary:
+            result = acquire_task(
+                "session-a",
+                "9222",
+                "https://chatgpt.com/project/",
+                False,
+                Path(temporary),
+                runner,
+            )
+            self.assertEqual(result["tab_id"], "t7")
+            self.assertFalse(result["created"])
+            self.assertTrue(Path(result["lease"]).exists())
+        self.assertEqual(len(calls), 1)
+
+    def test_acquire_force_new_records_created_tab(self) -> None:
+        calls: list[list[str]] = []
+
+        def runner(args: list[str]) -> str:
+            calls.append(args)
+            if args[-2:] == ["tab", "list"]:
+                return '[{"id":"t1","url":"https://chatgpt.com"}]'
+            if args[-3:] == ["tab", "new", "https://chatgpt.com/project"]:
+                return '{"id":"t8","url":"https://chatgpt.com/project"}'
+            raise AssertionError(args)
+
+        with tempfile.TemporaryDirectory() as temporary:
+            result = acquire_task(
+                "session-a",
+                None,
+                "https://chatgpt.com/project",
+                True,
+                Path(temporary),
+                runner,
+            )
+            self.assertEqual(result["tab_id"], "t8")
+            self.assertTrue(result["created"])
+        self.assertEqual(calls[-1][-3:], ["tab", "new", "https://chatgpt.com/project"])
+
+    def test_acquire_recovers_tab_id_when_tab_new_only_returns_url(self) -> None:
+        calls: list[list[str]] = []
+
+        def runner(args: list[str]) -> str:
+            calls.append(args)
+            if args == ["--json", "tab", "list"]:
+                if calls.count(args) == 1:
+                    return '[{"id":"t1","url":"https://chatgpt.com"}]'
+                return '[{"id":"t1","url":"https://chatgpt.com"},{"id":"t8","url":"https://chatgpt.com/project"}]'
+            if args == ["tab", "new", "https://chatgpt.com/project"]:
+                return "https://chatgpt.com/project"
+            raise AssertionError(args)
+
+        with tempfile.TemporaryDirectory() as temporary:
+            result = acquire_task(
+                "session-a",
+                None,
+                "https://chatgpt.com/project",
+                True,
+                Path(temporary),
+                runner,
+            )
+            self.assertEqual(result["tab_id"], "t8")
+            self.assertTrue(result["created"])
+
+    def test_action_saves_before_and_after_snapshots(self) -> None:
+        calls: list[list[str]] = []
+
+        def runner(args: list[str]) -> str:
+            calls.append(args)
+            if args[-2:] == ["tab", "t8"]:
+                return ""
+            if args[-2:] == ["snapshot", "-i"]:
+                return "snapshot output"
+            return "action output"
+
+        with tempfile.TemporaryDirectory() as temporary:
+            acquired = acquire_task(
+                "session-a",
+                None,
+                "https://chatgpt.com/project",
+                True,
+                Path(temporary),
+                lambda args: '{"id":"t8","url":"https://chatgpt.com/project"}' if args[-3:] == ["tab", "new", "https://chatgpt.com/project"] else "[]",
+            )
+            result = action_task(acquired["lease"], ["click", "@e123"], runner)
+            self.assertEqual(result["returncode"], 0)
+            self.assertTrue(Path(result["before_snapshot"]).exists())
+            self.assertTrue(Path(result["after_snapshot"]).exists())
+            self.assertEqual(calls.count(["tab", "t8"]), 3)
+
+    def test_release_only_closes_created_tab_and_verifies_disappearance(self) -> None:
+        calls: list[list[str]] = []
+
+        def runner(args: list[str]) -> str:
+            calls.append(args)
+            if args[-3:] == ["tab", "close", "t8"]:
+                return ""
+            if args[-2:] == ["tab", "list"]:
+                return '[{"id":"t8","url":"https://chatgpt.com/project"}]' if calls.count(["--json", "tab", "list"]) == 1 else "[]"
+            raise AssertionError(args)
+
+        with tempfile.TemporaryDirectory() as temporary:
+            lease = Path(temporary) / "lease.json"
+            lease.write_text(
+                '{"session":"session-a","cdp":null,"url":"https://chatgpt.com/project","tab_id":"t8","created":true}',
+                encoding="utf-8",
+            )
+            result = release_task(str(lease), False, runner)
+            self.assertTrue(result["ok"])
+            self.assertIn(["tab", "close", "t8"], calls)
+
+    def test_action_keeps_arbitrary_subcommand_but_strips_context_overrides(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            lease = Path(temporary) / "lease.json"
+            lease.write_text(
+                '{"session":"session-a","cdp":null,"url":"https://chatgpt.com/project","tab_id":"t8","created":true}',
+                encoding="utf-8",
+            )
+            calls: list[list[str]] = []
+
+            def runner(args: list[str]) -> str:
+                calls.append(args)
+                if args == ["snapshot", "-i"]:
+                    return "snapshot"
+                return ""
+
+            action_task(str(lease), ["--cdp", "9696", "click", "@e123"], runner)
+            self.assertIn(["click", "@e123"], calls)
+
+    def test_release_keeps_reused_tab_open(self) -> None:
+        def runner(args: list[str]) -> str:
+            raise AssertionError(args)
+
+        with tempfile.TemporaryDirectory() as temporary:
+            lease = Path(temporary) / "lease.json"
+            lease.write_text(
+                '{"session":"session-a","cdp":null,"url":"https://chatgpt.com/project","tab_id":"t7","created":false}',
+                encoding="utf-8",
+            )
+            result = release_task(str(lease), False, runner)
+            self.assertTrue(result["ok"])
+            self.assertFalse(result["closed"])
+
+    def test_status_reports_missing_tab_without_mutation(self) -> None:
+        calls: list[list[str]] = []
+
+        def runner(args: list[str]) -> str:
+            calls.append(args)
+            return "[]"
+
+        with tempfile.TemporaryDirectory() as temporary:
+            lease = Path(temporary) / "lease.json"
+            lease.write_text(
+                '{"session":"session-a","cdp":null,"url":"https://chatgpt.com/project","tab_id":"t9","created":true}',
+                encoding="utf-8",
+            )
+            result = status_task(str(lease), runner)
+            self.assertFalse(result["ok"])
+            self.assertFalse(result["present"])
+        self.assertEqual(calls, [["--json", "tab", "list"]])
+
+    def test_read_only_status_retries_once(self) -> None:
+        attempts = 0
+
+        def runner(args: list[str]) -> str:
+            nonlocal attempts
+            attempts += 1
+            if attempts == 1:
+                raise RuntimeError("transient")
+            return '[]'
+
+        with tempfile.TemporaryDirectory() as temporary:
+            lease = Path(temporary) / "lease.json"
+            lease.write_text(
+                '{"session":"session-a","cdp":null,"url":"https://chatgpt.com/project","tab_id":"t9","created":true}',
+                encoding="utf-8",
+            )
+            result = status_task(str(lease), runner)
+            self.assertFalse(result["ok"])
+        self.assertEqual(attempts, 2)
+
+    def test_action_reports_action_failure_and_still_verifies_after_snapshot(self) -> None:
+        calls: list[list[str]] = []
+
+        def runner(args: list[str]) -> Any:
+            calls.append(args)
+            if args == ["tab", "t8"]:
+                return ""
+            if args == ["snapshot", "-i"]:
+                return "after snapshot"
+            return CompletedProcess(args, 7, "", "action failed")
+
+        with tempfile.TemporaryDirectory() as temporary:
+            lease = Path(temporary) / "lease.json"
+            lease.write_text(
+                '{"session":"session-a","cdp":null,"url":"https://chatgpt.com/project","tab_id":"t8","created":true}',
+                encoding="utf-8",
+            )
+            result = action_task(str(lease), ["click", "@e123"], runner)
+            self.assertFalse(result["ok"])
+            self.assertEqual(result["returncode"], 7)
+            self.assertIsNotNone(result["after_snapshot"])
+        self.assertIn(["click", "@e123"], calls)
 
 
 class ExperienceMemoryTests(unittest.TestCase):

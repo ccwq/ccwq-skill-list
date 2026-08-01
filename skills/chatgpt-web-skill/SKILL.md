@@ -14,7 +14,7 @@ metadata:
 
 本 skill 依赖 `agent-browser` skill 与其 CLI 操作 ChatGPT Web UI；不提供独立的浏览器自动化实现。`agents-op` 指 **ChatGPT Web Project**，不是本地 Git/workspace 项目；它是图片生成与编辑的指定工作区，也可用于聊天、图片审阅、网页研究和讨论。
 
-优先通过 `scripts/run_agent_browser.py` 调用 `agent-browser` CLI，统一传递 session 和可选 CDP 配置。会话名默认取当前项目绝对路径去除 `/` 后的字符串，截图保存到 `%temp%\agent-browser-captures\`。仅在系统、任务或环境变量已设定 CDP 端口时传入该值；没有设定时不传 `--cdp`。先枚举现有 tabs；目标 URL 已打开时复用该 tab，不要重复打开。例如：
+优先通过 `scripts/run_agent_browser.py` 调用 `agent-browser` CLI，统一传递 session 和 CDP 配置。ChatGPT Web 任务必须连接已登录的既有浏览器，禁止在未配置 CDP 时启动新的浏览器会话；项目 `.env` 默认提供 `AGENT_BROWSER_CDP_PORT=9696` 和 `AGENT_BROWSER_USE_DEFAULT_CDP_SESSION=1`。在该模式下省略自定义 `--session`，复用 CDP 默认 daemon；调用期显式 `--cdp` 或环境变量可覆盖端口。没有默认 CDP daemon 时应报告阻断，不创建新浏览器。会话名默认取当前项目绝对路径去除 `/` 后的字符串（非 CDP 默认 daemon 场景），截图保存到 `%temp%\agent-browser-captures\`。先枚举现有 tabs；目标 URL 已打开时复用该 tab，不要重复打开。例如：
 
 ```powershell
 python scripts/run_agent_browser.py tab list
@@ -64,6 +64,17 @@ python scripts/experience_memory.py status
 python scripts/experience_memory.py append --topic <topic> --scene <scene> --conclusion <conclusion> --boundary <boundary>
 ```
 
+任务 tab 的稳定生命周期使用 `browser_task.py`：
+
+```powershell
+python scripts/browser_task.py acquire <url> [--force-new]
+python scripts/browser_task.py status <lease-path>
+python scripts/browser_task.py action <lease-path> -- click '@e123'
+python scripts/browser_task.py release <lease-path> [--purge]
+```
+
+`acquire` 默认只复用规范化后完整 URL 精确匹配的 tab；回归测试使用 `--force-new`。lease 记录 session、可选 CDP、稳定 tab ID 和是否由本次创建。`release` 只关闭 `created=true` 的 tab，并重新执行 `tab list` 确认其消失；复用 tab 不关闭。`action` 允许透传任意 agent-browser 子命令，但会在动作前后重新选择 lease tab 并保存 snapshot。动作后的 snapshot 失败会标记 lease 为 `uncertain`，不会覆盖动作本身的退出码。lease、snapshot 和截图保存到 `%temp%\agent-browser-captures\chatgpt-web-skill\`；默认不清理证据，只有显式 `--purge` 才删除已验证的专用 lease 目录。
+
 `runtime_checks.py` 只机械判定 Project 证据、消息提交状态和图片可见性/尺寸；它不能授权持久化操作、选择动态控件或替代截图质量审阅。
 
 ## 路由契约 / Routing Contract
@@ -71,6 +82,7 @@ python scripts/experience_memory.py append --topic <topic> --scene <scene> --con
 每次任务按以下顺序执行；每项完成后才进入下一项：
 
 1. 使用当前项目对应的 agent-browser session；按已有 CDP 配置决定是否接入既有浏览器。先枚举 tabs，只有不存在可复用的 ChatGPT tab 时才新建 tab。为任务创建 tab 后读取其稳定 tab ID，并把该 ID 传给每个 `run_agent_browser.py --tab` 与 `runtime_checks.py --tab` 调用。
+   对需要跨多条命令的任务，优先通过 `browser_task.py acquire` 获取 lease；真实回归使用 `--force-new`，普通任务按精确 URL 复用。
 2. 运行 `runtime_checks.py project --name agents-op` 并结合实时 snapshot，确认页面是 ChatGPT Web 且 Project 名为 `agents-op`。禁止相信旧 tab ID、旧 URL 或记忆中的页面文本。
 3. `agents-op` 不存在时，先报告并请求创建 Project 的持久化状态授权；存在时直接使用，名称重复也以实时证据选择正确 Project。
 4. 为当前任务在 `agents-op` 内新建 chat；以当前 session 和 tab 作为本次任务的最小隔离边界。
@@ -140,6 +152,7 @@ Project instructions 是用户可见持久化配置，默认先用中文拟稿�
 ## 完成检查 / Completion Checklist
 
 - [ ] 使用当前项目对应 session；仅在无可复用 tab 时新建，并在 `agents-op` 内新建 chat；辅助脚本均已通过 `--tab` 锁定任务 tab。
+- [ ] 跨命令任务已通过 `browser_task.py` 记录 lease；结束时只释放本次创建的 tab，并重新枚举确认。
 - [ ] 至少两条实时证据确认 `agents-op` Project 归属。
 - [ ] 每次 UI 操作前后均由实时 snapshot 验证；prompt 已确认渲染为用户消息。
 - [ ] 图片模式（如需要）已由实时 UI 确认。

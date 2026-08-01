@@ -328,12 +328,13 @@ $chatgpt-web-skill 审阅当前 chat 附带的商品主图，并给出可执行�
 | 参数 | 说明 | 默认值 |
 |------|------|--------|
 | `[图片任务]` | 生图、编辑或审阅图片的需求；Research 必须另获当次授权 | 无 |
-| `--cdp <port>` / `AGENT_BROWSER_CDP_PORT` | 仅在已设定的既有浏览器 CDP 端口下接入；未设定时不传 | 不传 |
+| `--cdp <port>` / `AGENT_BROWSER_CDP_PORT` | 必须接入已登录的既有浏览器；项目 `.env` 默认使用 `9696`，调用期参数或环境变量可覆盖 | `9696` |
 | `--tab <tab-id>` | 每次脚本命令前切换到实时 tab list 返回的稳定任务 tab ID，避免读取其他 CDP tab | 不传 |
+| `browser_task.py acquire/status/action/release` | 必须通过已登录 CDP 浏览器运行；以临时 lease 管理 URL 精确复用或 `--force-new` 专用 tab，动作前后保存 snapshot，release 只关闭本次创建的 tab | 项目 `.env` 的 `9696` |
 | `runtime_checks.py project/images/message` | 机械验证 Project 双证据、生成图尺寸或 prompt 渲染；仍需实时 snapshot/截图复核 | 按当前 session |
 | `experience_memory.py status/append` | 校验、原子追加并计数版本隔离的脱敏经验 | 当前 `metadata.version` |
 
-可通过 `python skills/chatgpt-web-skill/scripts/run_agent_browser.py --tab <tab-id> <command>` 调用 `agent-browser`；`runtime_checks.py` 将 Project 双证据、提交状态和图片可见/尺寸检查下沉为结构化结果，图片已出现在 snapshot 时会立刻截图返回，避免无效等待。`experience_memory.py` 负责经验库格式与原子写入。DOM selector/ref、视觉质量和授权判断仍须实时验证。PowerShell 中 ref 必须加引号，且 Enter 后须确认用户消息已渲染。Project instructions、Memory、Library access、重命名/分享/删除 Project 或 chat 均为持久化变更，必须单独明确授权。详情见 [SKILL.md](skills/chatgpt-web-skill/SKILL.md)。
+可通过 `python skills/chatgpt-web-skill/scripts/run_agent_browser.py --tab <tab-id> <command>` 调用 `agent-browser`；跨命令任务可通过 `browser_task.py` 获取 lease 并在动作前后保存 snapshot，`runtime_checks.py` 将 Project 双证据、提交状态和图片可见/尺寸检查下沉为结构化结果，图片已出现在 snapshot 时会立刻截图返回，避免无效等待。`experience_memory.py` 负责经验库格式与原子写入。DOM selector/ref、视觉质量和授权判断仍须实时验证。PowerShell 中 ref 必须加引号，且 Enter 后须确认用户消息已渲染。Project instructions、Memory、Library access、重命名/分享/删除 Project 或 chat 均为持久化变更，必须单独明确授权。详情见 [SKILL.md](skills/chatgpt-web-skill/SKILL.md)。
 
 ---
 
