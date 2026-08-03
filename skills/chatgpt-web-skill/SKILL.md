@@ -1,10 +1,10 @@
 ---
 name: chatgpt-web-skill
-description: 通过 ChatGPT Web 进行信息搜集、Deep Research，以及图片生成、编辑和版本经验整理。
+description: 通过 ChatGPT Web 进行信息搜集、Deep Research、图片生成编辑、结构化视觉审查和版本经验整理。
 license: MIT
 metadata:
-  version: 1.13.0
-  tags: [chatgpt, chatgpt-web, agent-browser, image-generation, image-editing, research]
+  version: 1.14.0
+  tags: [chatgpt, chatgpt-web, agent-browser, image-generation, image-editing, visual-review, research]
   related_skills: [agent-browser]
 ---
 
@@ -25,14 +25,14 @@ python scripts/run_agent_browser.py --cdp <configured-port> snapshot -i
 
 ## 经验演进 / Evolution Memory
 
-每次触发此 Skill 后、任何浏览器操作前，读取**当前版本专属**的经验文件。经验目录为系统临时根目录下的 `chatgpt-web-skill-exp/`：Windows 为 `%TEMP%\chatgpt-web-skill-exp\`；macOS/Linux 为 `${TMPDIR:-/tmp}/chatgpt-web-skill-exp/`。当前版本文件固定为 `chatgpt-web-<metadata.version>.md`，例如 `chatgpt-web-1.13.0.md`。文件不存在时按空经验库继续；不要为此单独创建空文件。
+每次触发此 Skill 后、任何浏览器操作前，读取**当前版本专属**的经验文件。经验目录为系统临时根目录下的 `chatgpt-web-skill-exp/`：Windows 为 `%TEMP%\chatgpt-web-skill-exp\`；macOS/Linux 为 `${TMPDIR:-/tmp}/chatgpt-web-skill-exp/`。当前版本文件固定为 `chatgpt-web-<metadata.version>.md`，例如 `chatgpt-web-1.14.0.md`。文件不存在时按空经验库继续；不要为此单独创建空文件。
 
 经验文件的开头必须是：
 
 ```markdown
 # chatgpt-web-skill 经验库
 Skill: chatgpt-web-skill
-Skill-Version: 1.13.0
+Skill-Version: 1.14.0
 ```
 
 只读取文件名与当前 `metadata.version` 一致的文件；不得读取、迁移、重命名或删除旧版本文件，也不得读取旧的 `chatgpt-web-skill.md`。读取当前版本文件时先核对 `Skill` 与 `Skill-Version`；任一字段缺失或不匹配时，停止使用该文件并报告，不覆盖原内容。
@@ -109,7 +109,7 @@ python scripts/browser_task.py release <lease-path> [--purge]
 
 ## 变更授权 / Authorization Boundaries
 
-以下会改变持久化 ChatGPT 状态，未获本次明确授权时停止并书面报告：编辑/清空 Project instructions（`textarea#instructions`）、切换 Library access/Memory 等设置、重命名/分享/置顶/删除 Project 或 chat、批准付费/权限/订阅弹窗、上传到当前项目 chat 以外的位置。只读页面探测与视觉核验默认允许。
+以下会改变持久化 ChatGPT 状态，未获本次明确授权时停止并书面报告：编辑/清空 Project instructions（`textarea#instructions`）、切换 Library access/Memory 等设置、重命名/分享/置顶/删除 Project 或 chat、批准付费/权限/订阅弹窗、上传到当前项目 chat 以外的位置。`visual-review` 调用仅授权在当前任务 chat 上传本次指定的一张图片和发送固定审查提示词；不授权删除或修改任何 chat。只读页面探测与视觉核验默认允许。
 
 不把未文档化的 `/backend-api/*` 当成稳定自动化 API；只用浏览器 UI/CDP DOM 与当前页面已渲染资源。不得输入凭证、处理付款订阅或批准权限；遇到平台 policy/block 如实报告，不尝试绕过。
 
@@ -129,7 +129,7 @@ ChatGPT UI 会变化。DOM selector 与 agent-browser ref（如 `@e123`）都可
 
 ## 图片任务 / Image Tasks
 
-不强制创建本地任务目录、manifest、prompt 文件、候选图副本或评审记录。用户沟通和 Project Instructions 默认中文；图片执行 prompt 默认可使用英文，除非用户指定其他语言。发送前在当前对话中确认意图、要求、排除项与验收标准。
+不强制创建本地任务目录、prompt 文件、候选图副本或评审记录。用户沟通、Project Instructions 与 `visual-review` 的固定 prompt 默认中文；用户明确指定其他语言时才切换。发送前在当前对话中确认意图、要求、排除项与验收标准。
 
 ### 新图生成
 
@@ -153,6 +153,20 @@ ChatGPT UI 会变化。DOM selector 与 agent-browser ref（如 `@e123`）都可
 
 对于 `wx-publish-workflow` 的微信文章图片，封面与每张内文图是独立图片任务，各自享有 3 轮上限。封面验收以 2.35:1 消息列表显示为准；另查 1:1 分享/头像裁切，若后者丢失主题元素，记录为已知限制，而非在 2.35:1 已通过且用户未要求全端适配时继续生成。
 
+## 结构化视觉审查 / `visual-review`
+
+`visual-review` 是单图图像识别评价门槛。调用方提供一张通过 ChatGPT Web 附件控件上传的图片、带 `S` 编号的审查标准文本及期望的完美结果文本；本 skill 不验证上游重试、页面静态门禁或发布策略。完整固定提示词、中文 YAML 契约和状态规则见 [references/visual-review.md](references/visual-review.md)。
+
+上传前确认当前页面已接收该图片；图片不存在、不可上传、标准为空或期望结果为空时，不发送审查请求并失败关闭。每次操作前后都先取得实时 snapshot。模型只能返回一个中文 `yaml` 代码块，且只能包含 `审查结论`、`结论依据`、`标准检查`、`缺陷`和`改进建议`；代码块外文本、未知字段、重复键、tag、anchor、alias、多文档或类型错误均拒绝。
+
+模型按每个 `S` 标准输出 `达标`、`不达标`或`无法可靠判断`，缺陷等级只允许 `critical`、`major`、`minor`。模型不能决定最终状态；本地严格计算：
+
+- 任一 `critical` 或 `major` 缺陷：`VISUAL_BLOCKED`；
+- 所有标准检查有效且没有 `critical` 或 `major` 缺陷：`VISUAL_PASSED`；
+- 上传、发送、响应、解析或证据任一环节失败，或存在 `无法可靠判断`：`VISUAL_PENDING`。
+
+只有 `VISUAL_PASSED` 可继续后续流程；`minor` 缺陷必须保留但不阻断。`visual-review` 不删除或修改 chat，结束时仅按现有 lease 规则关闭本次创建的 tab。
+
 ## 提示的故障恢复 / Recovery Hints
 
 - Composer reset 但 assistant selector 没结果时，不据此宣布失败；截图可见结果优先于 selector 沉默。
@@ -173,6 +187,9 @@ Project instructions 是用户可见持久化配置，默认先用中文拟稿�
 - [ ] 每次 UI 操作前后均由实时 snapshot 验证；prompt 已确认渲染为用户消息。
 - [ ] 图片模式（如需要）已由图片模式 pill 与实时 placeholder 共同确认，且执行 prompt 未移除 pill。
 - [ ] 每轮均完成可见结果与质量核验；已向用户说明推荐候选和依据。
+- [ ] 使用 `visual-review` 时，仅上传本次指定的一张图片；模型只返回一个中文 YAML 代码块，且每个 `S` 标准均有有效检查结果。
+- [ ] 本地已按 `critical`、`major`、`minor` 和失败关闭规则计算视觉状态；仅 `VISUAL_PASSED` 可继续后续流程。
+- [ ] `visual-review` 未删除或修改任何 chat、Project 或其他持久设置。
 - [ ] 用户要求下载时，目标文件已落盘且非空；桌面交付已核验最终路径。
 - [ ] 已关闭且重新枚举确认任务 tab 消失；未影响原有 tabs。
 - [ ] ChatGPT Search / Deep Research（如使用）已在发送前获得本次明确授权。

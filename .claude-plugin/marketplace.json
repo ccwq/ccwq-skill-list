@@ -109,8 +109,8 @@
     {
       "name": "chatgpt-web-skill",
       "source": "./skills/chatgpt-web-skill",
-      "description": "依赖 agent-browser 在指定 agents-op ChatGPT Project 中受授权地生图、编辑或审阅图片；以可选 CDP、session 与临时 lease 隔离 tab，动作前后保存实时 snapshot，并支持讨论后整理当前版本经验库，Research 与持久化 Project 变更均需当次明确授权",
-      "version": "1.13.0",
+      "description": "依赖 agent-browser 在指定 agents-op ChatGPT Project 中受授权地生图、编辑或单图结构化视觉审查；以中文 YAML 和本地状态计算形成图像识别门槛，不修改任何 ChatGPT 持久设置",
+      "version": "1.14.0",
       "category": "automation"
     }
   ]

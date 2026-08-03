@@ -51,7 +51,7 @@ npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code --
 | `project-self-memory` | 维护项目级、可自进化的已验证结论记忆 | [SKILL.md](skills/project-self-memory/SKILL.md) |
 | `pro-grilling` | 手动逐层厘清复杂决策，在共同理解前保持只读 | [SKILL.md](skills/pro-grilling/SKILL.md) |
 | `aria-filedown` | 手动授权的 aria2 稳定下载工具，支持代理优先级与项目 `.env` | [SKILL.md](skills/aria-filedown/SKILL.md) |
-| `chatgpt-web-skill` | 依赖 agent-browser 在指定 ChatGPT Project 中受授权地生图、编辑或审阅图片，并脚本化验证经验 | [SKILL.md](skills/chatgpt-web-skill/SKILL.md) |
+| `chatgpt-web-skill` | 依赖 agent-browser 在指定 ChatGPT Project 中受授权地生图、编辑或执行单图结构化视觉审查 | [SKILL.md](skills/chatgpt-web-skill/SKILL.md) |
 
 > 触发形式：`/skill-name` 偏 slash command 风格，`$skill-name` 偏按 skill 名触发；实际以你的 Claude Code / skills 运行环境为准。
 
@@ -325,6 +325,7 @@ Codex 使用 `$pro-grilling` 显式调用。调查档位为“直接继续 / 快
 ```text
 $chatgpt-web-skill 在 agents-op 中生成一张简洁的蓝色立方体图
 $chatgpt-web-skill 审阅当前 chat 附带的商品主图，并给出可执行改图建议
+$chatgpt-web-skill visual-review 上传一张商品主图，按 S1 文字完整、S2 无裁切审查
 $chatgpt-web-skill -t 整理当前版本经验库
 ```
 
@@ -336,9 +337,10 @@ $chatgpt-web-skill -t 整理当前版本经验库
 | `--tab <tab-id>` | 每次脚本命令前切换到实时 tab list 返回的稳定任务 tab ID，避免读取其他 CDP tab | 不传 |
 | `browser_task.py acquire/status/action/release` | 必须通过已登录 CDP 浏览器运行；以临时 lease 管理 URL 精确复用或 `--force-new` 专用 tab，动作前后保存 snapshot，release 只关闭本次创建的 tab | 项目 `.env` 的 `9696` |
 | `runtime_checks.py project/images/message` | 机械验证 Project 双证据、生成图尺寸或 prompt 渲染；仍需实时 snapshot/截图复核 | 按当前 session |
+| `visual-review` | 上传一张图片，按 `S` 编号标准获得严格中文 YAML 审查并本地计算视觉状态 | `VISUAL_PENDING` fail-closed |
 | `experience_memory.py status/append/trim` | 校验、原子追加或按确认计划整理版本隔离的脱敏经验 | 当前 `metadata.version` |
 
-可通过 `python skills/chatgpt-web-skill/scripts/run_agent_browser.py --tab <tab-id> <command>` 调用 `agent-browser`；跨命令任务可通过 `browser_task.py` 获取 lease 并在动作前后保存 snapshot，`runtime_checks.py` 将 Project 双证据、提交状态和图片可见/尺寸检查下沉为结构化结果，图片已出现在 snapshot 时会立刻截图返回，避免无效等待。`experience_memory.py` 负责经验库格式与原子写入；`trim` 必须提供覆盖全部原始条目的确认计划与 `--confirm`，只处理当前版本经验库。DOM selector/ref、视觉质量和授权判断仍须实时验证。PowerShell 中 ref 必须加引号，且 Enter 后须确认用户消息已渲染。Project instructions、Memory、Library access、重命名/分享/删除 Project 或 chat 均为持久化变更，必须单独明确授权。详情见 [SKILL.md](skills/chatgpt-web-skill/SKILL.md)。
+可通过 `python skills/chatgpt-web-skill/scripts/run_agent_browser.py --tab <tab-id> <command>` 调用 `agent-browser`；跨命令任务可通过 `browser_task.py` 获取 lease 并在动作前后保存 snapshot，`runtime_checks.py` 将 Project 双证据、提交状态和图片可见/尺寸检查下沉为结构化结果，图片已出现在 snapshot 时会立刻截图返回，避免无效等待。`visual-review` 由调用方决定触发：仅上传一张图片，固定提示词要求模型只返回一个中文 YAML 代码块；其中逐项列出 `S` 标准检查、缺陷和改进建议。本地按 `critical`、`major`、`minor` 严格计算 `VISUAL_*`，仅 `VISUAL_PASSED` 可继续流程；它不删除或修改 chat。`experience_memory.py` 负责经验库格式与原子写入；`trim` 必须提供覆盖全部原始条目的确认计划与 `--confirm`，只处理当前版本经验库。DOM selector/ref、视觉质量和授权判断仍须实时验证。PowerShell 中 ref 必须加引号，且 Enter 后须确认用户消息已渲染。详情见 [SKILL.md](skills/chatgpt-web-skill/SKILL.md)。
 
 ---
 
