@@ -1,10 +1,10 @@
 ---
 name: git-up
-version: 2.4.0
-argument-hint: "[--plan|-p|--discuss|-d|--modify <内容>|--commit|-c|-pc|-pcP|--ignore|-i] [--push|-P] [-l zh|en]"
+version: 2.5.0
+argument-hint: "[--plan|-p|--discuss|-d|--modify <内容>|--commit|-c|-pc|-pcP|--sub-agent|-s|-sP|--ignore|-i] [--push|-P] [-l zh|en] [提交约束]"
 description: |
   同时支持 --ignore/-i：自动识别项目技术栈，带中文用途说明地创建或增量维护 .gitignore。
-  Git 提交综合工具：分析改动、规划提交拆分、生成规范 commit message，并优先用 Python fast path 执行提交。支持 --plan/-p、--discuss/-d、--commit/-c、-pc、--push/-P、-pcP，以及 -l/--lang zh|en 控制输出语言（默认 zh）。
+  Git 提交综合工具：分析改动、规划提交拆分、生成规范 commit message，并优先用 Python fast path 执行提交。支持 --plan/-p、--discuss/-d、--commit/-c、-pc、--push/-P、-pcP，以及 -s/--sub-agent 完全委派子智能体执行 -pc 或 -pcP；-l/--lang zh|en 控制输出语言（默认 zh）。
   用户提到以下需求时使用：
   - "提交代码"、"commit 一下"、"帮我 git commit"、"git up"
   - "把改动分成几个提交"、"规划提交"、"拆 commit"、"分批提交"
@@ -12,6 +12,7 @@ description: |
   - "讨论/修改提交计划"、"--plan/-p"、"--discuss/-d"、"--modify"、"--commit/-c"
   - "规划并提交"、"一步提交"、"--plan --commit"、"-pc"
   - "提交并 push"、"规划提交并推送"、"--push"、"-P"、"-pcP"
+  - "委派子智能体提交"、"子智能体 commit"、"--sub-agent"、"-s"、"-sP"
   - "英文提交"、"中文提交"、"-l en"、"--lang en"、"-l zh"、"--lang zh"
 ---
 
@@ -32,6 +33,8 @@ description: |
 | `plan+commit` | `--plan --commit` / `-pc` | 一步规划并提交，**跳过 discuss/modify 复核** | YAML + git log |
 | `commit+push` | `--commit --push` / `-cP` | 执行计划后 push | git log + push result |
 | `plan+commit+push` | `--plan --commit --push` / `-pcP` | 一步规划、提交并 push，**跳过 discuss/modify 复核** | YAML + git log + push result |
+| `sub-agent` | `--sub-agent` / `-s` | 发起一个子智能体，在当前工作目录完整执行 `git-up -pc` | 子智能体结果 + git log |
+| `sub-agent+push` | `-sP` / `-s -P` / `--sub-agent --push` | 发起一个子智能体，在当前工作目录完整执行 `git-up -pcP` | 子智能体结果 + git log + push result |
 | `ignore` | `--ignore` / `-i` | 自动识别项目并创建或增量维护 `.gitignore` | JSON 维护报告 |
 | `default` | （无参数） | 直接生成 commit message | Commit Message |
 
@@ -47,18 +50,28 @@ description: |
 | `--commit` / `-c` | - | - | 执行最近计划；无计划时先生成计划 |
 | `--plan --commit` / `-pc` | - | - | 免确认一步规划并提交 |
 | `--push` / `-P` | - | - | 仅在 `-c` 或 `-pc` 已执行提交后推送当前分支 |
+| `--sub-agent` / `-s` | 可附提交约束文本 | - | 完全委派一个子智能体执行 `-pc`；与 push 组合时执行 `-pcP` |
 | `--ignore` / `-i` | 可选 `node` / `python` | 自动识别 | 创建或增量维护 `.gitignore` |
 | `--lang <语言>` / `-l <语言>` | `zh` / `en` | `zh` | 控制计划说明、讨论问题、commit subject/body、最终汇报语言 |
 
 Push 规则：
 
-- `--push/-P` 只绑定提交执行模式：支持 `--commit --push` / `-cP` 和 `--plan --commit --push` / `-pcP`。
+- `--push/-P` 只绑定提交执行模式：支持 `--commit --push` / `-cP`、`--plan --commit --push` / `-pcP`，以及子智能体的 `-sP` / `-s -P` / `--sub-agent --push`。
 - 不支持单独 `--push`、`--plan --push`、`--discuss --push`；遇到这些组合时说明 push 必须跟提交执行绑定，然后停止，不猜测执行。
 - push 命令默认使用 `git push` 推送当前分支到已配置 upstream；不要自动创建 upstream 或改 remote，除非用户明确要求。
 - 初次 `git push` 因网络类错误失败后，最多重试 3 次；每次重试前短暂等待并报告 attempt 编号。
 - 只对网络/传输类错误重试，例如 DNS 解析失败、连接超时、连接重置、TLS/SSL 连接失败、HTTP 5xx、early EOF、RPC failed、remote end hung up unexpectedly。
 - 对非网络错误不重试：认证失败、权限不足、repository not found、无 upstream、non-fast-forward/rejected、protected branch、pre-receive hook 拒绝、工作区/提交计划错误。
 - push 最终失败时报告：是否已完成 commit、push 尝试次数、最后一次 stderr、失败分类。
+
+子智能体规则：
+
+- `-s` / `--sub-agent` 是完全委派模式：父智能体只创建**一个**子智能体、等待其结束并汇总结果；父智能体不得重复调查、规划、暂存、提交或 push。
+- `-s` / `--sub-agent` 使子智能体在当前工作目录执行 `git-up -pc`；`-sP`、`-s -P`、`--sub-agent --push` 使其执行 `git-up -pcP`。
+- `-s` 后的自然语言描述是**强制提交边界**，例如 `仅提交 skills/git-up，排除 test-space`。父智能体必须将它连同当前工作目录、目标调用和 `-l/--lang`（如有）传给子智能体；子智能体只能提交能满足该约束的显式文件路径，不能自行扩大范围。
+- 约束无法满足、子智能体创建失败或子智能体执行失败时，父智能体必须停止并报告原因；不得回退为由父智能体自行执行 Git 操作。`-sP` 中 commit 阶段未成功时同样不得 push。
+- `-s` 不与 `-p`、`-c`、`-d`、`--modify`、`-i` 等其它主模式混用；仅允许与 `-P/--push`、`-l/--lang` 和约束文本组合。冲突组合须说明合法的委派形式后停止。
+- 父智能体最终必须汇总：实际委派调用、约束文本、子智能体的 completed/skipped steps、commit hash，以及在 push 模式下的 push 结果；只报告子智能体实际返回的证据。
 
 语言规则：
 
@@ -174,6 +187,10 @@ Python fast path 的职责：
 
 **Plan + Commit + Push（`-pcP` / `--plan --commit --push`）**：先 Plan 输出 YAML，再立即 Commit，最后 Push。仅在用户显式 `-pcP` 或 `--plan --commit --push` 时使用；这是免确认模式，生成计划后不进入 discuss/modify，也不等待用户确认。
 
+**Sub-agent（`-s` / `--sub-agent`）**：父智能体立即创建一个子智能体，并向其传入当前工作目录、`git-up -pc` 目标调用、语言参数（如有）和用户给出的全部约束文本。父智能体同步等待；子智能体按本 Skill 的 Plan + Commit 规则独立完成流程。约束是提交范围的硬条件，不能满足时子智能体停止，不得把范围外文件纳入计划或提交。
+
+**Sub-agent + Push（`-sP` / `-s -P` / `--sub-agent --push`）**：父智能体立即创建一个子智能体，并向其传入当前工作目录、`git-up -pcP` 目标调用、语言参数（如有）和用户给出的全部约束文本。父智能体同步等待；子智能体按本 Skill 的 Plan + Commit + Push 规则独立完成流程。仅当子智能体成功创建至少一个 commit 后才可 push；所有 push 重试和 fail-fast 规则保持不变。
+
 **default（无参数）**：直接生成单条 commit message，不拆分、不提交。
 
 ## 拆分规则
@@ -189,5 +206,6 @@ Python fast path 的职责：
 - Plan/Modify 输出有效 YAML。
 - Commit 优先用 `scripts/commit_plan.py` 在一次工具调用内解析并执行整份计划；只 add 计划内显式路径，计划外改动不会被提交。
 - Push 只在 commit 执行成功后运行；只对网络类失败做最多 3 次重试，其它错误 fail-fast。
+- Sub-agent 模式只创建一个子智能体并同步等待；约束文本是硬边界，父智能体不执行 Git 回退路径。
 - Discuss 只讨论提交计划，最多 1-3 个关键问题，不下结论。
 - 单会话内完成：`-p` 与 `-c` 需在同一会话上下文。

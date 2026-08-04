@@ -2,6 +2,17 @@
 
 All notable changes to this skill will be documented in this file.
 
+## [2.5.0] - 2026-08-04
+
+### 新增
+- 新增 `--sub-agent` / `-s` 完全委派模式：父智能体创建一个子智能体并同步等待，由子智能体在当前工作目录执行 `git-up -pc`。
+- 支持 `-sP`、`-s -P`、`--sub-agent --push`：子智能体执行 `git-up -pcP`，沿用既有 push 重试与 fail-fast 规则。
+- 支持把 `-s` 后的描述性文本传递为子智能体的强制提交边界，例如仅提交指定目录或排除指定路径。
+
+### 约束
+- 父智能体不重复 Git 调查、规划、暂存、提交或 push；子智能体创建、约束校验或执行失败时不回退为父智能体执行。
+- `-s` 不与 plan、commit、discuss、modify、ignore 等其它主模式混用；只可配合 push、语言参数和描述性约束。
+
 ## [2.4.0] - 2026-07-17
 
 ### 新增
