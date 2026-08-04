@@ -1,21 +1,22 @@
 from __future__ import annotations
 
 import os
+import json
 import sys
 import tempfile
 import unittest
-from datetime import date
 from pathlib import Path
-from subprocess import CompletedProcess
+from subprocess import CompletedProcess, Popen, run
 from typing import Any
 from unittest.mock import patch
 
 
 SCRIPTS = Path(__file__).resolve().parents[2] / "skills" / "chatgpt-web-skill" / "scripts"
+EXPERIENCE_SCRIPT = SCRIPTS / "experience_memory.py"
 sys.path.insert(0, str(SCRIPTS))
 
-from experience_memory import append_entry, entry_count, expected_header, status, trim_entries  # noqa: E402
 from run_agent_browser import build_command, cli_prefix, load_project_env  # noqa: E402
+from experience_memory import memory_path  # noqa: E402
 from runtime_checks import (  # noqa: E402
     check_images,
     composer_expression,
@@ -444,69 +445,237 @@ class BrowserTaskTests(unittest.TestCase):
 
 
 class ExperienceMemoryTests(unittest.TestCase):
-    def test_append_creates_valid_versioned_memory(self) -> None:
+    def run_memory(self, *arguments: str, home: Path) -> tuple[int, dict[str, Any]]:
+        environment = dict(os.environ)
+        environment["HOME"] = str(home)
+        environment["USERPROFILE"] = str(home)
+        environment["TEMP"] = str(home / "legacy-temp")
+        result = run(
+            [sys.executable, str(EXPERIENCE_SCRIPT), *arguments],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            env=environment,
+            check=False,
+        )
+        return result.returncode, json.loads(result.stdout)
+
+    def test_read_reports_an_empty_unified_library_without_creating_it(self) -> None:
+        """
+        Given：一个未创建经验文件的临时用户配置目录
+        When：通过 experience_memory.py read 读取经验库
+        Then：返回统一配置路径的有效空库 JSON，且文件仍不存在
+        防回归：读取不能再创建或访问旧版临时目录经验文件
+        """
         with tempfile.TemporaryDirectory() as temporary:
-            path = Path(temporary) / "memory.md"
-            result = append_entry(
-                path,
-                "1.6.0",
-                "ref 恢复",
-                "页面更新后旧 ref 失效",
-                "重新 snapshot 后使用实时控件",
-                "不得复用旧 ref",
-                date(2026, 7, 31),
+            home = Path(temporary)
+            legacy = home / "legacy-temp" / "chatgpt-web-skill-exp" / "chatgpt-web-1.14.0.md"
+            legacy.parent.mkdir(parents=True)
+            legacy.write_text("不得读取", encoding="utf-8")
+            code, payload = self.run_memory("read", home=home)
+            path = home / ".config" / "chatgpt-web-skill" / "experience.md"
+            self.assertEqual(code, 0)
+            self.assertTrue(payload["ok"])
+            self.assertFalse(payload["exists"])
+            self.assertEqual(payload["entries"], [])
+            self.assertFalse(path.exists())
+            self.assertEqual(legacy.read_text(encoding="utf-8"), "不得读取")
+
+    def test_memory_path_selects_windows_and_posix_config_homes(self) -> None:
+        """
+        Given：分别提供 Windows USERPROFILE 和 POSIX HOME
+        When：解析统一经验库路径
+        Then：两种平台都使用用户配置目录下固定的 experience.md
+        防回归：平台分支不得回退到 TEMP 或 TMPDIR
+        """
+        self.assertEqual(memory_path({"USERPROFILE": "C:/Users/test"}, "win32"), Path("C:/Users/test/.config/chatgpt-web-skill/experience.md"))
+        self.assertEqual(memory_path({"HOME": "/home/test"}, "linux"), Path("/home/test/.config/chatgpt-web-skill/experience.md"))
+
+    def test_append_creates_grouped_library_and_deduplicates_by_content(self) -> None:
+        """
+        Given：固定日期和一个空的临时统一经验库
+        When：以不同主题重复追加同一分组、场景、结论和边界
+        Then：仅保留首次主题和日期，并更新最近核验日
+        防回归：主题或日期变化不能绕过去重指纹
+        """
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary)
+            with patch.dict(os.environ, {"CHATGPT_WEB_SKILL_EXPERIENCE_TODAY": "2026-08-04"}):
+                first = self.run_memory("append", "--group", "浏览器会话", "--topic", "首次主题", "--scene", "同一 场景", "--conclusion", "结论", "--boundary", "边界", home=home)
+                second = self.run_memory("append", "--group", "浏览器会话", "--topic", "新主题", "--scene", "同一 场景", "--conclusion", "结论", "--boundary", "边界", home=home)
+                code, payload = self.run_memory("read", "--full", home=home)
+            self.assertEqual(first[0], 0)
+            self.assertEqual(second[0], 0)
+            self.assertTrue(second[1]["duplicate"])
+            self.assertEqual(code, 0)
+            self.assertEqual(payload["actual_entry_count"], 1)
+            self.assertEqual(payload["entries"][0]["topic"], "首次主题")
+            self.assertEqual(payload["entries"][0]["last_verified"], "2026-08-04")
+
+    def test_append_requires_explicit_custom_group_creation(self) -> None:
+        """
+        Given：一个空的统一经验库和未预置的自定义分组
+        When：先不带、再带 --create-group 追加经验
+        Then：前者失败且不写入，后者成功创建分组
+        防回归：禁止隐式扩展分组导致经验分类漂移
+        """
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary)
+            failed, _ = self.run_memory("append", "--group", "自定义", "--topic", "主题", "--scene", "场景", "--conclusion", "结论", "--boundary", "边界", home=home)
+            succeeded, payload = self.run_memory("append", "--group", "自定义", "--create-group", "--topic", "主题", "--scene", "场景", "--conclusion", "结论", "--boundary", "边界", home=home)
+            self.assertEqual(failed, 2)
+            self.assertEqual(succeeded, 0)
+            self.assertEqual(payload["actual_entry_count"], 1)
+
+    def test_count_mismatch_blocks_append_and_trim_requires_ok_and_evidence(self) -> None:
+        """
+        Given：一份头计数错误的统一经验库
+        When：读取、普通追加，以及带错误确认或缺失 evidence 的 trim
+        Then：读取给出稳定 warning，写入均被拒绝且不覆盖原文件
+        防回归：损坏计数或未证实整理计划不得破坏已有经验
+        """
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary)
+            path = home / ".config" / "chatgpt-web-skill" / "experience.md"
+            path.parent.mkdir(parents=True)
+            path.write_text("# chatgpt-web-skill 经验库\nSkill-Version: 1.15.0\nEntry-Count: 9\n\n## 浏览器会话\n- [26-08-04] 主题\n  场景: 场景\n  结论: 结论\n  边界: 边界\n", encoding="utf-8")
+            code, payload = self.run_memory("read", home=home)
+            before = path.read_text(encoding="utf-8")
+            append_code, _ = self.run_memory("append", "--group", "浏览器会话", "--topic", "新主题", "--scene", "场景", "--conclusion", "结论", "--boundary", "边界", home=home)
+            self.assertEqual(code, 0)
+            self.assertIn("entry_count_mismatch", [item["code"] for item in payload["warnings"]])
+            self.assertEqual(append_code, 2)
+            self.assertEqual(path.read_text(encoding="utf-8"), before)
+
+    def test_version_warning_and_limit_do_not_block_append(self) -> None:
+        """
+        Given：一份记录旧版本且包含五十条经验的合法经验库
+        When：追加第 51 条经验并读取结果
+        Then：写入成功、保留记录版本，并返回版本和超限 warning
+        防回归：版本变更与经验超限只能提醒，不能阻断正常任务
+        """
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary)
+            path = home / ".config" / "chatgpt-web-skill" / "experience.md"
+            path.parent.mkdir(parents=True)
+            entries = "\n".join(
+                f"- [26-08-04] 主题{i}\n  场景: 场景{i}\n  结论: 结论{i}\n  边界: 边界{i}" for i in range(50)
             )
+            path.write_text(f"# chatgpt-web-skill 经验库\nSkill-Version: 1.14.0\nEntry-Count: 50\n\n## 浏览器会话\n{entries}\n", encoding="utf-8")
+            code, payload = self.run_memory("append", "--group", "浏览器会话", "--topic", "新主题", "--scene", "新场景", "--conclusion", "新结论", "--boundary", "新边界", home=home)
+            self.assertEqual(code, 0)
+            self.assertEqual(payload["actual_entry_count"], 51)
+            self.assertEqual({item["code"] for item in payload["warnings"]}, {"version_mismatch", "experience_limit_exceeded"})
+            self.assertIn("Skill-Version: 1.14.0", path.read_text(encoding="utf-8"))
+
+    def test_trim_requires_ok_and_evidence_then_repairs_version_and_count(self) -> None:
+        """
+        Given：一份旧版本且头计数不正确的单条经验库和完整 rewrite 计划
+        When：分别使用错误确认、缺失 evidence 与正确 ok/evidence 执行 trim
+        Then：前两次不写入，最后一次修复计数、升级版本并记录最近核验日
+        防回归：trim 是唯一可修复头部计数和记录版本的写入路径
+        """
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary)
+            path = home / ".config" / "chatgpt-web-skill" / "experience.md"
+            path.parent.mkdir(parents=True)
+            path.write_text("# chatgpt-web-skill 经验库\nSkill-Version: 1.14.0\nEntry-Count: 0\n\n## 浏览器会话\n- [26-08-01] 旧主题\n  场景: 旧场景\n  结论: 旧结论\n  边界: 旧边界\n", encoding="utf-8")
+            plan = home / "plan.json"
+            plan.write_text(json.dumps({"actions": [{"operation": "rewrite", "source_indexes": [1], "topic": "新主题", "scene": "新场景", "conclusion": "新结论", "boundary": "新边界"}]}, ensure_ascii=False), encoding="utf-8")
+            wrong_code, _ = self.run_memory("trim", "--plan", str(plan), "--confirm", "yes", home=home)
+            missing_evidence_code, _ = self.run_memory("trim", "--plan", str(plan), "--confirm", "ok", home=home)
+            plan.write_text(json.dumps({"actions": [{"operation": "rewrite", "source_indexes": [1], "evidence": "当前 SKILL.md 已验证", "topic": "新主题", "scene": "新场景", "conclusion": "新结论", "boundary": "新边界"}]}, ensure_ascii=False), encoding="utf-8")
+            with patch.dict(os.environ, {"CHATGPT_WEB_SKILL_EXPERIENCE_TODAY": "2026-08-04"}):
+                code, payload = self.run_memory("trim", "--plan", str(plan), "--confirm", "ok", home=home)
+            self.assertEqual(wrong_code, 2)
+            self.assertEqual(missing_evidence_code, 2)
+            self.assertEqual(code, 0)
+            self.assertEqual(payload["actual_entry_count"], 1)
             content = path.read_text(encoding="utf-8")
-            self.assertTrue(content.startswith(expected_header("1.6.0")))
-            self.assertEqual(entry_count(content), 1)
-            self.assertEqual(result["entries"], 1)
-            self.assertEqual(status(path, "1.6.0")["entries"], 1)
+            self.assertIn("Skill-Version: 1.15.0", content)
+            self.assertIn("Entry-Count: 1", content)
+            self.assertIn("最近核验: 2026-08-04", content)
 
-    def test_invalid_header_is_not_overwritten(self) -> None:
+    def test_parallel_append_keeps_both_entries(self) -> None:
+        """
+        Given：两个独立进程同时向同一个空经验库追加不同经验
+        When：两个 append 命令竞争同一经验库写入权
+        Then：两个命令都成功，最终库包含两条完整经验
+        防回归：固定临时文件或无锁写入不能造成丢失更新
+        """
         with tempfile.TemporaryDirectory() as temporary:
-            path = Path(temporary) / "memory.md"
-            path.write_text("invalid\n", encoding="utf-8")
-            with self.assertRaises(ValueError):
-                append_entry(path, "1.6.0", "a", "b", "c", "d")
-            self.assertEqual(path.read_text(encoding="utf-8"), "invalid\n")
+            home = Path(temporary)
+            environment = dict(os.environ)
+            environment.update({"HOME": str(home), "USERPROFILE": str(home), "CHATGPT_WEB_SKILL_EXPERIENCE_TODAY": "2026-08-04"})
+            commands = [
+                [sys.executable, str(EXPERIENCE_SCRIPT), "append", "--group", "浏览器会话", "--topic", f"主题{number}", "--scene", f"场景{number}", "--conclusion", f"结论{number}", "--boundary", f"边界{number}"]
+                for number in (1, 2)
+            ]
+            processes = [Popen(command, stdout=-1, stderr=-1, text=True, encoding="utf-8", env=environment) for command in commands]
+            results = [process.communicate() for process in processes]
+            self.assertEqual([process.returncode for process in processes], [0, 0])
+            self.assertTrue(all(json.loads(output)["ok"] for output, _ in results))
+            code, payload = self.run_memory("read", "--full", home=home)
+            self.assertEqual(code, 0)
+            self.assertEqual(payload["actual_entry_count"], 2)
 
-    def test_trim_rewrites_merges_and_removes_only_confirmed_entries(self) -> None:
+    def test_trim_preserves_existing_custom_group(self) -> None:
+        """
+        Given：含一条自定义分组经验的统一经验库
+        When：以完整 keep 计划执行 trim
+        Then：trim 成功且自定义分组与经验均被保留
+        防回归：全库重建不能丢失已显式创建的自定义分组
+        """
         with tempfile.TemporaryDirectory() as temporary:
-            path = Path(temporary) / "memory.md"
-            for topic, conclusion in (("旧 ref", "复用旧 ref"), ("ref 失效", "旧 ref 会漂移"), ("废弃流程", "使用失效入口")):
-                append_entry(path, "1.6.0", topic, "页面变动", conclusion, "实时 snapshot", date(2026, 7, 1))
-            result = trim_entries(
-                path,
-                "1.6.0",
-                [
-                    {
-                        "operation": "merge",
-                        "source_indexes": [1, 2],
-                        "verified": True,
-                        "topic": "ref 实时发现",
-                        "scene": "页面更新后",
-                        "conclusion": "旧 ref 失效时重新 snapshot 并使用实时控件",
-                        "boundary": "不得复用旧 ref",
-                    },
-                    {"operation": "remove", "source_indexes": [3], "verified": True},
-                ],
-                date(2026, 8, 2),
-            )
-            content = path.read_text(encoding="utf-8")
-            self.assertEqual(result["entries"], 1)
-            self.assertEqual(result["merged"], 1)
-            self.assertEqual(result["removed"], 1)
-            self.assertIn("## 2026-07-01 — ref 实时发现", content)
-            self.assertIn("- 最近核验: 2026-08-02", content)
+            home = Path(temporary)
+            append_code, _ = self.run_memory("append", "--group", "自定义", "--create-group", "--topic", "主题", "--scene", "场景", "--conclusion", "结论", "--boundary", "边界", home=home)
+            plan = home / "plan.json"
+            plan.write_text(json.dumps({"actions": [{"operation": "keep", "source_indexes": [1]}]}, ensure_ascii=False), encoding="utf-8")
+            trim_code, _ = self.run_memory("trim", "--plan", str(plan), "--confirm", "ok", home=home)
+            read_code, payload = self.run_memory("read", "--full", home=home)
+            self.assertEqual(append_code, 0)
+            self.assertEqual(trim_code, 0)
+            self.assertEqual(read_code, 0)
+            self.assertEqual(payload["entries"][0]["group"], "自定义")
 
-    def test_trim_refuses_to_remove_unverified_or_omit_an_entry(self) -> None:
+    def test_read_default_hides_human_markdown_fields_but_full_exposes_them(self) -> None:
+        """
+        Given：一条已写入统一经验库的经验
+        When：分别使用 read 与 read --full 读取
+        Then：默认输出只含精简字段，完整模式才包含主题和场景
+        防回归：Agent 消费的 JSON 不能泄露 Markdown 展示结构
+        """
         with tempfile.TemporaryDirectory() as temporary:
-            path = Path(temporary) / "memory.md"
-            append_entry(path, "1.6.0", "a", "场景", "结论", "边界", date(2026, 7, 1))
-            original = path.read_text(encoding="utf-8")
-            with self.assertRaises(ValueError):
-                trim_entries(path, "1.6.0", [{"operation": "remove", "source_indexes": [1]}])
-            self.assertEqual(path.read_text(encoding="utf-8"), original)
+            home = Path(temporary)
+            self.run_memory("append", "--group", "浏览器会话", "--topic", "主题", "--scene", "场景", "--conclusion", "结论", "--boundary", "边界", home=home)
+            compact_code, compact_payload = self.run_memory("read", home=home)
+            full_code, full_payload = self.run_memory("read", "--full", home=home)
+            self.assertEqual(compact_code, 0)
+            self.assertEqual(full_code, 0)
+            self.assertEqual(set(compact_payload["entries"][0]), {"date", "group", "conclusion", "boundary"})
+            self.assertTrue({"topic", "scene"}.issubset(full_payload["entries"][0]))
+
+    def test_trim_merges_and_removes_with_evidence(self) -> None:
+        """
+        Given：三条可整理的统一经验
+        When：以有 evidence 的 merge 和 remove 完整覆盖 trim 计划
+        Then：前两条合并为一条，第三条被删除
+        防回归：有证据的改写型操作不得被 keep 语义错误替代
+        """
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary)
+            for number in (1, 2, 3):
+                self.run_memory("append", "--group", "浏览器会话", "--topic", f"主题{number}", "--scene", f"场景{number}", "--conclusion", f"结论{number}", "--boundary", f"边界{number}", home=home)
+            plan = home / "plan.json"
+            plan.write_text(json.dumps({"actions": [
+                {"operation": "merge", "source_indexes": [1, 2], "evidence": "当前规则已合并", "topic": "合并主题", "scene": "合并场景", "conclusion": "合并结论", "boundary": "合并边界"},
+                {"operation": "remove", "source_indexes": [3], "evidence": "第三条已过时"},
+            ]}, ensure_ascii=False), encoding="utf-8")
+            code, payload = self.run_memory("trim", "--plan", str(plan), "--confirm", "ok", home=home)
+            self.assertEqual(code, 0)
+            self.assertEqual(payload["actual_entry_count"], 1)
+            self.assertEqual(payload["merged"], 1)
+            self.assertEqual(payload["removed"], 1)
 
 
 class VisualReviewTests(unittest.TestCase):

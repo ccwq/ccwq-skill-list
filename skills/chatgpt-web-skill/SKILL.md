@@ -1,9 +1,9 @@
 ---
 name: chatgpt-web-skill
-description: 通过 ChatGPT Web 进行信息搜集、Deep Research、图片生成编辑、结构化视觉审查和版本经验整理。
+description: 通过 ChatGPT Web 进行信息搜集、Deep Research、图片生成编辑、结构化视觉审查和统一经验整理。
 license: MIT
 metadata:
-  version: 1.14.0
+  version: 1.15.0
   tags: [chatgpt, chatgpt-web, agent-browser, image-generation, image-editing, visual-review, research]
   related_skills: [agent-browser]
 ---
@@ -25,35 +25,33 @@ python scripts/run_agent_browser.py --cdp <configured-port> snapshot -i
 
 ## 经验演进 / Evolution Memory
 
-每次触发此 Skill 后、任何浏览器操作前，读取**当前版本专属**的经验文件。经验目录为系统临时根目录下的 `chatgpt-web-skill-exp/`：Windows 为 `%TEMP%\chatgpt-web-skill-exp\`；macOS/Linux 为 `${TMPDIR:-/tmp}/chatgpt-web-skill-exp/`。当前版本文件固定为 `chatgpt-web-<metadata.version>.md`，例如 `chatgpt-web-1.14.0.md`。文件不存在时按空经验库继续；不要为此单独创建空文件。
+每次触发此 Skill 后、任何浏览器操作前，都通过 `experience_memory.py read` 读取**统一经验库**。文件永久位于 Windows `%USERPROFILE%\.config\chatgpt-web-skill\experience.md` 或 macOS/Linux `~/.config/chatgpt-web-skill/experience.md`；文件不存在时返回有效空库且不创建文件。禁止枚举、读取、迁移、重命名或删除旧临时经验文件，也不得手动编辑统一经验库。
 
-经验文件的开头必须是：
+经验文件由脚本独占维护，固定头为：
 
 ```markdown
 # chatgpt-web-skill 经验库
-Skill: chatgpt-web-skill
-Skill-Version: 1.14.0
+Skill-Version: 1.15.0
+Entry-Count: 0
 ```
 
-只读取文件名与当前 `metadata.version` 一致的文件；不得读取、迁移、重命名或删除旧版本文件，也不得读取旧的 `chatgpt-web-skill.md`。读取当前版本文件时先核对 `Skill` 与 `Skill-Version`；任一字段缺失或不匹配时，停止使用该文件并报告，不覆盖原内容。
-
-每次触发时先运行 `python scripts/experience_memory.py status`。仅在任务结论已验证后、最终汇报前运行 `append` 追加脱敏条目；不得手动编辑经验文件。脚本会校验版本头、原子写入、去重并在条目达到 20 条时输出 `review_required`。不记录 prompt、图片、chat 内容、账户标识、cookie、私有 URL 或凭据。头部异常时停止使用该文件并报告，不覆盖、迁移或修复旧文件。
+仅在任务结论已验证后、最终汇报前运行 `append --group <group>` 追加脱敏条目；每条经验只能属于一个分组。脚本 warning 使用稳定 code 与上下文：`version_mismatch` 或 `experience_limit_exceeded`（实际条数大于 50）只提示 trim，不阻断任务；`entry_count_mismatch` 会拒绝普通追加，需 trim 修复。Agent 收到任一 warning 必须立即向用户给出中文友好提醒。不记录 prompt、图片、chat 内容、账户标识、cookie、私有 URL 或凭据。
 
 ### 经验整理：`-t` 和 `--trim`
 
-使用 `-t` 或 `--trim` 时，只整理当前 `metadata.version` 对应的经验文件；可追加主题，裸参数处理全部经验。不得读取、迁移、重命名或删除旧版本文件。此模式只处理既有经验，不新增条目。
+使用 `-t` 或 `--trim` 时，整理统一经验库；可追加主题，裸参数处理全部经验。此模式只处理既有经验，不新增条目。
 
-1. 先运行 `experience_memory.py status`，读取当前经验库，并核验本地 `SKILL.md`、`scripts/` 与 `references/`。默认可接入已有 CDP 浏览器，复用现有 ChatGPT tab 做实时 snapshot 的只读核验。
+1. 先运行 `experience_memory.py read --full`，读取全量经验，并核验本地 `SKILL.md`、`scripts/` 与 `references/`。默认可接入已有 CDP 浏览器，复用现有 ChatGPT tab 做实时 snapshot 的只读核验。
 2. 按主题逐问展示“保留 / 改写 / 合并 / 删除 / 本轮未证实”建议及其证据。只读核验不足时，先展示主动验证计划、影响和成功判据；用户确认该主题后，才可创建专用 chat、发送最小测试 prompt，并使用既有浏览器核验脚本。
 3. 主动验证默认不生成图片、不上传内容、不改 Project 设置、不触发付费/权限；这些操作均需用户在该轮额外明确授权。无法取得更强当前证据的条目归为“本轮未证实”并保留。
 4. 所有主题达成共识且用户明确回复 `ok` 后，生成含全部原始条目处理结果的 JSON 计划，并通过脚本原子写回。删除、改写和合并必须带已验证证据；改写或合并保留最早“首次记录日”，并写入“最近核验”。
 
 ```powershell
 # 仅在用户确认最终计划后执行；计划中每个 source_indexes 必须恰好出现一次。
-python scripts/experience_memory.py trim --plan <confirmed-plan.json> --confirm
+python scripts/experience_memory.py trim --plan <confirmed-plan.json> --confirm ok
 ```
 
-完成条件：当前版本的每条原始经验都被恰好归为保留、改写、合并、删除或本轮未证实；写入结果结构有效，且旧版本经验文件未被访问或修改。
+完成条件：全库的每条原始经验都被恰好归为保留、改写、合并、删除或本轮未证实；改写、合并和删除必须附非空 `evidence`。只有全库 trim 成功才更新文件 `Skill-Version` 并重算 `Entry-Count`。
 
 ## 经验收敛 / Experience Promotion
 
@@ -61,7 +59,7 @@ python scripts/experience_memory.py trim --plan <confirmed-plan.json> --confirm
 
 - 对跨页面和跨任务不变、可观察且无副作用的步骤，先为 `scripts/` 增加标准库 Python 辅助逻辑和离线单元测试，再在 skill 中调用脚本。
 - 对依赖当前页面、角色、Project 或构图的判断，只记录为现场线索；继续使用实时 snapshot、DOM 和截图核验，不把 selector、ref、tab ID 或私有 URL 写死到脚本。
-- 对账户、单次任务或未复现的现象，只留在版本经验库；未获得明确确认时不据此修改 `SKILL.md`。
+- 对账户、单次任务或未复现的现象，只留在统一经验库；未获得明确确认时不据此修改 `SKILL.md`。
 
 当前可直接复用的辅助脚本：
 
@@ -75,10 +73,11 @@ python scripts/runtime_checks.py --cdp <configured-port> --tab <tab-id> images -
 # 确认 marker 已离开 composer 并渲染；认证中断会以退出码 2 停止。
 python scripts/runtime_checks.py --cdp <configured-port> --tab <tab-id> message --marker <unique-marker>
 
-# 校验、原子追加或按已确认计划整理版本隔离的脱敏经验。
+# 读取、原子追加或按已确认计划整理统一的脱敏经验。
+python scripts/experience_memory.py read
 python scripts/experience_memory.py status
-python scripts/experience_memory.py append --topic <topic> --scene <scene> --conclusion <conclusion> --boundary <boundary>
-python scripts/experience_memory.py trim --plan <confirmed-plan.json> --confirm
+python scripts/experience_memory.py append --group <group> --topic <topic> --scene <scene> --conclusion <conclusion> --boundary <boundary>
+python scripts/experience_memory.py trim --plan <confirmed-plan.json> --confirm ok
 ```
 
 任务 tab 的稳定生命周期使用 `browser_task.py`：
@@ -105,7 +104,7 @@ python scripts/browser_task.py release <lease-path> [--purge]
 4. 为当前任务在 `agents-op` 内新建 chat；以当前 session 和 tab 作为本次任务的最小隔离边界。
 5. 终态（成功、取消、平台阻断或不可恢复失败）关闭**本任务创建的** tab，重新枚举 tabs 并确认其消失；复用的既有 tab 不关闭。
 
-可接受的 Project 实时证据至少两项：页面 title 含 `agents-op`、Project URL 以 `/project` 结尾、composer 标注/placeholder 为 `New chat in agents-op`、页面内容表明该 Project 的 chats/sources。无法确认归属时，诊断并报告，不在普通 Chat 或其他 Project 静默执行。
+可接受的 Project 实时证据至少两项：页面 title 含 `agents-op`、**Project 首页** URL 以 `/project` 结尾、composer 标注/placeholder 为 `New chat in agents-op`、页面内容表明该 Project 的 chats/sources。Project 内既有对话通常为同一路径下的 `/c/<chat-id>`，不能要求其以 `/project` 结尾。无法确认归属时，诊断并报告，不在普通 Chat 或其他 Project 静默执行。
 
 ## 变更授权 / Authorization Boundaries
 
@@ -119,7 +118,7 @@ ChatGPT UI 会变化。DOM selector 与 agent-browser ref（如 `@e123`）都可
 
 - 在 PowerShell 中把 ref 作为字符串传入，例如 `click '@e123'`；PowerShell 不支持 `&&`，需要顺序执行的命令改为独立命令或使用 `;`。
 - Enter 不一定会提交 prompt。提交后先运行 `runtime_checks.py message --marker <unique-marker>`；未发送时重新发现并点击当前页面的 `Send prompt`，再运行该检查。若仍为 `pending`，不要盲目重复提交；若为 `interrupted`，报告认证/导航中断并停止。
-- Project home 中普通 ref `click` 无效时，不猜测或复用旧 ref。在同一 agent-browser session 内通过实时 DOM 定位 `agents-op` 的对应控件并触发 click；随后同时以 `/project` URL 和 `New chat in agents-op` 作为归属证据。
+- Project home 中普通 ref `click` 无效时，不猜测或复用旧 ref。在同一 agent-browser session 内通过实时 DOM 定位 `agents-op` 的对应控件并触发 click；进入 Project 首页后，同时以 `/project` URL 和 `New chat in agents-op` 作为归属证据。Project 内既有对话通常为同一路径下的 `/c/<chat-id>`，不把它误判为 URL 证据缺失。
 
 - `Create image` 菜单项；选择后同时确认图片模式 pill（已观察到 `data-id="picture_v2"`）与 placeholder 变为 `Describe or edit an image`。仅出现文字 `Create image` 不是模式成功证据。
 - 图片上传：`#upload-photos[accept="image/*"]`；通用文件上传：`#upload-files`。

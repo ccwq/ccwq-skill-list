@@ -46,7 +46,7 @@ canv.toDataURL('image/jpeg', 0.92)
 - DOM selector 与 agent-browser ref 均会因页面更新失效；每个 UI 操作前后均以实时 snapshot 验证，不能依赖旧 ref。
 - PowerShell 调用必须给 ref 加引号，如 `click '@e123'`；PowerShell 不支持 `&&`。
 - Enter 不保证发送成功；snapshot 中确认用户消息渲染后才视为已提交。未渲染时重新定位并点击实时 `Send prompt`。
-- Project home 的普通 ref click 无效时，在同一 agent-browser session 通过实时 DOM 定位 `agents-op` 控件并触发 click，再同时确认 `/project` URL 与 `New chat in agents-op`。
+- Project home 的普通 ref click 无效时，在同一 agent-browser session 通过实时 DOM 定位 `agents-op` 控件并触发 click。仅 Project 首页 URL 以 `/project` 结尾；Project 内既有对话通常为同一路径下的 `/c/<chat-id>`，不能要求其以 `/project` 结尾。进入首页后，再以首页 URL 与 `New chat in agents-op` 共同确认归属。
 
 ## 2026-07-31 — CLI 配置固化
 

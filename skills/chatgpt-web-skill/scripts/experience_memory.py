@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""校验并维护 chatgpt-web-skill 的版本隔离经验库。"""
+"""独占维护 chatgpt-web-skill 的统一经验库。"""
 
 from __future__ import annotations
 
@@ -8,12 +8,17 @@ import json
 import os
 import re
 import sys
+import tempfile
+import time
 from datetime import date
 from pathlib import Path
+from typing import Any
 
 
 SKILL_NAME = "chatgpt-web-skill"
-ENTRY_PATTERN = re.compile(r"^## (\d{4}-\d{2}-\d{2}) — (.+)$", re.MULTILINE)
+PRESET_GROUPS = ("浏览器会话", "Project路由", "消息提交", "图片生成编辑", "图片交付", "视觉审查", "Research", "经验机制")
+ENTRY_RE = re.compile(r"^- \[(\d{2}-\d{2}-\d{2})\] (.+)$")
+HEADER_RE = re.compile(r"^# chatgpt-web-skill 经验库\nSkill-Version: (.+)\nEntry-Count: (\d+)\n$")
 
 
 def skill_file() -> Path:
@@ -28,245 +33,320 @@ def load_skill_version(path: Path | None = None) -> str:
     return match.group(1)
 
 
-def memory_path(version: str, temp_root: Path | None = None) -> Path:
-    root = temp_root or Path(os.environ.get("TEMP") or os.environ.get("TMPDIR") or "/tmp")
-    return root / "chatgpt-web-skill-exp" / f"chatgpt-web-{version}.md"
+def memory_path(environ: dict[str, str] | None = None, platform: str | None = None) -> Path:
+    environment = environ or os.environ
+    current_platform = platform or sys.platform
+    home = environment.get("USERPROFILE") if current_platform.startswith("win") else environment.get("HOME")
+    if not home:
+        raise ValueError("无法确定用户配置目录；请设置 USERPROFILE 或 HOME")
+    return Path(home) / ".config" / SKILL_NAME / "experience.md"
 
 
-def expected_header(version: str) -> str:
-    return (
-        f"# {SKILL_NAME} 经验库\n"
-        f"Skill: {SKILL_NAME}\n"
-        f"Skill-Version: {version}\n"
-    )
+def compact(value: object, field: str = "经验字段") -> str:
+    if not isinstance(value, str):
+        raise ValueError(f"{field} 必须是字符串")
+    result = " ".join(value.split())
+    if not result:
+        raise ValueError(f"{field} 不能为空")
+    return result
 
 
-def validate_content(content: str, version: str) -> None:
-    if not content.startswith(expected_header(version)):
-        raise ValueError("经验文件头缺失或与当前 Skill/version 不匹配")
+def today() -> date:
+    fixed = os.environ.get("CHATGPT_WEB_SKILL_EXPERIENCE_TODAY")
+    return date.fromisoformat(fixed) if fixed else date.today()
 
 
-def entry_count(content: str) -> int:
-    return len(ENTRY_PATTERN.findall(content))
+def warning(code: str, **context: object) -> dict[str, object]:
+    return {"code": code, "context": context}
 
 
-def parse_entries(content: str, version: str) -> list[dict[str, str]]:
-    """解析受本脚本维护的经验条目；未知形态拒绝覆写以保护用户数据。"""
-    validate_content(content, version)
-    matches = list(ENTRY_PATTERN.finditer(content))
-    entries: list[dict[str, str]] = []
-    field_pattern = re.compile(
-        r"^- 场景: (?P<scene>[^\n]+)\n"
-        r"- 结论: (?P<conclusion>[^\n]+)\n"
-        r"- 边界: (?P<boundary>[^\n]+)\n?"
-        r"(?:- 最近核验: (?P<last_verified>\d{4}-\d{2}-\d{2})\n?)?$"
-    )
-    for index, match in enumerate(matches):
-        end = matches[index + 1].start() if index + 1 < len(matches) else len(content)
-        body = content[match.end():end].strip()
-        fields = field_pattern.fullmatch(body)
-        if not fields:
-            raise ValueError(f"第 {index + 1} 条经验格式无法安全整理，请保留原文件并人工核对")
-        entry = {
-            "first_recorded": match.group(1),
-            "topic": compact(match.group(2)),
-            "scene": compact(fields.group("scene")),
-            "conclusion": compact(fields.group("conclusion")),
-            "boundary": compact(fields.group("boundary")),
-        }
-        if fields.group("last_verified"):
-            entry["last_verified"] = fields.group("last_verified")
-        entries.append(entry)
-    return entries
+def new_library(version: str) -> dict[str, object]:
+    return {"version": version, "header_count": 0, "groups": [{"name": name, "entries": []} for name in PRESET_GROUPS]}
 
 
-def compact(value: str) -> str:
-    normalized = " ".join(value.split())
-    if not normalized:
-        raise ValueError("经验字段不能为空")
-    return normalized
-
-
-def append_entry(
-    path: Path,
-    version: str,
-    topic: str,
-    scene: str,
-    conclusion: str,
-    boundary: str,
-    entry_date: date | None = None,
-) -> dict[str, object]:
-    if path.exists():
-        content = path.read_text(encoding="utf-8")
-        validate_content(content, version)
-    else:
-        content = expected_header(version)
-
-    topic = compact(topic)
-    scene = compact(scene)
-    conclusion = compact(conclusion)
-    boundary = compact(boundary)
-    current_date = entry_date or date.today()
-    entry = (
-        f"\n## {current_date.isoformat()} — {topic}\n"
-        f"- 场景: {scene}\n"
-        f"- 结论: {conclusion}\n"
-        f"- 边界: {boundary}\n"
-    )
-
-    if entry in content:
-        count = entry_count(content)
-        return {"path": str(path), "entries": count, "duplicate": True, "review_required": count >= 20}
-
-    path.parent.mkdir(parents=True, exist_ok=True)
-    updated = content.rstrip() + "\n" + entry
-    temporary = path.with_suffix(path.suffix + ".tmp")
-    temporary.write_text(updated, encoding="utf-8")
-    temporary.replace(path)
-    count = entry_count(updated)
-    return {"path": str(path), "entries": count, "duplicate": False, "review_required": count >= 20}
-
-
-def render_entries(version: str, entries: list[dict[str, str]]) -> str:
-    rendered = expected_header(version)
-    for entry in entries:
-        rendered += (
-            f"\n## {entry['first_recorded']} — {entry['topic']}\n"
-            f"- 场景: {entry['scene']}\n"
-            f"- 结论: {entry['conclusion']}\n"
-            f"- 边界: {entry['boundary']}\n"
-        )
-        if entry.get("last_verified"):
-            rendered += f"- 最近核验: {entry['last_verified']}\n"
-    return rendered
-
-
-def trim_entries(
-    path: Path,
-    version: str,
-    actions: list[dict[str, object]],
-    verified_on: date | None = None,
-) -> dict[str, object]:
-    """按已确认的计划原子整理经验；每条原始经验必须被恰好处理一次。"""
-    if not path.exists():
-        raise ValueError("当前版本经验库不存在，无法整理空经验库")
-    original = parse_entries(path.read_text(encoding="utf-8"), version)
-    if not actions:
-        raise ValueError("整理计划不能为空")
-
-    consumed: set[int] = set()
-    updated: list[dict[str, str]] = []
-    counts = {"kept": 0, "rewritten": 0, "merged": 0, "removed": 0, "unverified": 0}
-    verification_date = (verified_on or date.today()).isoformat()
-    for action_number, action in enumerate(actions, start=1):
-        operation = action.get("operation")
-        indexes = action.get("source_indexes")
-        verified = action.get("verified", False)
-        if operation not in {"keep", "rewrite", "merge", "remove"}:
-            raise ValueError(f"第 {action_number} 项操作无效")
-        if not isinstance(indexes, list) or not indexes or any(type(value) is not int for value in indexes):
-            raise ValueError(f"第 {action_number} 项必须提供非空整数 source_indexes")
-        if type(verified) is not bool:
-            raise ValueError(f"第 {action_number} 项 verified 必须是布尔值")
-        if len(set(indexes)) != len(indexes) or any(value < 1 or value > len(original) for value in indexes):
-            raise ValueError(f"第 {action_number} 项 source_indexes 越界或重复")
-        if consumed.intersection(indexes):
-            raise ValueError(f"第 {action_number} 项重复处理了原始经验")
-        consumed.update(indexes)
-        selected = [original[value - 1] for value in indexes]
-
-        if operation == "keep":
-            if len(selected) != 1:
-                raise ValueError("保留操作只能对应一条原始经验")
-            entry = dict(selected[0])
-            counts["kept"] += 1
-        elif operation == "remove":
-            if verified is not True:
-                raise ValueError("删除操作必须标记 verified=true，以证明有更强当前证据")
-            counts["removed"] += len(selected)
+def parse_library(content: str) -> dict[str, object]:
+    normalized = content.replace("\r\n", "\n")
+    lines = normalized.splitlines()
+    if len(lines) < 3:
+        raise ValueError("经验文件头不完整，已拒绝覆盖")
+    header = "\n".join(lines[:3]) + "\n"
+    match = HEADER_RE.fullmatch(header)
+    if not match:
+        raise ValueError("经验文件头格式无效，已拒绝覆盖")
+    groups: list[dict[str, object]] = []
+    index = 3
+    while index < len(lines):
+        if not lines[index]:
+            index += 1
             continue
-        else:
-            if operation == "rewrite" and len(selected) != 1:
-                raise ValueError("改写操作只能对应一条原始经验")
-            if operation == "merge" and len(selected) < 2:
-                raise ValueError("合并操作至少对应两条原始经验")
-            if verified is not True:
-                raise ValueError(f"{operation} 操作必须标记 verified=true")
+        if not lines[index].startswith("## "):
+            raise ValueError("经验分组格式无效，已拒绝覆盖")
+        name = compact(lines[index][3:], "分组")
+        if any(group["name"] == name for group in groups):
+            raise ValueError("经验分组重复，已拒绝覆盖")
+        index += 1
+        entries: list[dict[str, str]] = []
+        while index < len(lines) and not lines[index].startswith("## "):
+            if not lines[index]:
+                index += 1
+                continue
+            entry_match = ENTRY_RE.fullmatch(lines[index])
+            if not entry_match or index + 3 >= len(lines):
+                raise ValueError("经验条目格式无效，已拒绝覆盖")
+            values: dict[str, str] = {"date": entry_match.group(1), "topic": compact(entry_match.group(2), "主题")}
+            for offset, label, key in ((1, "  场景: ", "scene"), (2, "  结论: ", "conclusion"), (3, "  边界: ", "boundary")):
+                line = lines[index + offset]
+                if not line.startswith(label):
+                    raise ValueError("经验条目字段格式无效，已拒绝覆盖")
+                values[key] = compact(line[len(label):], key)
+            index += 4
+            if index < len(lines) and lines[index].startswith("  最近核验: "):
+                verified = lines[index][len("  最近核验: "):]
+                try:
+                    date.fromisoformat(verified)
+                except ValueError as error:
+                    raise ValueError("最近核验日格式无效，已拒绝覆盖") from error
+                values["last_verified"] = verified
+                index += 1
+            entries.append(values)
+        groups.append({"name": name, "entries": entries})
+    return {"version": compact(match.group(1), "Skill-Version"), "header_count": int(match.group(2)), "groups": groups}
+
+
+def count_entries(library: dict[str, object]) -> int:
+    return sum(len(group["entries"]) for group in library["groups"])  # type: ignore[index,arg-type]
+
+
+def render_library(library: dict[str, object], version: str) -> str:
+    groups: list[dict[str, object]] = library["groups"]  # type: ignore[assignment]
+    count = count_entries(library)
+    lines = ["# chatgpt-web-skill 经验库", f"Skill-Version: {version}", f"Entry-Count: {count}", ""]
+    for group in groups:
+        lines.extend((f"## {group['name']}",))
+        for entry in group["entries"]:  # type: ignore[index]
+            lines.extend((
+                f"- [{entry['date']}] {entry['topic']}",
+                f"  场景: {entry['scene']}",
+                f"  结论: {entry['conclusion']}",
+                f"  边界: {entry['boundary']}",
+            ))
+            if entry.get("last_verified"):
+                lines.append(f"  最近核验: {entry['last_verified']}")
+        lines.append("")
+    return "\n".join(lines).rstrip() + "\n"
+
+
+class LibraryLock:
+    def __init__(self, path: Path, timeout: float = 15.0) -> None:
+        self.path = path.with_suffix(path.suffix + ".lock")
+        self.timeout = timeout
+        self.descriptor: int | None = None
+
+    def __enter__(self) -> "LibraryLock":
+        deadline = time.monotonic() + self.timeout
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        while True:
             try:
-                values = {field: action[field] for field in ("topic", "scene", "conclusion", "boundary")}
-                if any(not isinstance(value, str) for value in values.values()):
-                    raise ValueError(f"{operation} 操作的内容字段必须是字符串")
-                entry = {
-                    "first_recorded": min(item["first_recorded"] for item in selected),
-                    "topic": compact(values["topic"]),
-                    "scene": compact(values["scene"]),
-                    "conclusion": compact(values["conclusion"]),
-                    "boundary": compact(values["boundary"]),
-                }
-            except KeyError as error:
-                raise ValueError(f"{operation} 操作缺少字段：{error.args[0]}") from error
-            counts["rewritten" if operation == "rewrite" else "merged"] += 1
+                self.descriptor = os.open(self.path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                os.write(self.descriptor, str(os.getpid()).encode())
+                return self
+            except FileExistsError:
+                if time.monotonic() >= deadline:
+                    raise ValueError("经验库正被其他进程维护，请稍后重试")
+                time.sleep(0.05)
 
-        if verified is True:
-            entry["last_verified"] = verification_date
-        else:
-            counts["unverified"] += 1
-        updated.append(entry)
-
-    expected_indexes = set(range(1, len(original) + 1))
-    if consumed != expected_indexes:
-        missing = sorted(expected_indexes - consumed)
-        raise ValueError(f"整理计划遗漏原始经验：{missing}")
-
-    temporary = path.with_suffix(path.suffix + ".tmp")
-    temporary.write_text(render_entries(version, updated), encoding="utf-8")
-    temporary.replace(path)
-    count = len(updated)
-    return {"path": str(path), "entries": count, **counts, "review_required": count >= 20}
+    def __exit__(self, *_: object) -> None:
+        if self.descriptor is not None:
+            os.close(self.descriptor)
+        try:
+            self.path.unlink()
+        except FileNotFoundError:
+            pass
 
 
-def status(path: Path, version: str) -> dict[str, object]:
+def atomic_write(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as stream:
+            stream.write(content)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+    finally:
+        if temporary.exists():
+            temporary.unlink()
+
+
+def warnings_for(library: dict[str, object], current_version: str) -> list[dict[str, object]]:
+    result: list[dict[str, object]] = []
+    actual = count_entries(library)
+    if library["version"] != current_version:
+        result.append(warning("version_mismatch", file_version=library["version"], current_version=current_version))
+    if library["header_count"] != actual:
+        result.append(warning("entry_count_mismatch", header_count=library["header_count"], actual_count=actual))
+    if actual > 50:
+        result.append(warning("experience_limit_exceeded", actual_count=actual, limit=50))
+    return result
+
+
+def project_entry(group: str, entry: dict[str, str], full: bool) -> dict[str, str]:
+    result = {"date": entry["date"], "group": group, "conclusion": entry["conclusion"], "boundary": entry["boundary"]}
+    if full:
+        result.update({"topic": entry["topic"], "scene": entry["scene"]})
+        if entry.get("last_verified"):
+            result["last_verified"] = entry["last_verified"]
+    return result
+
+
+def read_library(path: Path, current_version: str, full: bool = False) -> dict[str, object]:
     if not path.exists():
-        return {"path": str(path), "exists": False, "valid": True, "entries": 0, "review_required": False}
-    content = path.read_text(encoding="utf-8")
-    validate_content(content, version)
-    count = entry_count(content)
-    return {"path": str(path), "exists": True, "valid": True, "entries": count, "review_required": count >= 20}
+        library = new_library(current_version)
+        groups = [{"group": group["name"], "entries": []} for group in library["groups"]]  # type: ignore[index]
+        return {"path": str(path), "exists": False, "current_version": current_version, "file_version": None, "actual_entry_count": 0, "header_entry_count": 0, "warnings": [], "entries": [], "groups": groups}
+    library = parse_library(path.read_text(encoding="utf-8"))
+    groups = [
+        {"group": group["name"], "entries": [project_entry(group["name"], entry, full) for entry in group["entries"]]}  # type: ignore[index]
+        for group in library["groups"]  # type: ignore[index]
+    ]
+    entries = [entry for group in groups for entry in group["entries"]]
+    return {"path": str(path), "exists": True, "current_version": current_version, "file_version": library["version"], "actual_entry_count": count_entries(library), "header_entry_count": library["header_count"], "warnings": warnings_for(library, current_version), "entries": entries, "groups": groups}
+
+
+def require_writable(library: dict[str, object], current_version: str) -> list[dict[str, object]]:
+    warnings = warnings_for(library, current_version)
+    if any(item["code"] == "entry_count_mismatch" for item in warnings):
+        raise ValueError("entry_count_mismatch：请先通过 trim 修复经验库计数")
+    return warnings
+
+
+def append_entry(path: Path, current_version: str, group_name: str, topic: str, scene: str, conclusion: str, boundary: str, create_group: bool = False) -> dict[str, object]:
+    with LibraryLock(path):
+        library = parse_library(path.read_text(encoding="utf-8")) if path.exists() else new_library(current_version)
+        prior_warnings = require_writable(library, current_version)
+        group_name = compact(group_name, "分组")
+        groups: list[dict[str, object]] = library["groups"]  # type: ignore[assignment]
+        group = next((item for item in groups if item["name"] == group_name), None)
+        if group is None:
+            if not create_group:
+                raise ValueError("新分组必须显式提供 --create-group")
+            group = {"name": group_name, "entries": []}
+            groups.append(group)
+        entry = {"date": today().strftime("%y-%m-%d"), "topic": compact(topic, "主题"), "scene": compact(scene, "场景"), "conclusion": compact(conclusion, "结论"), "boundary": compact(boundary, "边界")}
+        fingerprint = (group_name, entry["scene"], entry["conclusion"], entry["boundary"])
+        duplicate = False
+        for candidate_group in groups:
+            for candidate in candidate_group["entries"]:  # type: ignore[index]
+                candidate_key = (candidate_group["name"], candidate["scene"], candidate["conclusion"], candidate["boundary"])
+                if candidate_key == fingerprint:
+                    candidate["last_verified"] = today().isoformat()
+                    duplicate = True
+                    break
+            if duplicate:
+                break
+        if not duplicate:
+            group["entries"].append(entry)  # type: ignore[index]
+        atomic_write(path, render_library(library, library["version"]))
+        library["header_count"] = count_entries(library)
+        return {"path": str(path), "duplicate": duplicate, "actual_entry_count": count_entries(library), "warnings": prior_warnings + [item for item in warnings_for(library, current_version) if item not in prior_warnings]}
+
+
+def trim_library(path: Path, current_version: str, actions: list[dict[str, object]]) -> dict[str, object]:
+    with LibraryLock(path):
+        if not path.exists():
+            raise ValueError("经验库不存在，无法整理")
+        library = parse_library(path.read_text(encoding="utf-8"))
+        flattened = [(group, entry) for group in library["groups"] for entry in group["entries"]]  # type: ignore[index]
+        if not actions:
+            raise ValueError("整理计划不能为空")
+        consumed: set[int] = set()
+        output: list[tuple[str, dict[str, str]]] = []
+        counts = {"kept": 0, "rewritten": 0, "merged": 0, "removed": 0, "unverified": 0}
+        for number, action in enumerate(actions, 1):
+            operation = action.get("operation")
+            indexes = action.get("source_indexes")
+            if operation not in {"keep", "rewrite", "merge", "remove", "unverified"}:
+                raise ValueError(f"第 {number} 项操作无效")
+            if not isinstance(indexes, list) or not indexes or any(type(index) is not int for index in indexes):
+                raise ValueError(f"第 {number} 项 source_indexes 必须是非空整数数组")
+            if len(indexes) != len(set(indexes)) or any(index < 1 or index > len(flattened) for index in indexes) or consumed.intersection(indexes):
+                raise ValueError(f"第 {number} 项 source_indexes 越界或重复")
+            consumed.update(indexes)
+            selected = [flattened[index - 1] for index in indexes]
+            if operation in {"keep", "unverified", "rewrite"} and len(selected) != 1:
+                raise ValueError(f"{operation} 只能处理一条原始经验")
+            if operation == "merge" and len(selected) < 2:
+                raise ValueError("merge 至少处理两条原始经验")
+            if operation in {"rewrite", "merge", "remove"}:
+                compact(action.get("evidence"), "evidence")
+            if operation == "remove":
+                counts["removed"] += len(selected)
+                continue
+            if operation in {"keep", "unverified"}:
+                source_group, source_entry = selected[0]
+                output.append((source_group["name"], dict(source_entry)))
+                counts["kept" if operation == "keep" else "unverified"] += 1
+                continue
+            values = {field: compact(action.get(field), field) for field in ("topic", "scene", "conclusion", "boundary")}
+            group_name = compact(action.get("group", selected[0][0]["name"]), "group")
+            if not any(group["name"] == group_name for group in library["groups"]):  # type: ignore[index]
+                raise ValueError("trim 不能隐式创建新分组")
+            entry = {"date": min(item[1]["date"] for item in selected), **values, "last_verified": today().isoformat()}
+            output.append((group_name, entry))
+            counts["rewritten" if operation == "rewrite" else "merged"] += 1
+        if consumed != set(range(1, len(flattened) + 1)):
+            raise ValueError("整理计划必须恰好覆盖每条原始经验")
+        rebuilt = new_library(current_version)
+        for original_group in library["groups"]:  # type: ignore[index]
+            if not any(group["name"] == original_group["name"] for group in rebuilt["groups"]):  # type: ignore[index]
+                rebuilt["groups"].append({"name": original_group["name"], "entries": []})  # type: ignore[index]
+        targets = {group["name"]: group for group in rebuilt["groups"]}  # type: ignore[index]
+        for group_name, entry in output:
+            targets[group_name]["entries"].append(entry)  # type: ignore[index]
+        atomic_write(path, render_library(rebuilt, current_version))
+        rebuilt["header_count"] = count_entries(rebuilt)
+        return {"path": str(path), "actual_entry_count": count_entries(rebuilt), "warnings": warnings_for(rebuilt, current_version), **counts}
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="维护版本隔离、脱敏的 ChatGPT Web 经验库。")
+    parser = argparse.ArgumentParser(description="维护 chatgpt-web-skill 的统一经验库")
     subparsers = parser.add_subparsers(dest="command", required=True)
-    subparsers.add_parser("status", help="校验当前版本经验文件并输出条目计数。")
-    append_parser = subparsers.add_parser("append", help="校验后原子追加一条已验证经验。")
+    read_parser = subparsers.add_parser("read", help="读取统一经验库")
+    read_parser.add_argument("--full", action="store_true", help="返回主题、场景和最近核验日")
+    subparsers.add_parser("status", help="兼容接口：只返回经验库元数据")
+    append_parser = subparsers.add_parser("append", help="追加一条已验证经验")
+    append_parser.add_argument("--group", required=True)
+    append_parser.add_argument("--create-group", action="store_true")
     append_parser.add_argument("--topic", required=True)
     append_parser.add_argument("--scene", required=True)
     append_parser.add_argument("--conclusion", required=True)
     append_parser.add_argument("--boundary", required=True)
-    trim_parser = subparsers.add_parser("trim", help="按已确认的 JSON 计划原子整理当前版本经验库。")
-    trim_parser.add_argument("--plan", required=True, type=Path, help="含 actions 数组的 JSON 文件")
-    trim_parser.add_argument("--verified-on", type=date.fromisoformat, help="主动验证完成日期（YYYY-MM-DD）")
-    trim_parser.add_argument("--confirm", action="store_true", help="确认计划已完成用户讨论并允许写回")
+    trim_parser = subparsers.add_parser("trim", help="按已确认计划整理统一经验库")
+    trim_parser.add_argument("--plan", required=True, type=Path)
+    trim_parser.add_argument("--confirm", required=True, help="仅接受用户明确确认词 ok")
     args = parser.parse_args()
-
     try:
         version = load_skill_version()
-        path = memory_path(version)
-        if args.command == "status":
-            result = status(path, version)
+        path = memory_path()
+        if args.command == "read":
+            result = read_library(path, version, args.full)
+        elif args.command == "status":
+            result = read_library(path, version, False)
+            result.pop("entries")
+            result.pop("groups")
         elif args.command == "append":
-            result = append_entry(path, version, args.topic, args.scene, args.conclusion, args.boundary)
+            result = append_entry(path, version, args.group, args.topic, args.scene, args.conclusion, args.boundary, args.create_group)
         else:
-            if not args.confirm:
-                raise ValueError("trim 需要 --confirm；请在与用户完成讨论并获得 ok 后再写回")
+            if args.confirm != "ok":
+                raise ValueError("trim 仅在用户明确回复 ok 后执行；请传入 --confirm ok")
             plan = json.loads(args.plan.read_text(encoding="utf-8"))
             if not isinstance(plan, dict) or not isinstance(plan.get("actions"), list):
                 raise ValueError("整理计划必须是包含 actions 数组的 JSON 对象")
-            result = trim_entries(path, version, plan["actions"], args.verified_on)
-    except (OSError, ValueError) as error:
+            result = trim_library(path, version, plan["actions"])
+    except (OSError, ValueError, json.JSONDecodeError) as error:
         print(json.dumps({"ok": False, "error": str(error)}, ensure_ascii=False))
         return 2
-
     print(json.dumps({"ok": True, **result}, ensure_ascii=False))
     return 0
 
