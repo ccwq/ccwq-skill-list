@@ -1,0 +1,3 @@
+interface:
+  display_name: "Subagent Router"
+  short_description: "Risk-aware Codex multi-agent routing"

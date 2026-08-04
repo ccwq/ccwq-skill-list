@@ -47,6 +47,7 @@ npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code --
 | `debug-instrumentation` | 为调试问题添加、采集和分析可清理的 token 化日志埋点 | [SKILL.md](skills/debug-instrumentation/SKILL.md) |
 | `rd-mode` | 远程开发模式规则，约束 host/server 协作并统一 CDP 浏览器操作（abc 命令） | [README.md](skills/rd-mode/README.md) |
 | `lite-team` | 轻量多 Agent 协作，用 docs/bbs/lite-team-bbs.md 协作板在不同 Agent/session 间手动交接 | [README.md](skills/lite-team/README.md) |
+| `subagent-router` | 预览并确认后临时创建 Codex 子 Agent，支持动态模型路由与多 Agent 开发 | [SKILL.md](skills/subagent-router/SKILL.md) |
 | `gemin-mirror` | Gemini/兼容镜像站的探针、账号切换与 API-first 安全会话删除 | [SKILL.md](skills/gemin-mirror/SKILL.md) |
 | `project-self-memory` | 维护项目级、可自进化的已验证结论记忆 | [SKILL.md](skills/project-self-memory/SKILL.md) |
 | `pro-grilling` | 手动逐层厘清复杂决策，在共同理解前保持只读 | [SKILL.md](skills/pro-grilling/SKILL.md) |
@@ -320,6 +321,31 @@ Codex 使用 `$pro-grilling` 显式调用。调查档位为“直接继续 / 快
 
 ---
 
+### subagent-router
+
+在任务可并行、需要隔离上下文、模型路由或独立复核时调用。Skill 通过 Codex Multi-agent 临时创建子 Agent，不需要创建 `.codex/agents/*.toml`；TOML 只用于可选的持久角色配置，`SKILL.md` 保存的是可复用调度流程。
+
+无 `-g` 时直接生成完整分组预览；有 `-g` 时先逐问厘清任务设计，收到“已达成共同理解”后再生成预览。所有分组都必须经过全局 `确认分发`，调整后会重新展示完整预览并使旧确认失效。确认后立即 spawn 临时子 Agent，等待全部完成后由主 Agent 整合和验证。
+
+```text
+$subagent-router -t 调查登录失败的前后端原因，并独立复核修复方案
+$subagent-router -gs 讨论支付模块迁移的边界、风险和验收方式
+$subagent-router -l 并行梳理项目结构、检查缺陷并分析测试覆盖
+```
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `[任务]` | 待评估、调度或讨论的工作事项 | 无 |
+| `-l` / `--luna` | 成本优先的动态混合路由；优先 Luna，必要时使用 Terra/Sol | 默认策略 |
+| `-t` / `--terra` | 平衡路由；以 Terra 为主，按任务混用 Luna/Sol | 无 |
+| `-s` / `--sol` | 质量优先路由；核心判断更多使用 Sol，仍按任务混用 Luna/Terra | 无 |
+| `-g` / `--grilling` | 先进入单问题、只读调查讨论门禁 | 关闭 |
+| `-gl` / `-gt` / `-gs` | 同时记录讨论完成后的路由策略 | 无 |
+
+所有策略统一最多 5 个临时子 Agent，并尽量少用；策略名不是模型锁，也不控制数量。分组设计阶段必须消除共同文件写入。Skill 不预查模型清单；spawn 失败时不会自动换模型，而是重新展示分组等待再次确认。详情见 [SKILL.md](skills/subagent-router/SKILL.md)。
+
+---
+
 ### chatgpt-web-skill
 
 依赖 `agent-browser` skill 与 CLI，在指定的 `agents-op` ChatGPT Project 中生成、编辑或审阅图片时使用。ChatGPT Search / Deep Research 不是默认行为，发送前必须说明理由并取得当次明确授权；不得将其用作通用外站浏览或抓取工具。
@@ -328,21 +354,23 @@ Codex 使用 `$pro-grilling` 显式调用。调查档位为“直接继续 / 快
 $chatgpt-web-skill 在 agents-op 中生成一张简洁的蓝色立方体图
 $chatgpt-web-skill 审阅当前 chat 附带的商品主图，并给出可执行改图建议
 $chatgpt-web-skill visual-review 上传一张商品主图，按 S1 文字完整、S2 无裁切审查
-$chatgpt-web-skill -t 整理当前版本经验库
+$chatgpt-web-skill -t 整理统一经验库
 ```
 
 | 参数 | 说明 | 默认值 |
 |------|------|--------|
 | `[图片任务]` | 生图、编辑或审阅图片的需求；Research 必须另获当次授权 | 无 |
-| `-t [主题]` / `--trim [主题]` | 本地与实时 UI 核验后逐主题讨论经验整理；最终 `ok` 后原子改写、合并或删除当前版本经验 | 全部经验 |
+| `-t [主题]` / `--trim [主题]` | 本地与实时 UI 核验后逐主题讨论统一经验整理；最终 `ok` 后原子改写、合并或删除全库经验 | 全部经验 |
 | `--cdp <port>` / `AGENT_BROWSER_CDP_PORT` | 必须接入已登录的既有浏览器；项目 `.env` 默认使用 `9696`，调用期参数或环境变量可覆盖 | `9696` |
 | `--tab <tab-id>` | 每次脚本命令前切换到实时 tab list 返回的稳定任务 tab ID，避免读取其他 CDP tab | 不传 |
 | `browser_task.py acquire/status/action/release` | 必须通过已登录 CDP 浏览器运行；以临时 lease 管理 URL 精确复用或 `--force-new` 专用 tab，动作前后保存 snapshot，release 只关闭本次创建的 tab | 项目 `.env` 的 `9696` |
 | `runtime_checks.py project/images/message` | 机械验证 Project 双证据、生成图尺寸或 prompt 渲染；仍需实时 snapshot/截图复核 | 按当前 session |
 | `visual-review` | 上传一张图片，按 `S` 编号标准获得严格中文 YAML 审查并本地计算视觉状态 | `VISUAL_PENDING` fail-closed |
-| `experience_memory.py status/append/trim` | 校验、原子追加或按确认计划整理版本隔离的脱敏经验 | 当前 `metadata.version` |
+| `experience_memory.py read [--full]/status/append/trim` | 读取、原子追加或按确认计划整理统一的脱敏经验；warning 由 Agent 立即中文提醒 | `%USERPROFILE%` 或 `~/.config` |
+| `experience_memory.py append --group <group> ...` | 向预置或已有分组追加已验证经验；自定义分组需逐步加 `--create-group` | `--group` 必填 |
+| `experience_memory.py trim --plan <file> --confirm ok` | 仅在用户明确回复 `ok` 后整理全库；改写、合并、删除动作均须有非空 `evidence` | 不自动执行 |
 
-可通过 `python skills/chatgpt-web-skill/scripts/run_agent_browser.py --tab <tab-id> <command>` 调用 `agent-browser`；跨命令任务可通过 `browser_task.py` 获取 lease 并在动作前后保存 snapshot，`runtime_checks.py` 将 Project 双证据、提交状态和图片可见/尺寸检查下沉为结构化结果，图片已出现在 snapshot 时会立刻截图返回，避免无效等待。`visual-review` 由调用方决定触发：仅上传一张图片，固定提示词要求模型只返回一个中文 YAML 代码块；其中逐项列出 `S` 标准检查、缺陷和改进建议。本地按 `critical`、`major`、`minor` 严格计算 `VISUAL_*`，仅 `VISUAL_PASSED` 可继续流程；它不删除或修改 chat。`experience_memory.py` 负责经验库格式与原子写入；`trim` 必须提供覆盖全部原始条目的确认计划与 `--confirm`，只处理当前版本经验库。DOM selector/ref、视觉质量和授权判断仍须实时验证。PowerShell 中 ref 必须加引号，且 Enter 后须确认用户消息已渲染。详情见 [SKILL.md](skills/chatgpt-web-skill/SKILL.md)。
+可通过 `python skills/chatgpt-web-skill/scripts/run_agent_browser.py --tab <tab-id> <command>` 调用 `agent-browser`；跨命令任务可通过 `browser_task.py` 获取 lease 并在动作前后保存 snapshot，`runtime_checks.py` 将 Project 双证据、提交状态和图片可见/尺寸检查下沉为结构化结果，图片已出现在 snapshot 时会立刻截图返回，避免无效等待。`visual-review` 由调用方决定触发：仅上传一张图片，固定提示词要求模型只返回一个中文 YAML 代码块；其中逐项列出 `S` 标准检查、缺陷和改进建议。本地按 `critical`、`major`、`minor` 严格计算 `VISUAL_*`，仅 `VISUAL_PASSED` 可继续流程；它不删除或修改 chat。`experience_memory.py` 独占维护统一经验库；trim 计划须覆盖每条原始经验一次，改写、合并和删除须附非空 `evidence`，并仅接受 `--confirm ok`。全库 trim 成功后才更新文件记录版本与计数。DOM selector/ref、视觉质量和授权判断仍须实时验证。PowerShell 中 ref 必须加引号，且 Enter 后须确认用户消息已渲染。详情见 [SKILL.md](skills/chatgpt-web-skill/SKILL.md)。
 
 ---
 

@@ -79,6 +79,13 @@
       "category": "collaboration"
     },
     {
+      "name": "subagent-router",
+      "source": "./skills/subagent-router",
+      "description": "通过强制分组预览和确认门禁临时创建 Codex 子 Agent，支持动态模型路由、互斥写入与多 Agent 开发",
+      "version": "1.1.0",
+      "category": "collaboration"
+    },
+    {
       "name": "gemin-mirror",
       "source": "./skills/gemin-mirror",
       "description": "Gemini/兼容镜像站操作：CDP 探针、账号唯一核验与 API-first 安全会话删除，内置审计和跨平台 runner",
@@ -109,8 +116,8 @@
     {
       "name": "chatgpt-web-skill",
       "source": "./skills/chatgpt-web-skill",
-      "description": "依赖 agent-browser 在指定 agents-op ChatGPT Project 中受授权地生图、编辑或单图结构化视觉审查；以中文 YAML 和本地状态计算形成图像识别门槛，不修改任何 ChatGPT 持久设置",
-      "version": "1.14.0",
+      "description": "依赖 agent-browser 在指定 agents-op ChatGPT Project 中受授权地生图、编辑或单图结构化视觉审查；以中文 YAML、本地状态和统一经验库形成可验证工作流，不修改任何 ChatGPT 持久设置",
+      "version": "1.15.0",
       "category": "automation"
     }
   ]
