@@ -1,0 +1,26 @@
+[
+  {
+    "url": "https://github.com/dongyubin/DockerHub",
+    "kind": "html",
+    "source": "community-list",
+    "includeHostPattern": "(docker|mirror|registry|proxy|hub|1panel|daocloud|1ms|xuanyuan)"
+  },
+  {
+    "url": "https://github.com/DaoCloud/public-image-mirror",
+    "kind": "html",
+    "source": "project-docs",
+    "includeHostPattern": "(docker|mirror|registry|proxy|hub|daocloud)"
+  },
+  {
+    "url": "https://1ms.run/",
+    "kind": "html",
+    "source": "provider-site",
+    "includeHostPattern": "(docker|mirror|registry|proxy|hub|1ms)"
+  },
+  {
+    "url": "https://xuanyuan.cloud/free",
+    "kind": "html",
+    "source": "provider-site",
+    "includeHostPattern": "(docker|mirror|registry|proxy|hub|xuanyuan)"
+  }
+]

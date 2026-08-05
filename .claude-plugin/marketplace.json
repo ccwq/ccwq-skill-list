@@ -81,8 +81,8 @@
     {
       "name": "subagent-router",
       "source": "./skills/subagent-router",
-      "description": "通过强制分组预览和确认门禁临时创建 Codex 子 Agent，支持动态模型路由、互斥写入与多 Agent 开发",
-      "version": "1.1.0",
+      "description": "Native-first / External fallback 的 Codex 多 Agent 路由：运行时能力判定、已达成共同理解→授权执行双门禁、外部写入隔离与主线程独立验收；策略不是模型锁",
+      "version": "2.0.0",
       "category": "collaboration"
     },
     {
@@ -112,6 +112,13 @@
       "description": "手动授权的 aria2 稳定下载工具：网络异常后提示，支持 --proxy/-p、ARIA2_PROXY/PROXY 与项目 .env 代理配置",
       "version": "1.1.0",
       "category": "automation"
+    },
+    {
+      "name": "dockerhub-mirror",
+      "source": "./skills/dockerhub-mirror",
+      "description": "诊断 Docker Hub 拉取缓慢或失败，探测、评分、发现并管理经过验证的公共镜像候选",
+      "version": "0.2.0",
+      "category": "devtools"
     },
     {
       "name": "chatgpt-web-skill",

@@ -1,0 +1,28 @@
+{
+  "formatVersion": 1,
+  "freshDays": 3,
+  "staleDays": 7,
+  "requestTimeoutMs": 8000,
+  "overallTimeoutMs": 30000,
+  "concurrency": 4,
+  "maxRedirects": 3,
+  "maxManifestBytes": 2097152,
+  "maxScrapeBytes": 2097152,
+  "maxBlobBytes": 1048576,
+  "minBlobBytes": 65536,
+  "minThroughputKibS": 256,
+  "quarantineAfterFailures": 3,
+  "quarantineRetentionDays": 7,
+  "maxScrapeCandidates": 50,
+  "testImage": {
+    "repository": "library/busybox",
+    "reference": "1.36.1"
+  },
+  "weights": {
+    "manifestLatency": 0.30,
+    "throughput": 0.30,
+    "successRate": 0.20,
+    "apiLatency": 0.10,
+    "freshness": 0.10
+  }
+}

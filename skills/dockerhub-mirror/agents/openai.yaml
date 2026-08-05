@@ -1,0 +1,4 @@
+interface:
+  display_name: "Docker Hub Mirror Triage"
+  short_description: "Triage slow Docker Hub pulls and verify mirror candidates"
+  default_prompt: "Use $dockerhub-mirror to triage a Docker Hub retrieval problem or manage verified mirror candidates under its discussion and authorization gate."

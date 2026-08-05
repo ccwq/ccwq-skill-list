@@ -1,77 +1,35 @@
 # Routing Policy
 
-Use this file after parsing the invocation and before showing the mandatory dispatch preview.
+Read this before a dispatch plan. Delegate only for independent parallel work, context isolation, specialization, bulk throughput, or independent review. Keep small, strongly serial, cheaply direct, continuously main-thread-dependent, overlapping-write, or integration-heavy work in the main thread. The normal total cap is five Workers.
 
-## Decide whether to delegate
+## Policy flags
 
-Delegate when an independent workstream gains from parallelism, context isolation, specialization, or independent review. Keep work in the main thread when it is small, tightly serial, cheaply solved with current context, or cannot be divided without shared writes.
+`-l` is the default cost-first policy: favor narrow tasks, low reasoning, small teams, direct validation, and Luna only when the authorized backend supports it. `-t` is balanced: favor Terra for ordinary analysis, implementation, tests, and tools; add review for risk. `-s` is quality-first: favor Sol/high reasoning and independent review for complex or high-impact decisions, while retaining cheaper capability for simple work.
 
-Every strategy uses the smallest useful team and allows at most five temporary subagents. The strategy does not control agent count.
+The policies change selection tendencies, reasoning, team size, concurrency, and review—not a fixed model identity. Recommend an upgrade when evidence is weak, but never silently upgrade.
 
-## Match work to models
+## Capability facts and route selection
 
-- **Luna** — exploration, inventory, classification, narrow searches, repetitive checks, formatting, and other mechanical work with a clear oracle. Treat Luna as read-only by default; the main agent may assign simple mechanical writes when it judges them sufficiently bounded and verifiable.
-- **Terra** — everyday coding analysis, tool-heavy exploration, implementation, tests, ordinary refactors, and broad read-heavy work.
-- **Sol** — architecture, security, ambiguous diagnosis, high-impact decisions, weak verification oracles, central design judgments, and independent high-risk review.
+Maintain one current-session capability fact per requested model: `native_supported`, `native_unsupported`, `unknown`, or `temporarily_unavailable`.
 
-Use the lowest reasoning effort that reliably meets the completion criterion. Prefer `low`, `medium`, and `high`; reserve `xhigh` for exceptional work when explicitly supported by the execution surface.
+1. Prefer the current spawn schema, model metadata, or other read-only runtime capability evidence.
+2. If unavailable, use a known compatibility table only as a temporary `unknown`-preserving fallback.
+3. After authorized native failure, record the error and `Available models` text.
+4. Do not carry the conclusion across sessions, Codex versions, or Provider changes.
 
-Do not query available model types before planning. Assign the requested model directly when spawning. Do not require runtime model-identity verification as a completion gate.
+| Capability | Route |
+|---|---|
+| `native_supported` | `native_spawn`, always |
+| `native_unsupported` | Evaluate the controlled `external_exec` path |
+| `unknown` | Low-cost read-only verification; never external fallback |
+| `temporarily_unavailable` | Technical retry path; do not infer incompatibility |
 
-## Apply strategy profiles
+Use `node scripts/route-decision.mjs <input.json>` to make this decision reproducible. The input must identify capability, permission, execution authorization, external-plan disclosure, top-level availability, and write isolation.
 
-### `-l` / `--luna` — cost-first, default
+## Team design
 
-- Prefer Luna for exploration and mechanical work.
-- Use Terra when implementation or tool-heavy work needs it.
-- Use Sol only for high-risk or central judgments.
-- Default reasoning: Luna `low`; Terra `low` or `medium`; Sol `high`.
+Give each Worker one outcome, measurable completion criterion, permission, model/reasoning preference, backend, context level, owned scope, and return requirements. Default context is `minimal`; `summarized` adds selected dependency context, and `expanded` requires renewed authorization if it changes privacy, cost, or data boundaries.
 
-### `-t` / `--terra` — balanced
+Give every writer exclusive files or modules. Keep shared ownership with one writer and make dependent groups advisory or serial. Add an independent reviewer only for security, architecture, weak oracles, difficult diagnosis, or high-impact writes.
 
-- Use Luna for lightweight exploration and mechanical work.
-- Prefer Terra for most analysis, implementation, and tests.
-- Use Sol for architecture, security, difficult diagnosis, or final high-risk review.
-- Default reasoning: Luna `low`; Terra `medium`; Sol `high`.
-
-### `-s` / `--sol` — quality-first
-
-- Keep Luna for mechanical work with a clear oracle.
-- Use Terra for routine implementation.
-- Prefer Sol for core design, difficult judgments, high-impact analysis, and independent review.
-- Default reasoning: Luna `medium`; Terra `medium` or `high`; Sol `high`, with `xhigh` only for exceptional supported work.
-
-Profiles change model-selection and reasoning tendencies, not concurrency, fixed quotas, or model locks. Mix models dynamically according to each group’s work.
-
-## Design write ownership before dispatch
-
-Assign every writer exclusive files or modules while designing the team. Do not create a plan in which two agents modify the same file or shared code region. If a shared file cannot be separated, give it to one writer and make the other groups read-only, advisory, or dependent on that writer’s result.
-
-Prefer parallel read-heavy work. Parallel writes are allowed only across non-overlapping ownership boundaries.
-
-## Add review only when it earns its cost
-
-Use the main agent for final validation of ordinary, directly verifiable changes. Add an independent reviewer for security, architecture, cross-module behavior, high-impact writes, difficult diagnosis, or weak validation oracles. Do not create a reviewer for every write by default.
-
-## Show the complete dispatch preview
-
-Always show the proposed dispatch before spawning, including a main-thread-only decision:
-
-`group | outcome | scope | permission | model | reasoning | owned files/modules | validation`
-
-Explain why each delegated group earns its cost. Wait for `确认分发`. Any adjustment invalidates earlier confirmation and requires a new full preview.
-
-## Handle spawn failure
-
-Do not silently substitute or inherit another model after a spawn failure. Report the failed group, requested model, and unexecuted scope. Revise the complete preview and wait for a new `确认分发`.
-
-## Final report
-
-For every attempted group, report:
-
-- role and bounded task;
-- why delegation earned its cost;
-- requested model and reasoning effort;
-- permissions and owned files or modules;
-- evidence and validation;
-- success, spawn failure, cancellation, or unresolved status.
+The full plan uses: `group | outcome | backend | capability | permission | model | reasoning | provider/profile | context | workspace | owned scope | validation`.

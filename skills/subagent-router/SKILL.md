@@ -1,80 +1,78 @@
 ---
 name: subagent-router
-description: Route complex or parallelizable work through temporary Codex subagents with a mandatory dispatch preview, explicit confirmation, model selection, bounded write ownership, and final integration. Use when the user asks for subagents, delegation, parallel agents, model routing, multi-agent development, or independent review.
+description: Route complex or parallelizable work through temporary Codex workers with native Multi-agent V2 first, controlled external compatibility fallback, exact two-stage authorization, isolated writes, and independent final acceptance. Use when the user requests subagents, delegation, parallel work, model routing, multi-agent development, or independent review.
 ---
 
 # Subagent Router
 
-Treat temporary subagents as a portfolio. Keep requirements, authorization, integration, and the final answer in the main thread. Do not create or require `.codex/agents/*.toml`; this Skill defines a reusable orchestration workflow, not persistent agent roles.
+Keep user communication, authorization, capability facts, integration, and final acceptance in the main thread. This is a pure temporary-worker workflow: do not create persistent `.codex/agents/*.toml` roles unless separately requested.
 
-## 1. Parse the invocation
+## 1. Parse and select a routing policy
 
-Read option tokens immediately following `$subagent-router` until the first non-option token.
+Read option tokens immediately after `$subagent-router` until the first non-option token.
 
-- Strategy: `-l` / `--luna`, `-t` / `--terra`, or `-s` / `--sol`.
-- Discussion gate: `-g` / `--grilling`.
-- Combined forms: `-gl`, `-gt`, and `-gs`.
-- No strategy means `-l`. `-g` alone therefore means `-gl`.
+- `-l` / `--luna`: cost-first (default).
+- `-t` / `--terra`: balanced.
+- `-s` / `--sol`: quality-first.
+- `-g` / `--grilling`: one-question-at-a-time discussion.
+- `-gl`, `-gt`, and `-gs`: supported combinations; `-g` means `-gl`.
 
-Treat the strategy as a routing profile, not a model lock. Reject conflicting strategies or unknown leading options before planning or spawning.
+Reject conflicting strategies and unknown leading options before planning. These flags are routing policies for quality, cost, reasoning, concurrency, and review; they are never model locks or permission to create a Worker.
 
-## 2. Design the temporary team
+Read [routing policy](references/routing-policy.md) before designing a team. Use at most five Workers by default, and use none when main-thread work costs less than delegation.
 
-Read [`references/routing-policy.md`](references/routing-policy.md). Split the task into independent outcomes and choose the smallest useful team, with at most five subagents for every strategy. A valid result may use zero subagents when delegation does not earn its cost.
+## 2. Enforce the state machine and authorization
 
-Do not probe the runtime model list or require model-identity verification. Assign `gpt-5.6-luna`, `gpt-5.6-terra`, or `gpt-5.6-sol` directly with an appropriate reasoning effort when spawning.
+Use this exact order:
 
-Before presenting the team:
+`讨论中 → 待共识 → 待授权 → 执行中 → 已完成`
 
-- give each subagent one bounded outcome and completion criterion;
-- mark its scope as read-only or write;
-- assign exclusive files or modules to every writer;
-- eliminate shared-file writes during team design;
-- define the evidence and validation it must return;
-- add an independent reviewer only when risk justifies one.
+The only valid gates are, in order:
 
-## 3. Enter Grilling when requested
+1. `已达成共同理解`
+2. `授权执行`
 
-When `-g` is present, follow [`references/grilling-protocol.md`](references/grilling-protocol.md). Keep investigation and discussion in the main thread. After shared understanding, continue to the same mandatory dispatch preview used by non-Grilling invocations.
+The initial task is only a desired outcome. Before the first phrase, allow only questions, analysis, comparison, and read-only verification. Before the second phrase, do not create a Worker, run `codex exec`, create a worktree, modify files, install software, or change external state. Ambiguous consent, an old plan, a one-group approval, or investigation authorization never advances either gate.
 
-Without `-g`, proceed directly from task analysis to the dispatch preview.
+Before requesting consensus, make the objective, success criteria, constraints, tradeoffs, risks, validation, action boundary, model/backend strategy, context/workspace boundary, and unresolved dependencies explicit. Summarize as:
 
-## 4. Show the mandatory dispatch preview
+`当前共识 | 关键决策 | 依赖风险 | 验收标准 | 剩余未决`
 
-Before spawning any subagent or starting planned writes, show the complete proposed team:
+Use [the grilling protocol](references/grilling-protocol.md) when `-g` is set. A material change to scope, permission, model, Provider/Profile, backend, reasoning, cost, workspace, or context invalidates the affected authorization and returns to the relevant decision point.
 
-`group | outcome | scope | permission | model | reasoning | owned files/modules | validation`
+## 3. Decide capability and backend
 
-For a main-thread-only decision, show `0 subagents`, the reason, and the main-thread validation plan. For an unconfirmed team, do not start read-only agents early.
+Treat model existence and native spawn support as separate facts. Read [routing policy](references/routing-policy.md), then use `scripts/route-decision.mjs` for a deterministic proposal when its JSON inputs are known.
 
-The user may add, remove, merge, split, or edit groups, models, reasoning, permissions, ownership, and validation. After any adjustment, show the full revised preview again; all earlier confirmations become invalid.
+Capability states are `native_supported`, `native_unsupported`, `unknown`, and `temporarily_unavailable`. Prefer current read-only spawn schema, model metadata, or runtime capability evidence; use a compatibility table only as a temporary fallback. Cache conclusions only for the current session, never across a version or Provider change.
 
-## 5. Wait for confirmation
+- `native_supported` must use `native_spawn`.
+- `native_unsupported` may use `external_exec` only under [external execution policy](references/external-exec-policy.md).
+- `unknown` must be read-only verified first and must not fall back externally.
+- `temporarily_unavailable` is a technical failure, not permanent incompatibility.
 
-Only the exact phrase `确认分发` confirms the current complete preview. It authorizes the listed in-scope execution under the current sandbox and permission boundaries. Actions outside the current task or permissions remain blocked and must be resolved before the preview is confirmable.
+`external_exec` is a separately launched top-level Codex process. It does not inherit native-worker identity, context, permissions, or state. Never choose it when native support is confirmed. Never describe a native incompatibility as model nonexistence; include the current `Available models` evidence when available.
 
-Do not require a second `授权执行` gate. Ambiguous approval, confirmation of only one group, or approval of an older preview does not authorize execution.
+## 4. Produce the complete execution plan
 
-## 6. Spawn bounded temporary subagents
+After `已达成共同理解`, enter `待授权` and present a complete plan for main-thread work and every Worker:
 
-After `确认分发`, spawn the approved temporary subagents with their listed model, reasoning effort, task boundary, permission boundary, owned files or modules, and return contract. Do not silently change models.
+`group | outcome | backend | capability | permission | model | reasoning | provider/profile | context | workspace | owned scope | validation`
 
-If a spawn fails, report the failed group, requested model, and unexecuted scope. Return to a revised full dispatch preview and wait for a new `确认分发`; do not substitute another model automatically.
+Also disclose delegation value; read/write effects; external process, worktree, temporary-copy, alternate Provider/Profile, or expanded-context possibilities; default and maximum concurrency; retry policy; result contract; and main-thread integration/acceptance. A material revision requires a complete new plan and a new exact `授权执行`.
 
-Every subagent returns only:
+Every Worker gets one bounded objective, completion standard, permission, allowed and forbidden scope, requested model/reasoning, selected backend, context level, workspace ownership, evidence/validation, and failure contract. Default to `minimal` context. Read [the Worker contract](references/worker-contract.md) and validate task packages or returns with `scripts/validate-worker-contract.mjs`.
 
-1. task boundary;
-2. evidence with file locations or source references;
-3. result;
-4. validation performed;
-5. unresolved questions or risks.
+## 5. Execute only after authorization
 
-## 7. Integrate and verify
+After the exact `授权执行`, use `native_spawn` whenever the current session supports the requested model natively. Preserve the authorized model, Provider/Profile, backend, reasoning, permission, context, workspace, and task scope.
 
-Wait for every required group. Resolve disagreements against evidence rather than agent count. The main agent owns conflict resolution, final validation, and the final answer.
+Use `external_exec` only when all policy conditions have already been disclosed and authorized. For an external write, require a separate Git worktree (preferred) or authorized temporary copy, explicit ownership, and main-thread acceptance. Multiple writers never share a writable directory; overlapping files, modules, dependencies, or verification environments are serial.
 
-Report every attempted group as:
+Default external concurrency is two read-only Workers or one writing Worker; raise isolated external writes to two only when disclosed and independently worktreed. Native plus external Workers total at most five by default. Apply [failure policy](references/failure-policy.md); no semantic attribute may be silently substituted.
 
-`group | task | requested model | reasoning | permission | status | evidence`
+## 6. Integrate independently
 
-Completion requires all groups accounted for, writes kept inside their exclusive ownership, conflicts resolved or exposed, final validation reported, and remaining risks stated.
+Worker completion claims are not acceptance. The main Agent checks actual scope, identity evidence (or `unverified`), Diff, ownership, tests, conflicts, rollback material, and unresolved items; it reruns necessary validation and decides integration or rollback. Resolve disagreement by evidence quality and acceptance criteria, never by vote count.
+
+Do not complete until each planned Worker has a status, write ownership is preserved, boundary violations are resolved or exposed, required validation is checked, and risks are reported. Run `node scripts/verify-router-skill.mjs` after changing this Skill or its protocol files.

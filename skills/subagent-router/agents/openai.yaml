@@ -1,3 +1,4 @@
 interface:
   display_name: "Subagent Router"
-  short_description: "Risk-aware Codex multi-agent routing"
+  short_description: "Native-first, authorized multi-agent routing"
+  default_prompt: "Use $subagent-router to plan authorized native-first multi-agent work."

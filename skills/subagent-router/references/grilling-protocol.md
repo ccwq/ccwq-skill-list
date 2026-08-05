@@ -1,37 +1,19 @@
 # Grilling Protocol
 
-Use this branch only when `-g`, `--grilling`, `-gl`, `-gt`, or `-gs` is explicitly present.
+Use only for `-g`, `--grilling`, `-gl`, `-gt`, or `-gs`.
 
-## Investigation
+## Read-only discussion
 
-Before questioning, verify low-cost facts through files, tools, environment inspection, and authoritative sources. Keep this phase in the main thread; do not spawn subagents before the dispatch preview is confirmed.
+Begin with complexity, known information gaps, an adjustable estimated question total, recommended read-only investigation, and `第 1/[total] 个问题`. Verify low-cost facts yourself through files, tools, environment inspection, and authoritative sources. Investigation authorization covers only the stated read-only verification; it never authorizes execution.
 
-Investigation remains read-only. It may not install, create, modify, delete, publish, send, deploy, or otherwise change external state.
+Ask exactly one question per turn. Each question states the decision, relevant dependencies, answer directions, recommended answer, rationale, and its principal cost or limitation. Prefer the decision path: objective, current state, obstacle, root cause, assumptions, tradeoffs, risks, acceptance, then boundary. Update the estimate when evidence changes it.
 
-## Discussion contract
+Do not create a Worker, worktree, process, file, installation, deployment, or other state change during discussion. If a proposed investigation changes cost, risk, scope, or execution path, request distinct investigation authorization first.
 
-Apply this protocol:
+## Two exact gates
 
-> 请围绕此事逐层提问，沿决策树厘清各项决策及依赖，直到我们达成共同理解。每个问题都附上你的建议答案。  
-> 开始前预估总轮次；总数可动态调整。每次提问前标注“第 n/[total] 问”，若总数变化，从下一问起更新。  
-> 每次只问一个问题，并等待我的反馈后再继续。  
-> 可通过文件、工具或环境查明的事实请自行确认；所有需要取舍的决策交由我选择。  
-> 在我确认达成共同理解前，不要执行任何实际操作。
+Use the state sequence `讨论中 → 待共识 → 待授权 → 执行中 → 已完成`.
 
-Each question must expose one decision, its dependencies, the recommended answer, the reason for that recommendation, and its main cost or limitation. Reorder the decision tree when new evidence changes what matters.
+When the objective, success criteria, constraints, tradeoffs, risks, validation, action boundary, backend/model strategy, context/workspace boundary, and dependencies are clear, summarize `当前共识 | 关键决策 | 依赖风险 | 验收标准 | 剩余未决` and request exactly `已达成共同理解`.
 
-## Gates
-
-- Initial state: discussion.
-- Shared-understanding phrase: `已达成共同理解`.
-- After that phrase, summarize the consensus and build the mandatory full dispatch preview using the recorded `-l`, `-t`, or `-s` profile.
-- Shared understanding does not start execution.
-- Dispatch phrase: `确认分发`.
-- `确认分发` authorizes the current complete preview and starts its temporary subagents or approved main-thread-only execution.
-- Any team adjustment invalidates the old confirmation and requires a new full preview plus a new `确认分发`.
-
-Do not add a separate `授权执行` gate. Ambiguous approval does not advance the gate. If assumptions collapse, pause, explain the invalid premise, return to the affected decision node, and continue one question at a time.
-
-## Completion criterion
-
-Discussion is complete only when the objective, success criteria, constraints, tradeoffs, material risks, validation method, execution boundary, and team-design inputs are explicit. Execution remains blocked until the resulting dispatch preview is confirmed.
+Only after that exact phrase, present the complete execution plan. Request exactly `授权执行`; only that phrase authorizes creating approved Workers or performing approved writes. Do not accept `确认分发`, vague consent, or old-plan approval as an execution gate. Any material plan change invalidates the affected authorization and requires a revised plan and new `授权执行`.

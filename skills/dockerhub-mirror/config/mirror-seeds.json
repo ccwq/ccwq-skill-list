@@ -1,0 +1,6 @@
+[
+  {"url":"https://docker.1ms.run","source":"builtin","note":"Public mirror seed; always verify locally."},
+  {"url":"https://docker.m.daocloud.io","source":"builtin","note":"Public mirror seed; always verify locally."},
+  {"url":"https://docker.xuanyuan.me","source":"builtin","note":"Public mirror seed; may rate-limit."},
+  {"url":"https://docker.1panel.live","source":"builtin","note":"Fallback seed; treat as lower confidence."}
+]

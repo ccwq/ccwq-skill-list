@@ -52,6 +52,7 @@ npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code --
 | `project-self-memory` | 维护项目级、可自进化的已验证结论记忆 | [SKILL.md](skills/project-self-memory/SKILL.md) |
 | `pro-grilling` | 手动逐层厘清复杂决策，在共同理解前保持只读 | [SKILL.md](skills/pro-grilling/SKILL.md) |
 | `aria-filedown` | 手动授权的 aria2 稳定下载工具，支持代理优先级与项目 `.env` | [SKILL.md](skills/aria-filedown/SKILL.md) |
+| `dockerhub-mirror` | 诊断 Docker Hub 拉取缓慢或失败，并探测、评分和管理镜像候选 | [SKILL.md](skills/dockerhub-mirror/SKILL.md) |
 | `chatgpt-web-skill` | 依赖 agent-browser 在指定 ChatGPT Project 中受授权地生图、编辑或执行单图结构化视觉审查 | [SKILL.md](skills/chatgpt-web-skill/SKILL.md) |
 
 > 触发形式：`/skill-name` 偏 slash command 风格，`$skill-name` 偏按 skill 名触发；实际以你的 Claude Code / skills 运行环境为准。
@@ -323,9 +324,9 @@ Codex 使用 `$pro-grilling` 显式调用。调查档位为“直接继续 / 快
 
 ### subagent-router
 
-在任务可并行、需要隔离上下文、模型路由或独立复核时调用。Skill 通过 Codex Multi-agent 临时创建子 Agent，不需要创建 `.codex/agents/*.toml`；TOML 只用于可选的持久角色配置，`SKILL.md` 保存的是可复用调度流程。
+在任务可并行、需要隔离上下文、模型路由或独立复核时调用：已确认原生能力时优先 `native_spawn`，仅在 `native_unsupported` 且条件受控时回退独立 `external_exec`；必须依次收到 `已达成共同理解` 与 `授权执行` 两个精确口令。它不要求创建 `.codex/agents/*.toml`。
 
-无 `-g` 时直接生成完整分组预览；有 `-g` 时先逐问厘清任务设计，收到“已达成共同理解”后再生成预览。所有分组都必须经过全局 `确认分发`，调整后会重新展示完整预览并使旧确认失效。确认后立即 spawn 临时子 Agent，等待全部完成后由主 Agent 整合和验证。
+先根据当前 spawn Schema、模型元数据或其他只读运行时信息判定能力；模型存在不等于可原生 spawn，能力事实仅在当前会话有效。流程有两个精确门禁：先完成讨论和只读核验，收到 `已达成共同理解` 后给出完整计划；再收到 `授权执行` 才能创建 Worker、写文件、创建 worktree 或启动外部进程。`确认分发` 不是执行口令。
 
 ```text
 $subagent-router -t 调查登录失败的前后端原因，并独立复核修复方案
@@ -336,13 +337,13 @@ $subagent-router -l 并行梳理项目结构、检查缺陷并分析测试覆盖
 | 参数 | 说明 | 默认值 |
 |------|------|--------|
 | `[任务]` | 待评估、调度或讨论的工作事项 | 无 |
-| `-l` / `--luna` | 成本优先的动态混合路由；优先 Luna，必要时使用 Terra/Sol | 默认策略 |
-| `-t` / `--terra` | 平衡路由；以 Terra 为主，按任务混用 Luna/Sol | 无 |
-| `-s` / `--sol` | 质量优先路由；核心判断更多使用 Sol，仍按任务混用 Luna/Terra | 无 |
+| `-l` / `--luna` | 成本优先的完整路由策略；只在后端支持且获授权时才可使用 Luna | 默认策略 |
+| `-t` / `--terra` | 平衡的完整路由策略；按能力、风险和验证需要选择模型 | 无 |
+| `-s` / `--sol` | 质量优先的完整路由策略；提高 Sol/复核倾向而非强制全部使用 Sol | 无 |
 | `-g` / `--grilling` | 先进入单问题、只读调查讨论门禁 | 关闭 |
 | `-gl` / `-gt` / `-gs` | 同时记录讨论完成后的路由策略 | 无 |
 
-所有策略统一最多 5 个临时子 Agent，并尽量少用；策略名不是模型锁，也不控制数量。分组设计阶段必须消除共同文件写入。Skill 不预查模型清单；spawn 失败时不会自动换模型，而是重新展示分组等待再次确认。详情见 [SKILL.md](skills/subagent-router/SKILL.md)。
+所有策略统一最多 5 个临时子 Agent，并尽量少用；策略不是模型锁。默认上下文为 `minimal`，任何模型、Provider/Profile、后端、推理强度、权限、上下文或工作区变化均不得静默替换。外部写入必须在独立 worktree 或授权临时副本中执行；多个外部写入 Worker 不得共享可写目录。可用确定性辅助脚本预览路由、校验 Worker 契约和静态检查 Skill：`node skills/subagent-router/scripts/route-decision.mjs --help`、`node skills/subagent-router/scripts/validate-worker-contract.mjs --help`、`node skills/subagent-router/scripts/verify-router-skill.mjs --help`。详情见 [SKILL.md](skills/subagent-router/SKILL.md)。
 
 ---
 
@@ -391,6 +392,26 @@ python scripts/aria2-wrapper.py -p http://localhost:7897 -- https://example.com/
 | `--progress <模式>` | `auto`、`tty`、`jsonl`、`off` | `auto` |
 
 代理优先级为命令行 > 进程环境 > 项目 `.env`，每层内 `ARIA2_PROXY` > `PROXY`。项目 `.env` 位于 Git 根目录；代理凭据不会回显。详情见 [SKILL.md](skills/aria-filedown/SKILL.md)。
+
+---
+
+### dockerhub-mirror
+
+诊断 Docker Hub 拉取卡顿、网络/TLS/token/限流错误；可在授权后探测、排序、发现或维护镜像候选。默认只输出建议的 `docker pull` 命令，不会修改 Docker daemon 配置或执行镜像拉取。
+
+```text
+$dockerhub-mirror 排查 docker pull nginx:1.27 卡住的问题
+node "skills/dockerhub-mirror/bin/dockerhub-mirror.mjs" --dry-run --image nginx:1.27
+```
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `--dry-run` | 只读探测，不写入本地候选缓存 | 建议在未授权时使用 |
+| `--image <镜像>` | 指定待诊断的 Docker Hub 镜像引用 | `library/busybox:1.36.1` |
+| `--deep` | 额外探测首字节延迟与有限 Blob 吞吐量 | `false` |
+| `--scrape` / `-f` | 发现新的候选镜像源；会写入缓存，需先完成 Skill 约定的授权门禁 | `false` |
+
+未达成 `ok` 共识前仅允许 `--dry-run`；收到 `ok` 后仍须展示范围明确的计划，并等到 `授权执行` 才能运行任何可写分支。详情见 [SKILL.md](skills/dockerhub-mirror/SKILL.md)。
 
 ---
 
