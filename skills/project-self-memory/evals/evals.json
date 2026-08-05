@@ -4,55 +4,55 @@
     {
       "id": "verified-runtime-fact",
       "prompt": "调查当前仓库的鉴权刷新流程，完成浏览器验证后修复失败分支。",
-      "expected_output": "先读取项目记忆；在验证完成后，将可复用的刷新流程事实以 [事实] 写入或合并到 self-memory/memory.md。",
+      "expected_output": "先读取 .project-self-memory/memory.md；验证完成后通过 memory.mjs add 或 update 保存可复用结论。",
       "files": []
     },
     {
       "id": "durable-user-decision",
       "prompt": "这个项目以后所有会话都必须使用 HttpOnly Cookie，不允许浏览器存储 token。请落实这个决定。",
-      "expected_output": "将用户明确的长期约束作为 [决策] 直接写入项目记忆，并报告更新。",
+      "expected_output": "将用户明确的长期约束以 decision 类型经 memory.mjs 写入项目记忆，并报告更新。",
       "files": []
     },
     {
       "id": "ambiguous-pitfall",
       "prompt": "我怀疑本次超时是 DNS 引起的，先看看。",
-      "expected_output": "不把未复现的怀疑写入 memory.md；若形成候选，展示并等待确认。",
+      "expected_output": "不把未复现的怀疑写入 .project-self-memory/memory.md；若形成候选，展示并等待确认。",
       "files": []
     },
     {
-      "id": "forced-memory-content",
-      "prompt": "$project-self-memory -m \"生产部署必须先运行 npm run preflight\"",
-      "expected_output": "处理指定内容，并继续执行敏感信息、冲突和证据判断；不把 -m 视为无条件原文追加。",
+      "id": "cli-add-content-file",
+      "prompt": "node scripts/memory.mjs add --type constraint --content-file conclusion.txt",
+      "expected_output": "通过 CLI 文件输入新增一条经过调用方准备的 constraint 记录，并返回永久 ID。",
       "files": []
     },
     {
-      "id": "missing-forced-memory-content",
-      "prompt": "$project-self-memory --memory",
-      "expected_output": "明确提示 --memory 需要非空内容，不从上下文猜测载荷。",
+      "id": "cli-add-stdin",
+      "prompt": "echo 已验证结论 | node scripts/memory.mjs add --type fact",
+      "expected_output": "通过标准输入读取非空正文；缺少正文时明确拒绝。",
       "files": []
     },
     {
       "id": "grilling-current-session",
       "prompt": "$project-self-memory -g 看看这次登录迁移有哪些经验值得沉淀",
-      "expected_output": "读取已有记忆和当前会话相关证据，先以“第 1/[total] 问”提出一个高信息增益问题；每问含回答方向、建议、理由与代价。在用户确认“ok”前不写入 memory.md。",
+      "expected_output": "读取已有活动记忆和当前会话相关证据，先以“第 1/[total] 问”提出一个高信息增益问题；每问含回答方向、建议、理由与代价。在用户确认“ok”前不调用写入 CLI。",
       "files": []
     },
     {
       "id": "grilling-natural-language",
       "prompt": "请盘点一下这次部署排障有哪些可复用经验值得沉淀到项目记忆。",
-      "expected_output": "自动进入 Grilling 而非直接总结；先查证可确认事实，逐问收敛，并在确认后才按 [事实]、[决策]、[避坑] 写入。",
+      "expected_output": "自动进入 Grilling 而非直接总结；先查证可确认事实，逐问收敛，并在确认后按 CLI 类型写入。",
       "files": []
     },
     {
-      "id": "grilling-with-memory-content",
-      "prompt": "$project-self-memory --grilling -m \"生产部署必须先运行 npm run preflight\"",
-      "expected_output": "将 -m 内容作为重点候选进入 Grilling，不立即写入；确认后仍执行证据、冲突、去重和敏感信息检查。",
+      "id": "grilling-with-cli-followup",
+      "prompt": "$project-self-memory -g 盘点生产部署经验；确认后用 memory.mjs add 保存结论",
+      "expected_output": "先进入逐问 Grilling；确认后通过 CLI 类型和正文输入执行保存，而非使用未实现参数。",
       "files": []
     },
     {
       "id": "trim-current-memory",
       "prompt": "$project-self-memory -t 鉴权",
-      "expected_output": "先读取 memory.md，并在本地只读核验相关源码、配置、文档、测试和 Git 历史；按主题逐问给出保留、改写、合并或删除建议。用户回复 ok 前不写入，确认后只整理既有结论，不新增记忆。",
+      "expected_output": "先读取 .project-self-memory/memory.md，并在本地只读核验相关源码、配置、文档、测试和 Git 历史；按主题逐问给出保留、改写、合并或删除建议。用户回复 ok 前不调用写入 CLI，确认后只整理既有结论。",
       "files": []
     },
     {

@@ -49,7 +49,7 @@ npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code --
 | `lite-team` | 轻量多 Agent 协作，用 docs/bbs/lite-team-bbs.md 协作板在不同 Agent/session 间手动交接 | [README.md](skills/lite-team/README.md) |
 | `subagent-router` | 预览并确认后临时创建 Codex 子 Agent，支持动态模型路由与多 Agent 开发 | [SKILL.md](skills/subagent-router/SKILL.md) |
 | `gemin-mirror` | Gemini/兼容镜像站的探针、账号切换与 API-first 安全会话删除 | [SKILL.md](skills/gemin-mirror/SKILL.md) |
-| `project-self-memory` | 维护项目级、可自进化的已验证结论记忆 | [SKILL.md](skills/project-self-memory/SKILL.md) |
+| `project-self-memory` | 通过 Node CLI 维护项目级结论记忆、评分、分组与 legacy 迁移 | [SKILL.md](skills/project-self-memory/SKILL.md) |
 | `pro-grilling` | 手动逐层厘清复杂决策，在共同理解前保持只读 | [SKILL.md](skills/pro-grilling/SKILL.md) |
 | `aria-filedown` | 手动授权的 aria2 稳定下载工具，支持代理优先级与项目 `.env` | [SKILL.md](skills/aria-filedown/SKILL.md) |
 | `dockerhub-mirror` | 诊断 Docker Hub 拉取缓慢或失败，并探测、评分和管理镜像候选 | [SKILL.md](skills/dockerhub-mirror/SKILL.md) |
@@ -288,20 +288,21 @@ node skills/gemin-mirror/scripts/delete-candidate-accounts.mjs --confirm-delete-
 在非简单项目任务开始时读取项目记忆，并在完成后仅沉淀已验证、可复用的事实、长期决策和避坑结论。
 
 ```text
-$project-self-memory 调查当前仓库的登录刷新失败，修复后完成浏览器验证
-$project-self-memory -m "生产部署必须先运行 npm run preflight"
-$project-self-memory -g 鉴权迁移
-$project-self-memory --grilling -m "生产部署必须先运行 npm run preflight"
-$project-self-memory -t 鉴权
+node skills/project-self-memory/scripts/memory.mjs init
+node skills/project-self-memory/scripts/memory.mjs read --type pitfall
+node skills/project-self-memory/scripts/memory.mjs add --type fact --content-file conclusion.txt
+node skills/project-self-memory/scripts/memory.mjs --project-root E:\repo diagnose
 ```
 
 | 参数 | 说明 | 默认值 |
 |------|------|--------|
-| `-m <内容>` / `--memory <内容>` | 显式提交一条记忆候选；内容不能为空 | 无 |
-| `-g [主题]` / `--grilling [主题]` | 逐问盘点当前会话或指定主题中值得沉淀的经验；确认“ok”后写入 | 当前会话 |
-| `-t [主题]` / `--trim [主题]` | 先本地核验再按主题逐问整理已有记忆；确认“ok”后自动改写、合并或删除，不新增结论 | 全部主题 |
+| `init` / `validate` / `diagnose` | 初始化、严格校验、输出库健康摘要 | 当前项目根目录 |
+| `read` / `catalog` / `inspect` | 人读的 active 经验、分组目录、维护 JSON | `read` 仅 active |
+| `add` / `update` / `status` / `delete` | 用文件或 stdin 传正文维护记录 | ID 永不复用 |
+| `score` / `merge` / `groups` / `legacy` / `config` | 评分、合并、计划式分组与迁移、自动行为配置 | 标准库 Node CLI |
+| `migrate-schema` | v1 明确报告无可迁移前版；未知版本拒绝 | 当前格式为 v1 |
 
-消费者项目中该 skill 必须位于 `.agents/skills/project-self-memory/` 或 Claude Code 的 `.claude/skills/project-self-memory/`，记忆文件固定为 `self-memory/memory.md`；不记录凭据、个人数据、易失机器状态或未经验证的推断。`-t/--trim` 默认只读检查源码、配置、文档、测试与 Git 历史，不自动运行测试或联网。详情见 [SKILL.md](skills/project-self-memory/SKILL.md)。
+活动目录固定为 `.project-self-memory/`；`self-memory/` 仅能通过 `legacy` 命令只读迁移。所有命令均可附 `--project-root <path>`。不记录凭据、个人数据、易失机器状态或未经验证推断。详情、计划 JSON 和完整参数见 [SKILL.md](skills/project-self-memory/SKILL.md)。
 
 ---
 

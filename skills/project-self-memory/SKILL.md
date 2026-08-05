@@ -1,99 +1,56 @@
 ---
 name: project-self-memory
-description: 维护项目级、可自进化的结论记忆 / Maintain a project-local, self-evolving conclusion memory. 在调查、诊断、实现、验证、维护或确立长期项目决策等非简单仓库任务中使用；开始时读取项目记忆，结束时沉淀已验证事实、长期决策和可复现避坑。用户明确要求盘点值得沉淀的经验时进入逐问 Grilling；要求整理、精简或清理项目记忆时进入逐问 Trim / Use for nontrivial repository work such as investigation, diagnosis, implementation, verification, maintenance, or durable decisions; read project memory first and capture verified reusable conclusions at completion. Enter one-question-at-a-time Grilling when the user explicitly asks which experience merits memory, or Trim when they ask to consolidate or clean project memory.
+description: 维护项目级、可自进化的结论记忆。用于非简单仓库调查、诊断、实现、验证、维护或确定长期项目决策；开始时加载相关记忆，结束时用 CLI 保存已验证、可复用的事实、约束、决策和避坑。用户要求盘点经验时进入逐问 Grilling，要求整理或清理时进入 Trim。
 ---
 
 # 项目自记忆
 
-维护一份小而当前的**记忆**，让下一次项目任务更快、更稳。这份记忆绑定单个仓库，不是任务流水。
+本 Skill 把项目经验保存在 `<project-root>/.project-self-memory/`，由 Node CLI 独占读写。`self-memory/` 是只读 legacy 来源；不要直接编辑任一活动文件。
 
-## 确认项目边界
+## 开始任务
 
-1. 解析本技能所在目录；仅当其位于以下任一项目级路径时有效：
-   - `<project-root>/.agents/skills/project-self-memory/`
-   - `<project-root>/.claude/skills/project-self-memory/`（Claude Code）
-2. 从该目录推导 `<project-root>`，并将 `<project-root>/self-memory/memory.md` 作为唯一经验存储。
-3. 若技能位于其他位置，在读写记忆前停止，并报告两个可用迁移目标。
+1. 在项目根目录运行 `node <skill-path>/scripts/memory.mjs init`；它只在缺失时创建 `config.yaml` 与 `memory.md`。
+2. 执行 `validate`。配置不合法时关闭自动行为，先报告错误；结构化库损坏时不执行写操作。
+3. `auto_load: true` 时，先用 `read`；大型已分组库先用 `catalog`，再按 `--group` 精读。只将相关内容作为线索，现场状态仍要验证。
 
-完成条件：skill 所在位置及唯一可写的记忆路径均无歧义。
+## CLI 工作流
 
-## 在项目任务中使用记忆
+唯一入口是：
 
-开始非简单项目任务时，若 `self-memory/memory.md` 存在则读取它。只应用与当前任务相关的结论；文件代表当前项目事实，不能替代现场验证。
-
-最终回复前执行一次结论扫描，只捕获以下内容：
-
-- 已直接验证的项目事实；
-- 用户确认的长期项目决策或约束；
-- 已复现且具备明确规避方式的避坑结论。
-
-以可公开的最小事实记录结论，省略凭据、密钥、个人数据和机器易失快照。无法安全脱敏的有用结论，改在回复中说明而不写入记忆。
-
-完成条件：任务中每一项合格结论均已归为“直接写入”“等待确认”或“超出范围”。
-
-## 处理 `-m` 和 `--memory`
-
-将 `-m <内容>` 与 `--memory <内容>` 视为显式沉淀请求。参数必须携带非空内容；缺失时说明正确调用形式，不从上下文推断载荷。
-
-显式载荷只绕过常规的价值筛选，仍遵守本技能的证据、范围、冲突、去重和敏感信息规则。
-
-完成条件：载荷已安全地形成记忆候选，或调用方收到无法存储的明确原因。
-
-## 经验盘点：`-g` 和 `--grilling`
-
-以下任一情况进入 **Grilling**：
-
-- 使用 `-g` 或 `--grilling`，可在参数后追加一个可选主题；裸参数盘点当前会话，附带主题时只盘点该主题。
-- 用户明确询问哪些经验、结论或项目知识值得沉淀到项目记忆。
-
-普通总结、复盘、回顾不自动进入 Grilling。开始前读取已有 `self-memory/memory.md`，并将其与当前会话中相关的已验证内容一同作为上下文。若同时出现 `-m <内容>` / `--memory <内容>`，该内容是本轮 Grilling 的重点候选，而不是立即写入请求；缺少内容的 `-m` / `--memory` 仍应说明正确调用形式。
-
-### 逐层厘清
-
-1. 先判断事项复杂度、主要信息缺口，并预估总轮次；总数可以随新发现动态调整。
-2. 每次只提出一个信息增益最高、最可能影响结论的问题，开头标注“第 n/[total] 问”。每问提供可选回答方向、建议答案、简短推荐理由及主要代价；重大决策可补充对后续路径的影响。
-3. 自行查明文件、工具、环境和可靠资料可确认的事实；把目标、偏好、优先级、风险承受与关键取舍交给用户选择。
-4. 按当前事项需要沿“目标 → 现状 → 障碍 → 根因 → 隐含假设 → 关键矛盾 → 重要取舍 → 验证标准 → 行动边界”推进。前提错误或问题定义失效时，回退并重构当前分支。
-5. 真实目标、成功标准、关键约束、核心取舍、依赖、主要风险和验证方式已明确时，停止扩展问题并总结：当前共识、已确认决策、主要依赖与风险、验收标准、剩余未决项。若未决项不实质影响结果，建议结束；否则只继续影响最大的一个。
-
-在用户明确确认“ok”前，只能分析、查证、比较和总结，不写入 `memory.md`，也不直接产出最终行动方案。确认后，将原会话内容及追问中新确立的长期约束按既有证据规则分类为 `[事实]`、`[决策]` 或 `[避坑]`；合并、替换或保留候选后再写入，并报告新增、合并、替换和移除数量。
-
-完成条件：已获得明确确认，且所有合格结论均已写入或说明不写入原因。
-
-## 记忆整理：`-t` 和 `--trim`
-
-使用 `-t` 或 `--trim` 时，整理已有 `memory.md`；参数后可追加一个可选主题。裸参数扫描全部主题，附带主题时只处理匹配主题。此模式的职责是让现有结论保持当前，**不新增**项目记忆；发现新的合格结论时，只在最终摘要中提示可用 `-g` 或 `-m` 沉淀。
-
-### 调查与讨论
-
-1. 读取已有 `memory.md`，并对每条候选结论进行本地只读核验：其关联的源码、配置、文档、测试和 Git 历史。默认不运行构建、测试、服务或联网查询；调用方明确要求时才将这些操作纳入证据范围。
-2. 将候选按主题归组；每个主题只提出一个问题，给出该主题内的“保留 / 改写 / 合并 / 删除”建议、证据锚点、影响和推荐方案。没有足够证据的条目归为“本轮未证实”，建议保留，不得借此删除。
-3. 只有项目权威文件、已验证的代码或运行时行为、或用户明确的新长期决策构成更强的当前证据时，才建议删除或替换旧结论。措辞陈旧、暂时无关或本轮无法核验不是删除理由。
-4. 全部受影响主题达成共识后，汇总拟执行的变更。用户明确回复 `ok` 前，只能调查、比较和讨论；不得写入 `memory.md`。
-5. 收到 `ok` 后，自动将已确认的改写、合并和删除写回 `memory.md`，保留无关的用户编辑，并报告保留、改写、合并、删除和未证实的数量。历史恢复交由版本控制提供。
-
-完成条件：范围内的每个既有结论都被归为保留、改写、合并、删除或本轮未证实；写入后记忆契约有效，且没有新增结论。
-
-## 更新当前结论
-
-创建或更新 `memory.md` 前，阅读[记忆契约](references/memory-contract.md)，保留可见来源头并采用其中的主题与标签格式。
-
-满足以下任一证据锚点时直接更新文件：
-
-- 用户明确确立长期决策；
-- 项目权威文件直接陈述该结论；
-- 已直接观察并成功验证代码、配置或运行时行为。
-
-对于证据含糊、当前结论竞争、未经验证的推断或单次故障症状，展示候选并等待用户确认。
-
-合并重复项。仅当更强证据确立替代结论时，替换或移除过时结论。保留无关的用户编辑，历史恢复交由版本控制承担。
-
-每次直接更新后，简要报告新增、合并、替换和移除的结论数。环境可执行 Python 时，在交付前运行内置校验器：
-
-```powershell
-# 按实际安装位置选择一条：
-python .agents/skills/project-self-memory/scripts/validate_memory.py --project-root . --skill-path .agents/skills/project-self-memory --require-memory
-python .claude/skills/project-self-memory/scripts/validate_memory.py --project-root . --skill-path .claude/skills/project-self-memory --require-memory
+```text
+node scripts/memory.mjs <command> [options]
 ```
 
-完成条件：记忆保持当前、带来源标识、结构有效，且回复已报告变更。
+正文使用 `--content-file <path>` 或标准输入，避免 shell 转义。常用命令：
+
+```bash
+node scripts/memory.mjs init
+node scripts/memory.mjs read --type pitfall
+node scripts/memory.mjs add --type fact --content-file conclusion.txt
+node scripts/memory.mjs score 0001 +1
+node scripts/memory.mjs inspect --trim-candidates
+```
+
+完整参数、JSON 输出和退出语义见 [cli-contract.md](references/cli-contract.md)。格式约束见 [memory-format.md](references/memory-format.md)。
+
+## 保存与评分
+
+自动保存仅限目标链结束时的全新、已验证、无冲突且不需要用户取舍的结论；不得自动修订、合并、删除、调分、换类型/状态或调整分组。`auto_rate` 只能对有直接正向证据的记录执行一次 `+1`；负面候选进入 `-r` 讨论。
+
+`-l/--load` 是显式读取：小库可 `read`，大库先 `catalog` 后 `read --group`，无法可靠选择时读取全部 active 记录。任务级 `--no-load/--no-save/--no-rate` 高于会话级覆盖，高于 `config.yaml`，高于默认值；会话级覆盖使用 `--no-load-session/--no-save-session/--no-rate-session`，在目标链结束或明确恢复时失效。明确自然语言要求同样有效。
+
+当前会话临时清单：已加载的 refid、已实际使用且待评分的 refid、候选新增/修订/合并、已声明的任务与会话覆盖。目标切换或完成时清空，不写入长期库。
+
+## 人工策展
+
+`-g/--grilling`：扫描新增、修订、合并、冲突和迁移候选，最多三轮短讨论。每轮只问一个最高信息增益问题，标记“第 n/[total] 问”，提供推荐、理由、代价和 TUI 式选项。用户明确确认前只读，不写入。
+
+`-r/--rate`：仅讨论本会话实际使用且有可观察结果、尚未评分的记录，按“建议 +1 / 建议 -1 / 暂不评分”汇总；每条每会话最多一次。
+
+`-t/--trim`：只处理负分或 `negative >= 3 && negative >= positive` 的候选；可保留、修订、设为 review/disabled 或删除。策展判断详见 [curation-rules.md](references/curation-rules.md)。
+
+## 分组、迁移与降级
+
+分组只能由完整计划显式应用，不能自动重构；规则见 [grouping-rules.md](references/grouping-rules.md)。旧自由 Markdown 先 `legacy scan`，再用计划迁移；规则见 [migration-rules.md](references/migration-rules.md)。Node 缺失时不读写记忆，继续业务任务并报告降级。
+
+不得记录凭据、个人数据、易失机器状态或未经验证推断。结构化格式未知或库边界损坏时，停止所有可能扩大损坏的写操作。
