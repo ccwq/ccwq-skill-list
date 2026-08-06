@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PROTOTYPE · Router 授权完整性状态机</title>
+<style>
+  :root { font-family: "Segoe UI", system-ui, sans-serif; color: #12202f; background: #f5f8fb; }
+  body { max-width: 1080px; margin: 0 auto; padding: 32px 20px 56px; }
+  h1 { margin: 0 0 8px; } .hint { color: #526778; max-width: 850px; line-height: 1.65; }
+  .notice { background: #fff4d5; border-left: 4px solid #e89f15; padding: 12px 14px; border-radius: 6px; margin: 20px 0; }
+  .grid { display: grid; grid-template-columns: 1.15fr .85fr; gap: 18px; } @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  section { background: #fff; border: 1px solid #dce6ef; border-radius: 10px; padding: 18px; box-shadow: 0 2px 9px #2042600d; }
+  h2 { margin: 0 0 12px; font-size: 18px; } button { margin: 4px; padding: 8px 10px; border: 1px solid #91aabe; border-radius: 7px; background: #fff; cursor: pointer; color: #163b56; }
+  button:hover { background: #e9f4fb; } button.primary { background: #0d689e; color: white; border-color: #0d689e; } button.warn { border-color: #c97042; color: #8c3d16; }
+  dl { display: grid; grid-template-columns: 150px 1fr; gap: 8px 12px; margin: 0; } dt { color: #5c7180; } dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+  pre { white-space: pre-wrap; background: #102333; color: #e9f5ff; border-radius: 8px; padding: 13px; min-height: 92px; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; } .tabs button.active { background: #d8effe; border-color: #0d689e; }
+  .scenario { min-height: 80px; color: #344f62; line-height: 1.6; } .hidden { display: none; }
+</style>
+<body>
+  <h1>Router 授权完整性 · 逻辑原型</h1>
+  <p class="hint">问题：双门禁在“完整计划之后发生字段变更”时，是否能可靠阻止旧的 <code>授权执行</code> 被复用？这是纯内存状态机；页面是一次性原型，下面的 reducer 才是可迁移的逻辑。</p>
+  <p class="notice"><strong>原型假设：</strong>授权只绑定当前 preview 的指纹。模型、范围、上下文、工作区、权限等任一字段变化，旧授权立即失效并回到“待授权”。</p>
+  <div class="grid">
+    <section><h2>当前状态（每次点击后完整刷新）</h2><dl id="state"></dl><h2>刚发生什么</h2><pre id="event"></pre></section>
+    <section><h2>自由操作</h2><div id="buttons"></div><h2>引导演练</h2><div class="tabs" id="tabs"></div><div class="scenario" id="scenario"></div><div id="steps"></div></section>
+  </div>
+<script>
+// 可迁移逻辑：无 DOM、无副作用的纯 reducer。
+const sensitive = ['backend', 'capability', 'permission', 'model', 'reasoning', 'provider', 'context', 'workspace', 'scope', 'validation'];
+const initialState = () => ({ phase: '讨论中', consensus: false, preview: null, authorized: false, dispatched: false, event: '从讨论开始；尚未创建 Worker。' });
+const fingerprint = plan => sensitive.map(key => `${key}=${plan[key]}`).join('|');
+const defaultPlan = { backend: 'native_spawn', capability: 'native_supported', permission: 'read', model: 'gpt-5.6-terra', reasoning: 'medium', provider: 'current', context: 'minimal', workspace: 'main', scope: 'docs/audit.md', validation: 'unit test' };
+function reduce(state, action) {
+  const next = structuredClone(state);
+  const mismatch = field => next.preview && next.preview.plan[field] !== action.value;
+  if (action.type === 'DISCUSS') next.event = '仍在讨论：只允许分析和只读核验。';
+  if (action.type === 'CONSENSUS') { next.consensus = true; next.phase = '待授权'; next.event = '已达成共同理解；下一步必须展示完整 preview。'; }
+  if (action.type === 'PRESENT_PREVIEW') {
+    if (!next.consensus) next.event = '拒绝：没有共同理解，不能直接展示可执行计划。';
+    else { next.preview = { plan: { ...defaultPlan }, fingerprint: fingerprint(defaultPlan) }; next.authorized = false; next.phase = '待授权'; next.event = '完整 preview 已记录；等待用户的精确“授权执行”。'; }
+  }
+  if (action.type === 'AUTHORIZE') {
+    if (!next.preview) next.event = '拒绝：没有当前完整 preview，授权短语不能单独生效。';
+    else { next.authorized = true; next.event = '授权仅绑定 preview 指纹：' + next.preview.fingerprint; }
+  }
+  if (action.type === 'CHANGE') {
+    if (!next.preview) next.event = `记录 ${action.field} 变更；尚无 preview。`;
+    else if (mismatch(action.field)) { next.preview.plan[action.field] = action.value; next.preview.fingerprint = fingerprint(next.preview.plan); next.authorized = false; next.phase = '待授权'; next.event = `${action.field} 发生授权敏感变更：旧授权失效，必须重发完整 preview 并重新授权。`; }
+    else next.event = `${action.field} 未改变，不影响授权。`;
+  }
+  if (action.type === 'DISPATCH') {
+    if (!next.preview) next.event = '拒绝分发：缺少完整 preview。';
+    else if (!next.authorized) next.event = '拒绝分发：没有绑定当前 preview 的有效授权。';
+    else if (next.preview.plan.capability === 'unknown') next.event = '拒绝分发：capability unknown 只能先做只读核验，不能 external fallback。';
+    else { next.dispatched = true; next.phase = '执行中'; next.event = '允许分发：授权、完整 preview 与 capability 均匹配。'; }
+  }
+  return next;
+}
+const controls = [
+  ['讨论', { type: 'DISCUSS' }], ['共同理解', { type: 'CONSENSUS' }], ['展示完整 preview', { type: 'PRESENT_PREVIEW' }], ['用户授权执行', { type: 'AUTHORIZE' }, 'primary'],
+  ['改模型', { type: 'CHANGE', field: 'model', value: 'gpt-5.6-sol' }, 'warn'], ['改范围', { type: 'CHANGE', field: 'scope', value: 'src/auth/**' }, 'warn'], ['改上下文', { type: 'CHANGE', field: 'context', value: 'expanded' }, 'warn'], ['能力 unknown', { type: 'CHANGE', field: 'capability', value: 'unknown' }, 'warn'], ['尝试分发', { type: 'DISPATCH' }, 'primary']
+];
+const scenarios = [
+  { name: '正常路径', text: '观察只有“共同理解 → 完整 preview → 用户授权”后才能分发。', steps: [{type:'CONSENSUS'},{type:'PRESENT_PREVIEW'},{type:'AUTHORIZE'},{type:'DISPATCH'}] },
+  { name: '旧授权失效', text: '授权后更换模型。关键观察：不是继续 dispatch，而是退回待授权。', steps: [{type:'CONSENSUS'},{type:'PRESENT_PREVIEW'},{type:'AUTHORIZE'},{type:'CHANGE',field:'model',value:'gpt-5.6-sol'},{type:'DISPATCH'}] },
+  { name: '能力未知', text: '即使已有授权，capability 变成 unknown 也不能用 external fallback。', steps: [{type:'CONSENSUS'},{type:'PRESENT_PREVIEW'},{type:'AUTHORIZE'},{type:'CHANGE',field:'capability',value:'unknown'},{type:'DISPATCH'}] }
+];
+let state = initialState(), selected = 0, step = 0;
+function render() {
+  document.querySelector('#state').innerHTML = [['阶段',state.phase],['共同理解',state.consensus?'是':'否'],['完整 preview',state.preview?'存在':'无'],['preview 指纹',state.preview?.fingerprint||'—'],['绑定当前 preview 的授权',state.authorized?'有效':'无效'],['是否已分发',state.dispatched?'是':'否']].map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('');
+  document.querySelector('#event').textContent = state.event;
+  document.querySelector('#buttons').innerHTML = `<button onclick="resetAll()">重置</button>` + controls.map(([label,a,style])=>`<button class="${style||''}" onclick='act(${JSON.stringify(a)})'>${label}</button>`).join('');
+  document.querySelector('#tabs').innerHTML = scenarios.map((s,i)=>`<button class="${i===selected?'active':''}" onclick="selectScenario(${i})">${s.name}</button>`).join('');
+  const current=scenarios[selected]; document.querySelector('#scenario').textContent=current.text;
+  document.querySelector('#steps').innerHTML = `<button onclick="startScenario(${selected})">从头开始</button>` + current.steps.map((a,i)=>`<button ${i!==step?'disabled':''} class="${i===step?'primary':''}" onclick='runStep(${i})'>${i+1}. ${a.type==='CHANGE'?'变更 '+a.field:a.type}</button>`).join('');
+}
+function act(action) { state = reduce(state, action); render(); }
+function resetAll() { state=initialState(); step=0; render(); }
+function selectScenario(index) { selected=index; resetAll(); }
+function startScenario(index) { selected=index; resetAll(); }
+function runStep(index) { const a=scenarios[selected].steps[index]; if(index===step){ state=reduce(state,a); step++; render(); } }
+render();
+</script>
+</body></html>

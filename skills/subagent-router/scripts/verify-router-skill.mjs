@@ -16,7 +16,7 @@ for (const relative of markdown) {
   for (const match of text.matchAll(/```json\s*\r?\n([\s\S]*?)```/g)) { try { JSON.parse(match[1]); } catch (e) { errors.push(`${relative} has invalid JSON example: ${e.message}`); } }
 }
 const all = markdown.map((x) => fs.existsSync(path.join(root, x)) ? fs.readFileSync(path.join(root, x), 'utf8') : '').join('\n');
-for (const phrase of ['native_spawn', 'external_exec', 'native_supported', 'native_unsupported', 'unknown', 'temporarily_unavailable', '已达成共同理解', '授权执行', 'minimal', 'summarized', 'expanded', 'unverified', 'independent workspace', 'Never silently']) if (!all.includes(phrase)) errors.push(`missing core semantic: ${phrase}`);
+for (const phrase of ['native_spawn', 'external_exec', 'native_supported', 'native_unsupported', 'unknown', 'temporarily_unavailable', 'routing policy', '已达成共同理解', '授权执行', 'authorization fingerprint', 'complete preview', 'minimal', 'summarized', 'expanded', 'unverified', 'independent workspace', 'Never silently']) if (!all.includes(phrase)) errors.push(`missing core semantic: ${phrase}`);
 if (all.includes('确认分发` authorizes') || all.includes('确认分发`确认')) errors.push('obsolete confirmation gate appears to authorize execution');
 if (errors.length) { errors.forEach((e) => console.error(`verify-router-skill: ${e}`)); process.exit(2); }
 console.log('verify-router-skill: valid skill tree, references, frontmatter, JSON examples, and core semantics');
