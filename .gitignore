@@ -32,3 +32,4 @@ skill-opt
 skills/*-workspace
 docs/*
 .codebase-memory
+/research_*

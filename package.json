@@ -24,5 +24,17 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "packageManager": "pnpm@10.21.0"
+  "packageManager": "pnpm@10.21.0",
+  "directories": {
+    "doc": "docs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ccwq/ccwq-skill-list.git"
+  },
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/ccwq/ccwq-skill-list/issues"
+  },
+  "homepage": "https://github.com/ccwq/ccwq-skill-list#readme"
 }
