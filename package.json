@@ -1,16 +1,22 @@
 {
   "name": "ccwq-skill-list",
   "version": "1.0.0",
-  "description": "",
+  "description": "本仓库用于存放和管理 Claude Code 的自定义 Skill。",
   "main": "index.js",
   "scripts": {
     "global-install": "npx -y skills add -g .",
+    "sync:main-skills": "node scripts/sync-main-skill-manifest.mjs",
+    "check:main-skills": "node scripts/sync-main-skill-manifest.mjs --check",
+    "test:main-skills": "node test-space/main-skill-manifest-tests.mjs",
     "test": "python test-space/git-up-commit-plan-tests/run_tests.py",
     "test:git-history-cleaner": "python test-space/git-history-cleaner/run_tests.py"
   },
   "ntl": {
     "descriptions": {
       "global-install": "通过 skills CLI 全局安装当前仓库的 skills。",
+      "sync:main-skills": "从 .env 的 MAIN_LIST 生成 skills CLI 主分组 manifest。",
+      "check:main-skills": "检查主分组 manifest 是否与 .env 的 MAIN_LIST 同步。",
+      "test:main-skills": "运行主 Skill 分组 manifest 的 Node 回归测试。",
       "test": "运行 git-up commit plan 执行器的 Python 回归测试。",
       "test:git-history-cleaner": "运行 git-history-cleaner skill 的隔离回归测试。"
     }

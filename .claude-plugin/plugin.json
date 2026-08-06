@@ -1,0 +1,17 @@
+{
+  "name": "ccwq-skill-list",
+  "version": "1.0.0",
+  "description": "ccwq 的主要 Claude Code Skill 集合；未显式列出的 Skill 由 skills CLI 归入 Other。",
+  "skills": [
+    "./skills/chatgpt-web-skill",
+    "./skills/debug-instrumentation",
+    "./skills/dockerhub-mirror",
+    "./skills/git-up",
+    "./skills/joint-debugging",
+    "./skills/ntl-script-descriptions",
+    "./skills/pro-grilling",
+    "./skills/project-self-memory",
+    "./skills/subagent-router",
+    "./skills/aria-filedown"
+  ]
+}

@@ -32,6 +32,19 @@ npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code --
 
 > 仓库根目录已存在 `.claude-plugin/marketplace.json`，仓库正在向 Plugin Marketplace 形态演进；当前实际内容仍以 `skills/` 为主，故安装方式只保留基于 `skills` CLI 的形式。
 
+## 主 Skill 分组
+
+`npx skills add ccwq/ccwq-skill-list` 的交互选择器会把 `.env` 中 `MAIN_LIST` 列出的 Skill 放在 `ccwq-skill-list` 主分组；其余已发现的 `skills/*/SKILL.md` 自动归入 `Other`。
+
+修改清单后执行：
+
+```bash
+npm run sync:main-skills
+npm run check:main-skills
+```
+
+`MAIN_LIST` 是逗号分隔的 Skill 名列表，必须指向存在的 `skills/<name>/SKILL.md`。生成文件 `.claude-plugin/plugin.json` 不手工编辑。
+
 ## 可用 Skill
 
 | Skill | 说明 | 详情 |
