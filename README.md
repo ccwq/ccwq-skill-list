@@ -44,6 +44,7 @@ npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code --
 | `codex-windows-hooks-fix` | 修复 Windows 环境中 Codex hooks 入口命令、PowerShell 包装器和 stdout JSON schema 问题 | [SKILL.md](skills/codex-windows-hooks-fix/SKILL.md) |
 | `ntl-script-descriptions` | 为包含 package.json 的项目补充 ntl 可读取的 scripts 中文说明 | [SKILL.md](skills/ntl-script-descriptions/SKILL.md) |
 | `npm-license-declaration` | 为前端项目生成 npm 第三方依赖许可证声明文档 | [SKILL.md](skills/npm-license-declaration/SKILL.md) |
+| `joint-debugging` | 手动协调技术联调、故障诊断、验证与修复，按单主线轮次与证据/授权边界推进 | [SKILL.md](skills/joint-debugging/SKILL.md) |
 | `debug-instrumentation` | 为调试问题添加、采集和分析可清理的 token 化日志埋点 | [SKILL.md](skills/debug-instrumentation/SKILL.md) |
 | `rd-mode` | 远程开发模式规则，约束 host/server 协作并统一 CDP 浏览器操作（abc 命令） | [README.md](skills/rd-mode/README.md) |
 | `lite-team` | 轻量多 Agent 协作，用 docs/bbs/lite-team-bbs.md 协作板在不同 Agent/session 间手动交接 | [README.md](skills/lite-team/README.md) |
@@ -183,6 +184,22 @@ $npm-license-declaration 检查 E:\project\portal，并输出 docs/npm-license-d
 ```
 
 无显式参数。读取 `dependencies` 与 `devDependencies` 后去重排序，统一查询 npm Registry 的 latest 元数据；npm 查询失败时仅用 `package-lock.json` 或 `yarn.lock` 的 `resolved` URL 兜底。许可证未知或不在内置分级中的包会列为“⚪ 不可用”，需手动核实。详情见 [SKILL.md](skills/npm-license-declaration/SKILL.md)。
+
+---
+
+### joint-debugging
+
+用于手动协调本地、远程、容器、代码与接口的技术联调、故障诊断、验证和修复。
+
+```text
+$joint-debugging 排查登录接口在容器环境中偶发超时，并按证据链提出最小修复与验证步骤
+```
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `[待处理事项]` | 联调、诊断、验证或修复协调目标；不传时仅询问目标 | 无 |
+
+无额外命令参数。每次回复以 `主线：第 n/total 轮｜当前阶段` 开始；严格按环境基线、证据分级、授权范围、脱敏和验证标准推进。详情见 [SKILL.md](skills/joint-debugging/SKILL.md)。
 
 ---
 
