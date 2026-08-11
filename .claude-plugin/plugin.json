@@ -12,6 +12,8 @@
     "./skills/pro-grilling",
     "./skills/project-self-memory",
     "./skills/subagent-router",
-    "./skills/aria-filedown"
+    "./skills/aria-filedown",
+    "./skills/deep-investigation",
+    "./skills/tool-evaluator"
   ]
 }

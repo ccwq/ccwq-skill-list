@@ -86,6 +86,13 @@
       "category": "research"
     },
     {
+      "name": "tool-evaluator",
+      "source": "./skills/tool-evaluator",
+      "description": "基于动态 Gate、分级证据、场景权重和敏感性分析调查、比较并筛选最适合用户约束的工具",
+      "version": "1.0.0",
+      "category": "research"
+    },
+    {
       "name": "lite-team",
       "source": "./lite-team",
       "description": "轻量多 Agent 协作技能，用 docs/bbs/lite-team-bbs.md 协作板在不同 Agent/session 间手动交接",

@@ -59,6 +59,7 @@ npm run check:main-skills
 | `npm-license-declaration` | 为前端项目生成 npm 第三方依赖许可证声明文档 | [SKILL.md](skills/npm-license-declaration/SKILL.md) |
 | `joint-debugging` | 手动协调技术联调、故障诊断、验证与修复，按单主线轮次与证据/授权边界推进 | [SKILL.md](skills/joint-debugging/SKILL.md) |
 | `deep-investigation` | 对公共事件、组织、人物、政策或商业议题进行可追溯的深度调查复盘 | [SKILL.md](skills/deep-investigation/SKILL.md) |
+| `tool-evaluator` | 基于 Gate、分级证据和动态权重，调查、比较并筛选最适合当前约束的工具 | [SKILL.md](skills/tool-evaluator/SKILL.md) |
 | `debug-instrumentation` | 为调试问题添加、采集和分析可清理的 token 化日志埋点 | [SKILL.md](skills/debug-instrumentation/SKILL.md) |
 | `rd-mode` | 远程开发模式规则，约束 host/server 协作并统一 CDP 浏览器操作（abc 命令） | [README.md](skills/rd-mode/README.md) |
 | `lite-team` | 轻量多 Agent 协作，用 docs/bbs/lite-team-bbs.md 协作板在不同 Agent/session 间手动交接 | [README.md](skills/lite-team/README.md) |
@@ -230,6 +231,23 @@ $deep-investigation 调查某公司收购案：还原关键时间线、交易关
 | `<调查话题>` | 需要还原的事件、对象或争议；可包含时间、地域、主体和关注问题 | 必填 |
 
 无额外命令参数。近期或持续演变事件会主动联网；可用子智能体时按事实、关系、反证分支独立调查后综合。详情见 [SKILL.md](skills/deep-investigation/SKILL.md)。
+
+---
+
+### tool-evaluator
+
+根据用户目标、环境、硬约束和长期风险，调查、比较或探索筛选软件、服务和开发工具。
+
+```text
+$tool-evaluator 比较 uv、Poetry 与 PDM：Windows 开发、团队锁定依赖、需要 CI 自动化
+$tool-evaluator 推荐可自托管的 API 文档平台：开源、Docker 部署、支持 OpenAPI，维护成本要低
+```
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `<候选工具或需求>` | 已指定的候选列表，或用于探索筛选的目标、环境与约束 | 必填 |
+
+无额外命令参数。默认按候选比较或探索筛选模式工作，先以 Gate 淘汰不合格方案，再以 L1/L2/L3 证据、动态权重和敏感性分析给出可追溯结论；未经明确授权只提供 POC 方案，不安装或运行候选工具。详情见 [SKILL.md](skills/tool-evaluator/SKILL.md)。
 
 ---
 
