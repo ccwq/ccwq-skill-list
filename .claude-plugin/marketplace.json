@@ -72,6 +72,13 @@
       "category": "devtools"
     },
     {
+      "name": "agent-human-debug",
+      "source": "./skills/agent-human-debug",
+      "description": "由 Agent 作为唯一接待者、人类作为本地执行端，协调本地、远程、服务器、容器、云服务、代码与接口的联调、诊断、验证与修复",
+      "version": "1.0.0",
+      "category": "devtools"
+    },
+    {
       "name": "joint-debugging",
       "source": "./skills/joint-debugging",
       "description": "手动协调技术联调、故障诊断、验证与修复：以单主线轮次、环境基线、证据边界和最小授权推进",

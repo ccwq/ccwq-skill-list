@@ -14,6 +14,7 @@
     "./skills/subagent-router",
     "./skills/aria-filedown",
     "./skills/deep-investigation",
-    "./skills/tool-evaluator"
+    "./skills/tool-evaluator",
+    "./skills/agent-human-debug"
   ]
 }
