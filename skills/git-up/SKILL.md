@@ -157,7 +157,9 @@ python skills/git-up/scripts/gitignore_manager.py --cwd . --clean
 
 **Modify（`--modify <内容>`）**：按反馈调整计划，重新输出完整 YAML。
 
-**Commit（`-c`）**：优先把会话中最近一份 YAML 计划通过 stdin 传给 Python fast path。若上下文无可用计划，先按 Plan 生成再继续。
+**Commit（`-c`）**：优先把会话中最近一份 YAML 计划交给 Python fast path。若上下文无可用计划，先按 Plan 生成再继续。
+
+POSIX shell 可以直接通过 stdin：
 
 ```sh
 python skills/git-up/scripts/commit_plan.py commit --cwd . <<'EOF'
@@ -165,6 +167,21 @@ python skills/git-up/scripts/commit_plan.py commit --cwd . <<'EOF'
 EOF
 ```
 
+Windows PowerShell 5.1 不要直接使用 `here-string | python`，因为默认 `$OutputEncoding` 可能是 `US-ASCII`，会把中文和 emoji 替换为 `?`。应先以 UTF-8 写入计划文件，再使用 `--plan-file`：
+
+```powershell
+$planFile = Join-Path $env:TEMP "git-up-plan-$PID.yaml"
+[IO.File]::WriteAllText($planFile, @'
+<最近一次 git-up -p 输出的 YAML 计划>
+'@, [Text.UTF8Encoding]::new($false))
+try {
+  python skills/git-up/scripts/commit_plan.py commit --cwd . --plan-file $planFile
+} finally {
+  Remove-Item -LiteralPath $planFile -Force -ErrorAction SilentlyContinue
+}
+```
+
+`--plan-file` 必须按 UTF-8 读取计划，适用于包含中文、emoji 或非 ASCII 文件名的提交计划。
 Python fast path 的职责：
 
 - 解析 YAML Lite 子集，不依赖 PyYAML 或网络安装。

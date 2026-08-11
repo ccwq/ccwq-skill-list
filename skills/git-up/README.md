@@ -41,4 +41,11 @@ python skills/git-up/scripts/commit_plan.py --help
 python skills/git-up/scripts/gitignore_manager.py --cwd . --dry-run
 ```
 
+Windows PowerShell 5.1 提交包含中文或 emoji 的计划时，使用 UTF-8 `--plan-file`，不要直接把 here-string 通过管道传给 Python：
+
+```powershell
+[IO.File]::WriteAllText($planFile, $plan, [Text.UTF8Encoding]::new($false))
+python skills/git-up/scripts/commit_plan.py commit --cwd . --plan-file $planFile
+```
+
 完整 YAML 格式、提交消息规范、push 重试规则及委派契约见 [SKILL.md](SKILL.md)。

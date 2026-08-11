@@ -108,6 +108,20 @@ def run_plan(mode: str, yaml_text: str, cwd: Path | None = None) -> subprocess.C
     return run_command(command, PROJECT_ROOT, yaml_text)
 
 
+def run_plan_file(mode: str, yaml_text: str) -> subprocess.CompletedProcess[str]:
+    """Write the plan as UTF-8 bytes, then execute the file-input path."""
+    with tempfile.NamedTemporaryFile("w", encoding="utf-8", newline="\n", delete=False) as handle:
+        handle.write(yaml_text)
+        plan_path = Path(handle.name)
+    try:
+        return run_command(
+            [sys.executable, str(SCRIPT), mode, "--plan-file", str(plan_path)],
+            PROJECT_ROOT,
+        )
+    finally:
+        plan_path.unlink(missing_ok=True)
+
+
 def run_ignore(arguments: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
     return run_command([sys.executable, str(IGNORE_SCRIPT), "--cwd", str(cwd), *arguments], PROJECT_ROOT)
 
@@ -181,6 +195,29 @@ def test_missing_files_fails():
     payload = parse_json(result)
     assert_true(result.returncode == 2, "缺 files 应返回解析错误码 2")
     assert_true(payload["code"] == "missing_files", "错误码应可被 LLM 识别")
+
+
+def test_plan_file_preserves_utf8_plan_variants():
+    """
+    Given: a UTF-8 plan file contains Chinese text and emoji.
+    When: commit_plan.py parses with --plan-file.
+    Then: the original non-ASCII characters remain intact.
+    Regression: avoid Windows PowerShell native-pipeline replacement with '?'.
+    """
+    yaml_text = """- step: 1
+  subject: "修复：解析计划 ✅"
+  body: "保留中文和 emoji"
+  files:
+    - 中文.txt
+"""
+    result = run_plan_file("parse", yaml_text)
+    payload = parse_json(result)
+    assert_true(result.returncode == 0, result.stderr or result.stdout)
+    assert_true(payload["ok"] is True, "UTF-8 plan file should parse")
+    step = payload["steps"][0]
+    assert_true(step["subject"] == "修复：解析计划 ✅", "subject must preserve UTF-8")
+    assert_true(step["body"] == "保留中文和 emoji", "body must preserve UTF-8")
+    assert_true(step["files"] == ["中文.txt"], "file paths must preserve UTF-8")
 
 
 def test_powershell_pipe_preserves_utf8_plan_variants():
@@ -381,6 +418,7 @@ def main() -> int:
         test_parse_full_plan,
         test_parse_optional_body_and_foot,
         test_missing_files_fails,
+        test_plan_file_preserves_utf8_plan_variants,
         test_powershell_pipe_preserves_utf8_plan_variants,
         test_git_bash_printf_pipe_preserves_plan_variants,
         test_commit_plan_executes_only_planned_files,

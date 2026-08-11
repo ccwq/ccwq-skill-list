@@ -2,6 +2,12 @@
 
 All notable changes to this skill will be documented in this file.
 
+## Unreleased
+
+### 修复
+- `commit_plan.py` 新增 UTF-8 `--plan-file` 入口，避免 Windows PowerShell 5.1 原生管道将中文和 emoji 替换为 `?`。
+- 补充 Windows 提交计划的编码使用说明和回归测试。
+
 ## [2.5.0] - 2026-08-04
 
 ### 新增

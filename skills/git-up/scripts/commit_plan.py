@@ -280,14 +280,37 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Parse or execute a git-up YAML-lite commit plan.")
     parser.add_argument("mode", choices=["parse", "commit"], help="parse only, or execute commits")
     parser.add_argument("--cwd", default=".", help="git repository working directory")
+    parser.add_argument(
+        "--plan-file",
+        help="read the UTF-8 plan from a file instead of stdin (recommended for Windows PowerShell)",
+    )
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     cwd = Path(args.cwd).resolve()
-    text = sys.stdin.read()
-
+    try:
+        # Reading a UTF-8 file avoids PowerShell 5.1's native-pipeline
+        # encoding fallback, which can replace Chinese text and emoji with '?'.
+        text = (
+            Path(args.plan_file).read_text(encoding="utf-8-sig")
+            if args.plan_file
+            else sys.stdin.read()
+        )
+    except OSError as exc:
+        print(
+            json.dumps(
+                {
+                    "ok": False,
+                    "code": "plan_file_read_failed",
+                    "message": str(exc),
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return 2
     try:
         steps = parse_plan(text)
     except PlanError as exc:
