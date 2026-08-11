@@ -2,6 +2,7 @@
 name: debug-instrumentation
 version: 1.0.0
 description: 调试埋点闭环。用户明确要求新增用于调试的日志、log、console.log、print 或埋点，或分析已加入的调试日志输出时使用；统一可搜索 token，并按埋点、采集、假设归因、询问清理推进。
+disable-model-invocation: true
 ---
 
 # Debug Instrumentation（埋点调试）

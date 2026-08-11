@@ -1,6 +1,7 @@
 ---
 name: rd-mode
 description: 远程开发模式规则,rd-mode。触发条件：用户提到 host/server 协作、需要在远程环境运行代码、或涉及 CDP 浏览器操作（abc 命令）时，view 此文件后再执行任务。首次使用或用户调用 `rd-mode --init` 时，执行下方「首次使用 / 初始化」流程生成配置。
+disable-model-invocation: true
 ---
 
 # 远程开发模式（rd-mode）

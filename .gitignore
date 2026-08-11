@@ -33,3 +33,5 @@ skills/*-workspace
 docs/*
 .codebase-memory
 /research_*
+
+__tmp*

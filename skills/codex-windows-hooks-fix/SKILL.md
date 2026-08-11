@@ -2,6 +2,7 @@
 name: codex-windows-hooks-fix
 version: 1.0.0
 description: 修复 Windows 环境中的 Codex hooks 语法、入口命令和 stdout JSON schema 问题。用户提到 Codex hooks 在 Windows 报 SessionStart/UserPromptSubmit/PreToolUse/PostToolUse/Stop hook failed、invalid JSON output、invalid pre-tool-use JSON output、decision=allow、裸 sh/python3/.sh、PowerShell hook 包装器、hooks.json 路径展开失败或需要验证 hook 链路时必须使用。
+disable-model-invocation: true
 ---
 
 # Codex Windows Hooks Fix
