@@ -21,6 +21,10 @@ description: 维护项目级、可自进化的结论记忆。用于非简单仓�
 node scripts/memory.mjs <command> [options]
 ```
 
+## Host adapter
+
+需要把生命周期接入宿主时，可先使用 [Reference host adapter](references/reference-host.md)。`scripts/reference-host.mjs` 真实调用 `MemorySession` 并返回最终 payload、capabilities、audit 和 end result；它是可运行的参考 seam，不代表生产系统已经接入。安装与验证应遵循 [Disposable-copy 安装卫生](references/install-hygiene.md)。
+
 正文使用 `--content-file <path>` 或标准输入，避免 shell 转义。常用命令：
 
 ```bash

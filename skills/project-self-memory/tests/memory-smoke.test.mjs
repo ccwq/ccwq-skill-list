@@ -4,8 +4,9 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const cli = path.resolve('skills/project-self-memory/scripts/memory.mjs');
+const cli = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../scripts/memory.mjs');
 const run = (root, ...argv) => execFileSync(process.execPath, [cli, '--project-root', root, ...argv], { encoding: 'utf8' });
 const temp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'psm-invariant-'));
 const store = (next = '0001') => `<!-- <psm-store version="1" next_id="${next}" group_dimension="" /> -->\n`;
@@ -62,6 +63,22 @@ test('blocks writes that would discard active opaque content', () => { const roo
 test('merge rejects self and later keep IDs', () => { const root=temp();init(root);fs.writeFileSync(memory(root),store('0003')+record('0001','甲')+record('0002','乙'));const body=path.join(root,'b.txt');fs.writeFileSync(body,'合并');assert.throws(()=>run(root,'merge','--keep','0001','--remove','0001','--content-file',body),/不同 ID/);assert.throws(()=>run(root,'merge','--keep','0002','--remove','0001','--content-file',body),/较早/); });
 
 /**
+ * Given：两个合法记录且 ledger 已初始化
+ * When：将较晚记录合并到较早记录并 inspect 保留记录
+ * Then：inspect 返回包含 keep/remove 原版本的 lineage
+ * 防回归：合并正文覆盖评分历史却不留下来源谱系
+ */
+test('merge inspect preserves evidence lineage', () => {
+  const root = temp(); init(root);
+  fs.writeFileSync(memory(root), store('0003') + record('0001', '甲') + record('0002', '乙'));
+  const body = path.join(root, 'merge-lineage.txt'); fs.writeFileSync(body, '合并后的结论');
+  run(root, 'merge', '--keep', '0001', '--remove', '0002', '--content-file', body);
+  const inspected = JSON.parse(run(root, 'inspect', '0001'));
+  assert.equal(inspected.lineage.length, 2);
+  assert.deepEqual(inspected.lineage.map((item) => item.record_id), ['0001', '0002']);
+});
+
+/**
  * Given：一个记录和一个既有稳定分组
  * When：groups apply 缺少 assignments 或删除稳定分组
  * Then：计划在写前被拒绝
@@ -75,7 +92,7 @@ test('groups apply requires complete stable plan', () => { const root=temp();ini
  * Then：补齐默认值并模板化文件
  * 防回归：安全缺字段被当成致命错误或开启不确定自动行为
  */
-test('config repair fills missing keys', () => { const root=temp();init(root);const cfg=path.join(root,'.project-self-memory','config.yaml');fs.writeFileSync(cfg,'version: 1\nauto_load: false\nauto_save: true\n');assert.match(run(root,'config','repair'),/REPAIRED/);assert.match(fs.readFileSync(cfg,'utf8'),/auto_rate: true/); });
+test('config repair fills missing keys', () => { const root=temp();init(root);const cfg=path.join(root,'.project-self-memory','config.yaml');fs.writeFileSync(cfg,'version: 1\nauto_load: false\nauto_save: true\n');assert.match(run(root,'config','repair'),/REPAIRED/);const repaired=fs.readFileSync(cfg,'utf8');assert.match(repaired,/auto_rate: true/);assert.match(repaired,/# Given：任务开始且 store\/ledger 校验通过。/);assert.match(repaired,/# relevant 特点：先做相关性、质量和预算筛选；适合绝大多数日常任务，能减少无关历史。/);assert.match(repaired,/# 取值：off \| relevant \| all。参考值：relevant。/);assert.match(repaired,/# 取值：0\.\.1。参考值：0；需要更保守筛选时可用 0\.25 或 0\.5。/); });
 
 /**
  * Given：损坏的 store 头
