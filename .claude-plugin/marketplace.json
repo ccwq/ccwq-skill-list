@@ -79,6 +79,13 @@
       "category": "devtools"
     },
     {
+      "name": "deep-investigation",
+      "source": "./skills/deep-investigation",
+      "description": "对公共事件、组织、人物、政策或商业议题进行证据优先的深度调查复盘，覆盖时间线、关系网络、竞争解释与证据缺口",
+      "version": "1.0.0",
+      "category": "research"
+    },
+    {
       "name": "lite-team",
       "source": "./lite-team",
       "description": "轻量多 Agent 协作技能，用 docs/bbs/lite-team-bbs.md 协作板在不同 Agent/session 间手动交接",

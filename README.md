@@ -58,6 +58,7 @@ npm run check:main-skills
 | `ntl-script-descriptions` | 为包含 package.json 的项目补充 ntl 可读取的 scripts 中文说明 | [SKILL.md](skills/ntl-script-descriptions/SKILL.md) |
 | `npm-license-declaration` | 为前端项目生成 npm 第三方依赖许可证声明文档 | [SKILL.md](skills/npm-license-declaration/SKILL.md) |
 | `joint-debugging` | 手动协调技术联调、故障诊断、验证与修复，按单主线轮次与证据/授权边界推进 | [SKILL.md](skills/joint-debugging/SKILL.md) |
+| `deep-investigation` | 对公共事件、组织、人物、政策或商业议题进行可追溯的深度调查复盘 | [SKILL.md](skills/deep-investigation/SKILL.md) |
 | `debug-instrumentation` | 为调试问题添加、采集和分析可清理的 token 化日志埋点 | [SKILL.md](skills/debug-instrumentation/SKILL.md) |
 | `rd-mode` | 远程开发模式规则，约束 host/server 协作并统一 CDP 浏览器操作（abc 命令） | [README.md](skills/rd-mode/README.md) |
 | `lite-team` | 轻量多 Agent 协作，用 docs/bbs/lite-team-bbs.md 协作板在不同 Agent/session 间手动交接 | [README.md](skills/lite-team/README.md) |
@@ -213,6 +214,22 @@ $joint-debugging 排查登录接口在容器环境中偶发超时，并按证据
 | `[待处理事项]` | 联调、诊断、验证或修复协调目标；不传时仅询问目标 | 无 |
 
 无额外命令参数。每次回复以 `主线：第 n/total 轮｜当前阶段` 开始；严格按环境基线、证据分级、授权范围、脱敏和验证标准推进。详情见 [SKILL.md](skills/joint-debugging/SKILL.md)。
+
+---
+
+### deep-investigation
+
+对公共事件、组织、人物、政策或商业议题做证据优先的深度调查复盘，区分已证实事实、主张、推断与未知。
+
+```text
+$deep-investigation 调查某公司收购案：还原关键时间线、交易关系、争议证据与可能后续
+```
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `<调查话题>` | 需要还原的事件、对象或争议；可包含时间、地域、主体和关注问题 | 必填 |
+
+无额外命令参数。近期或持续演变事件会主动联网；可用子智能体时按事实、关系、反证分支独立调查后综合。详情见 [SKILL.md](skills/deep-investigation/SKILL.md)。
 
 ---
 
