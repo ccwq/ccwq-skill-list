@@ -7,9 +7,9 @@ import { spawnSync } from 'node:child_process';
 const repoRoot = path.resolve(import.meta.dirname, '..');
 const script = path.join(repoRoot, 'scripts', 'sync-main-skill-manifest.mjs');
 
-function fixture(mainList, skills = ['git-up', 'subagent-router']) {
+function fixture(mainList, skills = ['git-up', 'subagent-router'], envContent = `MAIN_LIST=${mainList}\n`) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'main-skill-manifest-'));
-  fs.writeFileSync(path.join(root, '.env'), `MAIN_LIST=${mainList}\n`);
+  fs.writeFileSync(path.join(root, '.env'), envContent);
   for (const name of skills) {
     const directory = path.join(root, 'skills', name);
     fs.mkdirSync(directory, { recursive: true });
@@ -39,6 +39,35 @@ function remove(root) { fs.rmSync(root, { recursive: true, force: true }); }
   } finally { remove(root); }
 }
 
+/**
+ * Given: MAIN_LIST spans multiple physical lines using a trailing backslash
+ * When: the sync script runs
+ * Then: it generates the expected skills manifest after joining the continuation
+ * Regression: a continued .env value must not be parsed as an invalid KEY=value line
+ */
+{
+  const root = fixture('ignored', ['git-up', 'subagent-router'], 'MAIN_LIST=git-up,\\\nsubagent-router\n');
+  try {
+    const result = run(root);
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, '.claude-plugin', 'plugin.json'), 'utf8')).skills, ['./skills/git-up', './skills/subagent-router']);
+  } finally { remove(root); }
+}
+
+/**
+ * Given: MAIN_LIST uses multiple backslash continuations with Windows CRLF line endings
+ * When: the sync script runs
+ * Then: it joins every continued physical line before parsing the Skill list
+ * Regression: repeated continuations must work consistently on Windows .env files
+ */
+{
+  const root = fixture('ignored', ['git-up', 'subagent-router'], 'MAIN_LIST=git-\\\r\nup,subagent-\\\r\nrouter\r\n');
+  try {
+    const result = run(root);
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, '.claude-plugin', 'plugin.json'), 'utf8')).skills, ['./skills/git-up', './skills/subagent-router']);
+  } finally { remove(root); }
+}
 /**
  * Given：已生成且未被修改的主 Skill manifest
  * When：以 --check 运行同步脚本

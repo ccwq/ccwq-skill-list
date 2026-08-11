@@ -14,7 +14,13 @@ function readDotEnv(filePath) {
   if (!fs.existsSync(filePath)) throw new Error(`找不到 .env：${filePath}`);
 
   const entries = new Map();
-  for (const [index, line] of fs.readFileSync(filePath, 'utf8').split(/\r?\n/).entries()) {
+  const physicalLines = fs.readFileSync(filePath, 'utf8').split(/\r?\n/);
+  for (let index = 0; index < physicalLines.length; index += 1) {
+    let line = physicalLines[index];
+    // Continue only when the trailing backslash is unescaped, removing the marker.
+    while (/(^|[^\\])(?:\\\\)*\\$/.test(line) && index + 1 < physicalLines.length) {
+      line = line.slice(0, -1) + physicalLines[++index];
+    }
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith('#')) continue;
     const match = /^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/.exec(trimmed);
