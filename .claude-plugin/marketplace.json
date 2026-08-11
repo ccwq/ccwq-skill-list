@@ -88,8 +88,8 @@
     {
       "name": "subagent-router",
       "source": "./skills/subagent-router",
-      "description": "Native-first / External fallback 的 Codex 多 Agent 路由：运行时能力判定、已达成共同理解→授权执行双门禁、外部写入隔离与主线程独立验收；策略不是模型锁",
-      "version": "2.0.0",
+      "description": "Codex 原生多 Agent 路由：一次精确 okok 授权、Luna 叶节点限制、Terra/Sol 按额度嵌套与主线程独立验收；策略不是模型锁",
+      "version": "3.0.0",
       "category": "collaboration"
     },
     {

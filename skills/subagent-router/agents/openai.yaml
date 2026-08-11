@@ -1,4 +1,4 @@
 interface:
   display_name: "Subagent Router"
-  short_description: "Native-first, authorized multi-agent routing"
-  default_prompt: "Use $subagent-router to plan authorized native-first multi-agent work."
+  short_description: "原生嵌套、多模型授权路由"
+  default_prompt: "Use $subagent-router to plan native multi-agent work with one okok authorization."

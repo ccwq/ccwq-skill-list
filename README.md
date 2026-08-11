@@ -355,9 +355,9 @@ Codex 使用 `$pro-grilling` 显式调用。调查档位为“直接继续 / 快
 
 ### subagent-router
 
-在任务可并行、需要隔离上下文、模型路由或独立复核时调用：已确认原生能力时优先 `native_spawn`，仅在 `native_unsupported` 且条件受控时回退独立 `external_exec`；必须依次收到 `已达成共同理解` 与 `授权执行` 两个精确口令。它不要求创建 `.codex/agents/*.toml`。
+在任务可并行、需要隔离上下文、模型路由或独立复核时调用：只使用原生 native_spawn，通过精简预览和一次精确 okok 授权临时 Worker；它不要求创建 .codex/agents/*.toml。
 
-先根据当前 spawn Schema、模型元数据或其他只读运行时信息判定能力；模型存在不等于可原生 spawn，能力事实仅在当前会话有效。流程有两个精确门禁：先完成讨论和只读核验，收到 `已达成共同理解` 后给出完整计划；再收到 `授权执行` 才能创建 Worker、写文件、创建 worktree 或启动外部进程。`确认分发` 不是执行口令。
+Luna 可作为叶节点 Worker，但 Luna 主线程或 Luna Worker 都不能派生子智能体；Terra、Sol 可在预先展示的派生额度内继续嵌套。预览只列角色目标、模型/reasoning、权限范围、验证方式和派生额度；模型、范围、权限、验证或额度实质变化后，必须展示新预览并重新收到独立 okok。
 
 ```text
 $subagent-router -t 调查登录失败的前后端原因，并独立复核修复方案
@@ -368,13 +368,13 @@ $subagent-router -l 并行梳理项目结构、检查缺陷并分析测试覆盖
 | 参数 | 说明 | 默认值 |
 |------|------|--------|
 | `[任务]` | 待评估、调度或讨论的工作事项 | 无 |
-| `-l` / `--luna` | 成本优先的完整路由策略；只在后端支持且获授权时才可使用 Luna | 默认策略 |
-| `-t` / `--terra` | 平衡的完整路由策略；按能力、风险和验证需要选择模型 | 无 |
+| `-l` / `--luna` | 成本优先；优先窄范围 Luna 叶节点工作 | 默认策略 |
+| `-t` / `--terra` | 平衡策略；适合普通实现、测试和需要嵌套的任务 | 无 |
 | `-s` / `--sol` | 质量优先的完整路由策略；提高 Sol/复核倾向而非强制全部使用 Sol | 无 |
 | `-g` / `--grilling` | 先进入单问题、只读调查讨论门禁 | 关闭 |
 | `-gl` / `-gt` / `-gs` | 同时记录讨论完成后的路由策略 | 无 |
 
-所有策略统一最多 5 个临时子 Agent，并尽量少用；策略不是模型锁。默认上下文为 `minimal`，任何模型、Provider/Profile、后端、推理强度、权限、上下文或工作区变化均不得静默替换。外部写入必须在独立 worktree 或授权临时副本中执行；多个外部写入 Worker 不得共享可写目录。可用确定性辅助脚本预览路由、校验 Worker 契约和静态检查 Skill：`node skills/subagent-router/scripts/route-decision.mjs --help`、`node skills/subagent-router/scripts/validate-worker-contract.mjs --help`、`node skills/subagent-router/scripts/verify-router-skill.mjs --help`。详情见 [SKILL.md](skills/subagent-router/SKILL.md)。
+所有策略默认最多 5 个临时子 Agent；更高总量须写入预览的派生额度。策略不是模型锁。默认上下文为 minimal，任何模型、推理强度、权限、上下文、工作区或派生额度变化均不得静默替换。可用确定性辅助脚本预览派生决策、校验 Worker 契约和静态检查 Skill：node skills/subagent-router/scripts/route-decision.mjs --help、node skills/subagent-router/scripts/validate-worker-contract.mjs --help、node skills/subagent-router/scripts/verify-router-skill.mjs --help。详情见 [SKILL.md](skills/subagent-router/SKILL.md)。
 
 ---
 
