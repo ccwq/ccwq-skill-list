@@ -2,6 +2,7 @@
 name: ntl-script-descriptions
 version: 1.0.0
 description: 为包含 package.json 的项目补充 ntl 可读取的 scripts 说明；适用于 ntl、Node Task List、package scripts 描述、维护 ntl.descriptions 等场景。
+disable-model-invocation: true
 ---
 
 # NTL Script Descriptions

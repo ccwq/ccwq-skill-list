@@ -2,7 +2,7 @@
 name: nano-prompt
 description: AI 图像提示词生成技能。基于 Nano Banana Pro 的 20 条核心提示技巧，帮助用户构建专业级图像生成提示词。当用户请求生成图像提示词、描述图像需求、描述想要的图像效果时使用。支持文本和图像输入，输出 YAML 格式的分层提示词结构（中文 key，最多 3 层嵌套）。
 version: 1.0.0
-
+disable-model-invocation: true
 ---
 
 # Nano Prompt - AI 图像提示词生成

@@ -1,6 +1,7 @@
 ---
 name: subagent-router
 description: Route complex or parallelizable work through temporary native Codex workers with model-aware nesting, one exact okok authorization, bounded delegation envelopes, and independent final acceptance. Use when the user requests subagents, delegation, parallel work, model routing, multi-agent development, or independent review.
+disable-model-invocation: true
 ---
 
 # Subagent Router
