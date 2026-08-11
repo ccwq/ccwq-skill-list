@@ -1,10 +1,100 @@
 {
   "version": 1,
   "skills": {
-    "git-up": {
-      "source": "/home/ps/cheweiqing/proj-ccwq-skill-list/skills/git-up",
+    "aria-filedown": {
+      "source": ".",
       "sourceType": "local",
-      "computedHash": "0e4aedb16604b6a2ebcb38c8cadfbba110a89cec5bd3e3238203483f8a55f0d9"
+      "computedHash": "66bec2dc84db694d572944e44222f1ce979198d05c7e280b452ba798904531dc"
+    },
+    "chatgpt-web-skill": {
+      "source": ".",
+      "sourceType": "local",
+      "computedHash": "dfd209f80eae8fc0f26a0373786d62153e5e0380aeb0b48f486189a9b4c0e541"
+    },
+    "codex-windows-hooks-fix": {
+      "source": ".",
+      "sourceType": "local",
+      "computedHash": "1d1d2392cf882c86368317b6d60137e8908e1d086a214c30003030c6ab8715dd"
+    },
+    "debug-instrumentation": {
+      "source": ".",
+      "sourceType": "local",
+      "computedHash": "8d786eddb6a8f51053883bac9ded67e7085d7a6a8528abc6aec9f9d647789364"
+    },
+    "dockerhub-mirror": {
+      "source": ".",
+      "sourceType": "local",
+      "computedHash": "7d999f737a1371f4e2f5e47ca20b991bd6a2d31b621624c0549d153e23ac5c2b"
+    },
+    "ffmpeg-video-processing": {
+      "source": ".",
+      "sourceType": "local",
+      "computedHash": "1f0f3823ebe508a7f88ad8cc0dedece308a02187ece0e6b891efa85ce0e193cc"
+    },
+    "gemin-mirror": {
+      "source": ".",
+      "sourceType": "local",
+      "computedHash": "45b51392c9ef20c547b8cdb65e102a83575332ce8375bd7ba013732d06b09d7d"
+    },
+    "git-history-cleaner": {
+      "source": ".",
+      "sourceType": "local",
+      "computedHash": "273afec4e3895dc34452f730f1cbb60839d75135312c6f1db495bbe87194a535"
+    },
+    "git-up": {
+      "source": ".",
+      "sourceType": "local",
+      "computedHash": "a00f570df0e65adf60c6bfddcf167770e11ea22b825eb23fa78ed5c2abfbeada"
+    },
+    "joint-debugging": {
+      "source": ".",
+      "sourceType": "local",
+      "computedHash": "10960b88f7d8809d429f373edada43320a759cbae3c50ab4ba980af6af109c61"
+    },
+    "lite-team": {
+      "source": ".",
+      "sourceType": "local",
+      "computedHash": "76dcc86e0391645f785d5c6781f9d3d5cbf61ff6050e2e9ac354bb6fd96eb62e"
+    },
+    "nano-prompt": {
+      "source": ".",
+      "sourceType": "local",
+      "computedHash": "b210a077d8f371a445159af42f3909a920418f0fea2f9f69eeb961b9d42e4fca"
+    },
+    "npm-license-declaration": {
+      "source": ".",
+      "sourceType": "local",
+      "computedHash": "21a366d3f7cf03d68c552d7d0a4a9c456fcbea9cc3d5cbf4d3eede32ec67d188"
+    },
+    "ntl-script-descriptions": {
+      "source": ".",
+      "sourceType": "local",
+      "computedHash": "0a42e6344f4fedcfa32f434b97d2b69792b2313c2a3bf5fed03278279dd8cd26"
+    },
+    "pro-grilling": {
+      "source": ".",
+      "sourceType": "local",
+      "computedHash": "f8c7ad9545de953eee05afc96a5ce0d358da83ff2d9921e2b0e933552ce8769e"
+    },
+    "project-self-memory": {
+      "source": ".",
+      "sourceType": "local",
+      "computedHash": "19699d26184b01064808011864e9114ff390a7939c9eac7ebcbeb8bb94f0b168"
+    },
+    "rd-mode": {
+      "source": ".",
+      "sourceType": "local",
+      "computedHash": "fb1f98cb482c9b28f2c01f1ea114582897bab2cbb05026f6bb90542da197198e"
+    },
+    "software-license-checker": {
+      "source": ".",
+      "sourceType": "local",
+      "computedHash": "bfc6028b89b6e2f766d9711dc2954a46961058097f666b0a3a72e4fa352ad360"
+    },
+    "subagent-router": {
+      "source": ".",
+      "sourceType": "local",
+      "computedHash": "760ff906579020059082248d4f6ddbb0ce8698379f306e89a34250fcfae04eda"
     }
   }
 }
