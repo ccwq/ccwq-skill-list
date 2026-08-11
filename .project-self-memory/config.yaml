@@ -1,0 +1,75 @@
+# project-self-memory 自动化配置，仅控制行为，不保存经验。
+# 请通过 memory.mjs config 命令修改；未知、重复或非法值会使自动行为 fail-closed。
+
+# Given：配置格式需要与当前运行时兼容。
+# When：init、config reset 或 config repair 生成文件。
+# Then：必须为 1；其他版本拒绝自动加载、保存和评分。
+# 防回归：旧/未来 schema 被静默当作可用配置。
+# 取值：固定为 1。参考值：1。
+version: 1
+
+# Given：任务开始且 store/ledger 校验通过。
+# When：auto_load 为 true。
+# Then：按 load_mode 和预算选择记忆；false 时不读取正文、不注入上下文。
+# 防回归：关闭加载后 sentinel 仍进入 Agent payload。
+# 取值：true | false。参考值：true；敏感或零上下文任务用 false。
+auto_load: true
+
+# Given：宿主显式提交且已确认的保存候选。
+# When：auto_save 为 true。
+# Then：仅保存 verified、isNew、conflictFree 的 host 候选。
+# 防回归：Agent 自报 conclusion 或未验证内容被自动写入。
+# 取值：true | false。参考值：true；只读任务用 false。
+auto_save: true
+
+# Given：当前任务已加载某条记忆，宿主提交直接、可归因的结果。
+# When：auto_rate 为 true。
+# Then：写入带 task/version 的幂等 evidence event；无法归因的失败仅进入 review。
+# 防回归：重试刷分、Agent 自述或旧版本证据改变当前分数。
+# 取值：true | false。参考值：true；人工审核优先时用 false。
+auto_rate: true
+
+# Given：auto_load 为 true。
+# When：开始选择记忆。
+# Then：off 不加载；relevant 仅加载相关记录；all 仅允许显式 maintenance/diagnostic 任务。
+# 防回归：损坏配置或普通任务静默退回全量加载。
+# off 特点：上下文占用为 0；适合敏感、纯业务或明确禁用记忆的任务。
+# relevant 特点：先做相关性、质量和预算筛选；适合绝大多数日常任务，能减少无关历史。
+# all 特点：读取所有 active 记录，排障/人工维护可完整查看；上下文成本最高，普通任务不可隐式启用。
+# 取值：off | relevant | all。参考值：relevant。
+load_mode: relevant
+
+# Given：相关候选多于上下文可容纳内容。
+# When：生成最终 Agent payload。
+# Then：估算 token 总量不得超过此上限。
+# 防回归：单次任务把全部历史记忆塞进上下文。
+# 取值：正整数。参考值：4096；紧凑任务可用 1024 或 2048。
+max_context_tokens: 4096
+
+# Given：通过相关性和质量门槛的记录多于需要。
+# When：选择最终记忆列表。
+# Then：选中记录数不得超过此上限。
+# 防回归：短记录绕过 token 限制造成上下文主题过多。
+# 取值：正整数。参考值：24；小任务可用 8 或 12。
+max_records: 24
+
+# Given：记录与当前任务相关。
+# When：判断其当前版本是否有足够验证支持。
+# Then：confidence 低于此阈值时排除并写入 selection audit。
+# 防回归：低样本偶然成功压过长期已验证记录。
+# 取值：0..1。参考值：0；需要更保守筛选时可用 0.25 或 0.5。
+min_confidence: 0
+
+# Given：记录与当前任务相关且具有当前版本评分。
+# When：判断其历史实际使用价值。
+# Then：utility 低于此阈值时排除并写入 selection audit。
+# 防回归：历史上无效的记忆仅因相关而持续占用上下文。
+# 取值：0..1。参考值：0；需要效果门槛时可用 0.25 或 0.5。
+min_utility: 0
+
+# Given：记录属于会随时间变化的事实、经验或避坑。
+# When：判断其是否仍可能有效。
+# Then：freshness 低于此阈值时排除或进入复核；决策/约束不会仅因时间自动失效。
+# 防回归：过时高分事实持续进入任务上下文。
+# 取值：0..1。参考值：0；易变项目可用 0.25 或 0.5。
+min_freshness: 0
