@@ -49,12 +49,12 @@ npm run check:main-skills
 
 | Skill | 说明 | 详情 |
 |-------|------|------|
-| `software-license-checker` | 评估软件企业内部使用的许可证合规风险，输出法务预警报告 | [SKILL.md](skills/software-license-checker/SKILL.md) |
+| `software-license-checker` | 评估软件企业内部使用的许可证合规风险，输出法务预警报告 | [README.md](skills/software-license-checker/README.md) |
 | `git-history-cleaner` | 清理 Git 仓库历史中的特定文件或目录 | [SKILL.md](skills/git-history-cleaner/SKILL.md) |
-| `git-up` | Git 提交与 `.gitignore` 维护工具，支持规划、讨论、提交、子智能体完全委派和忽略规则维护 | [SKILL.md](skills/git-up/SKILL.md) |
+| `git-up` | Git 提交与 `.gitignore` 维护工具，支持规划、讨论、提交、子智能体完全委派和忽略规则维护 | [README.md](skills/git-up/README.md) |
 | `nano-prompt` | AI 图像提示词生成，基于分层结构构建专业级提示词 | [SKILL.md](skills/nano-prompt/SKILL.md) |
 | `ffmpeg-video-processing` | 使用 ffmpeg / ffprobe 处理音视频，包括压缩、转码、裁剪与媒体检查 | [SKILL.md](skills/ffmpeg-video-processing/SKILL.md) |
-| `codex-windows-hooks-fix` | 修复 Windows 环境中 Codex hooks 入口命令、PowerShell 包装器和 stdout JSON schema 问题 | [SKILL.md](skills/codex-windows-hooks-fix/SKILL.md) |
+| `codex-windows-hooks-fix` | 修复 Windows 环境中 Codex hooks 入口命令、PowerShell 包装器和 stdout JSON schema 问题 | [README.md](skills/codex-windows-hooks-fix/README.md) |
 | `ntl-script-descriptions` | 为包含 package.json 的项目补充 ntl 可读取的 scripts 中文说明 | [SKILL.md](skills/ntl-script-descriptions/SKILL.md) |
 | `npm-license-declaration` | 为前端项目生成 npm 第三方依赖许可证声明文档 | [SKILL.md](skills/npm-license-declaration/SKILL.md) |
 | `joint-debugging` | 手动协调技术联调、故障诊断、验证与修复，按单主线轮次与证据/授权边界推进 | [SKILL.md](skills/joint-debugging/SKILL.md) |
@@ -62,13 +62,13 @@ npm run check:main-skills
 | `debug-instrumentation` | 为调试问题添加、采集和分析可清理的 token 化日志埋点 | [SKILL.md](skills/debug-instrumentation/SKILL.md) |
 | `rd-mode` | 远程开发模式规则，约束 host/server 协作并统一 CDP 浏览器操作（abc 命令） | [README.md](skills/rd-mode/README.md) |
 | `lite-team` | 轻量多 Agent 协作，用 docs/bbs/lite-team-bbs.md 协作板在不同 Agent/session 间手动交接 | [README.md](skills/lite-team/README.md) |
-| `subagent-router` | 预览并确认后临时创建 Codex 子 Agent，支持动态模型路由与多 Agent 开发 | [SKILL.md](skills/subagent-router/SKILL.md) |
+| `subagent-router` | 预览并确认后临时创建 Codex 子 Agent，支持动态模型路由与多 Agent 开发 | [README.md](skills/subagent-router/README.md) |
 | `gemin-mirror` | Gemini/兼容镜像站的探针、账号切换与 API-first 安全会话删除 | [SKILL.md](skills/gemin-mirror/SKILL.md) |
-| `project-self-memory` | 通过 Node CLI 维护项目级结论记忆、评分、分组与 legacy 迁移 | [SKILL.md](skills/project-self-memory/SKILL.md) |
+| `project-self-memory` | 通过 Node CLI 维护项目级结论记忆、评分、分组与 legacy 迁移 | [README.md](skills/project-self-memory/README.md) |
 | `pro-grilling` | 手动逐层厘清复杂决策，在共同理解前保持只读 | [SKILL.md](skills/pro-grilling/SKILL.md) |
 | `aria-filedown` | 手动授权的 aria2 稳定下载工具，支持代理优先级与项目 `.env` | [SKILL.md](skills/aria-filedown/SKILL.md) |
-| `dockerhub-mirror` | 诊断 Docker Hub 拉取缓慢或失败，并探测、评分和管理镜像候选 | [SKILL.md](skills/dockerhub-mirror/SKILL.md) |
-| `chatgpt-web-skill` | 依赖 agent-browser 在指定 ChatGPT Project 中受授权地生图、编辑或执行单图结构化视觉审查 | [SKILL.md](skills/chatgpt-web-skill/SKILL.md) |
+| `dockerhub-mirror` | 诊断 Docker Hub 拉取缓慢或失败，并探测、评分和管理镜像候选 | [README.md](skills/dockerhub-mirror/README.md) |
+| `chatgpt-web-skill` | 依赖 agent-browser 在指定 ChatGPT Project 中受授权地生图、编辑或执行单图结构化视觉审查 | [README.md](skills/chatgpt-web-skill/README.md) |
 
 > 触发形式：`/skill-name` 偏 slash command 风格，`$skill-name` 偏按 skill 名触发；实际以你的 Claude Code / skills 运行环境为准。
 
@@ -85,7 +85,7 @@ $software-license-checker 检查 FFmpeg 是否可以在企业内部使用
 $software-license-checker TensorFlow 企业内部研发使用是否需要付费
 ```
 
-无显式参数，直接描述待评估的软件与使用场景即可。详情见 [SKILL.md](skills/software-license-checker/SKILL.md)。
+无显式参数，直接描述待评估的软件与使用场景即可。详情见 [README.md](skills/software-license-checker/README.md)。
 
 ---
 
@@ -131,7 +131,7 @@ Git 提交与 `.gitignore` 维护工具，支持规划、讨论、修改、执�
 /git-up                  # 直接生成 commit message
 ```
 
-模式：plan / discuss / modify / commit / plan+commit / commit+push / plan+commit+push / sub-agent / sub-agent+push / ignore / default。`--plan` 可简写为 `-p`，`--discuss` 可简写为 `-d`，`--commit` 可简写为 `-c`，`--push` 可简写为 `-P`，`--sub-agent` 可简写为 `-s`，`--ignore` 可简写为 `-i`。`-pcP` / `--plan --commit --push` 可一步规划、提交并 push；`-s` / `--sub-agent` 会在当前工作目录创建一个子智能体、同步等待它执行 `git-up -pc`，`-sP`、`-s -P`、`--sub-agent --push` 则执行 `git-up -pcP`。`-s` 后的描述性文本是强制提交边界，子智能体不能满足时必须停止，父智能体不会改为自行提交；它不与 `-p`、`-c`、`-d`、`--modify`、`-i` 等主模式混用，但可与 `-l/--lang` 组合。`-i` 自动识别 Node.js/Python 项目，只增量加入带中文用途说明的高置信度规则，默认不处理 `.env`；可用技术栈参数限缩范围，并用 `--add <规则> --reason <说明>` 加入自定义规则。已有等价规则会跳过；`--clean` 只预览 Git-up 管理区块的重复项，须额外传 `--apply` 才会删除。`--push/-P` 只支持绑定 `-c`、`-pc` 或 `-s`，不支持单独 push；push 只在网络/传输类错误失败后最多重试 3 次，认证、权限、无 upstream、non-fast-forward 等非网络错误不重试。`-l/--lang` 控制输出语言，支持 `zh`（默认）和 `en`，影响计划说明、讨论问题、commit subject/body 和最终汇报；type/scope/emoji、文件路径和命令保持原样。`--discuss/-d` 内置轻量讨论流程：只围绕提交计划逐个提出 1-3 个关键问题，每问给推荐答案；按拆分边界、文件归属/排除项、commit 顺序等决策分支推进，事实先查代码或 git 状态，决策再问用户，达成共识前不提交。`-c` 优先用 `scripts/commit_plan.py` 直接执行；解析失败时 LLM 修复 YAML 并重试 1 次，仍失败回退为原有提交路径。计划仍存于对话上下文，故 `-p` 与 `-c` 需在同一会话。详情见 [SKILL.md](skills/git-up/SKILL.md)。
+模式：plan / discuss / modify / commit / plan+commit / commit+push / plan+commit+push / sub-agent / sub-agent+push / ignore / default。`--plan` 可简写为 `-p`，`--discuss` 可简写为 `-d`，`--commit` 可简写为 `-c`，`--push` 可简写为 `-P`，`--sub-agent` 可简写为 `-s`，`--ignore` 可简写为 `-i`。`-pcP` / `--plan --commit --push` 可一步规划、提交并 push；`-s` / `--sub-agent` 会在当前工作目录创建一个子智能体、同步等待它执行 `git-up -pc`，`-sP`、`-s -P`、`--sub-agent --push` 则执行 `git-up -pcP`。`-s` 后的描述性文本是强制提交边界，子智能体不能满足时必须停止，父智能体不会改为自行提交；它不与 `-p`、`-c`、`-d`、`--modify`、`-i` 等主模式混用，但可与 `-l/--lang` 组合。`-i` 自动识别 Node.js/Python 项目，只增量加入带中文用途说明的高置信度规则，默认不处理 `.env`；可用技术栈参数限缩范围，并用 `--add <规则> --reason <说明>` 加入自定义规则。已有等价规则会跳过；`--clean` 只预览 Git-up 管理区块的重复项，须额外传 `--apply` 才会删除。`--push/-P` 只支持绑定 `-c`、`-pc` 或 `-s`，不支持单独 push；push 只在网络/传输类错误失败后最多重试 3 次，认证、权限、无 upstream、non-fast-forward 等非网络错误不重试。`-l/--lang` 控制输出语言，支持 `zh`（默认）和 `en`，影响计划说明、讨论问题、commit subject/body 和最终汇报；type/scope/emoji、文件路径和命令保持原样。`--discuss/-d` 内置轻量讨论流程：只围绕提交计划逐个提出 1-3 个关键问题，每问给推荐答案；按拆分边界、文件归属/排除项、commit 顺序等决策分支推进，事实先查代码或 git 状态，决策再问用户，达成共识前不提交。`-c` 优先用 `scripts/commit_plan.py` 直接执行；解析失败时 LLM 修复 YAML 并重试 1 次，仍失败回退为原有提交路径。计划仍存于对话上下文，故 `-p` 与 `-c` 需在同一会话。详情见 [README.md](skills/git-up/README.md)。
 
 ---
 
@@ -171,7 +171,7 @@ $codex-windows-hooks-fix Windows 上 PreToolUse hook 报 invalid pre-tool-use JS
 $codex-windows-hooks-fix codex 在 Windows 启动时报 SessionStart/UserPromptSubmit hook failed，hooks.json 里用了 sh 和 python3
 ```
 
-无显式参数。默认流程是先调查真实 `hooks.json` 和 hook 脚本，再做最小改动，最后用 `Test-Json`、直接执行注册命令和 `codex exec` 子进程验证真实 hook 链路。详情见 [SKILL.md](skills/codex-windows-hooks-fix/SKILL.md)。
+无显式参数。默认流程是先调查真实 `hooks.json` 和 hook 脚本，再做最小改动，最后用 `Test-Json`、直接执行注册命令和 `codex exec` 子进程验证真实 hook 链路。详情见 [README.md](skills/codex-windows-hooks-fix/README.md)。
 
 ---
 
@@ -349,7 +349,7 @@ node skills/project-self-memory/scripts/memory.mjs --project-root E:\repo diagno
 | `score` / `merge` / `groups` / `legacy` / `config` | 评分、合并、计划式分组与迁移、自动行为配置 | 标准库 Node CLI |
 | `migrate-schema` | v1 明确报告无可迁移前版；未知版本拒绝 | 当前格式为 v1 |
 
-活动目录固定为 `.project-self-memory/`；`self-memory/` 仅能通过 `legacy` 命令只读迁移。所有命令均可附 `--project-root <path>`。不记录凭据、个人数据、易失机器状态或未经验证推断。详情、计划 JSON 和完整参数见 [SKILL.md](skills/project-self-memory/SKILL.md)。
+活动目录固定为 `.project-self-memory/`；`self-memory/` 仅能通过 `legacy` 命令只读迁移。所有命令均可附 `--project-root <path>`。不记录凭据、个人数据、易失机器状态或未经验证推断。详情、计划 JSON 和完整参数见 [README.md](skills/project-self-memory/README.md)。
 
 ---
 
@@ -391,7 +391,7 @@ $subagent-router -l 并行梳理项目结构、检查缺陷并分析测试覆盖
 | `-g` / `--grilling` | 先进入单问题、只读调查讨论门禁 | 关闭 |
 | `-gl` / `-gt` / `-gs` | 同时记录讨论完成后的路由策略 | 无 |
 
-所有策略默认最多 5 个临时子 Agent；更高总量须写入预览的派生额度。策略不是模型锁。默认上下文为 minimal，任何模型、推理强度、权限、上下文、工作区或派生额度变化均不得静默替换。可用确定性辅助脚本预览派生决策、校验 Worker 契约和静态检查 Skill：node skills/subagent-router/scripts/route-decision.mjs --help、node skills/subagent-router/scripts/validate-worker-contract.mjs --help、node skills/subagent-router/scripts/verify-router-skill.mjs --help。详情见 [SKILL.md](skills/subagent-router/SKILL.md)。
+所有策略默认最多 5 个临时子 Agent；更高总量须写入预览的派生额度。策略不是模型锁。默认上下文为 minimal，任何模型、推理强度、权限、上下文、工作区或派生额度变化均不得静默替换。可用确定性辅助脚本预览派生决策、校验 Worker 契约和静态检查 Skill：node skills/subagent-router/scripts/route-decision.mjs --help、node skills/subagent-router/scripts/validate-worker-contract.mjs --help、node skills/subagent-router/scripts/verify-router-skill.mjs --help。详情见 [README.md](skills/subagent-router/README.md)。
 
 ---
 
@@ -419,7 +419,7 @@ $chatgpt-web-skill -t 整理统一经验库
 | `experience_memory.py append --group <group> ...` | 向预置或已有分组追加已验证经验；自定义分组需逐步加 `--create-group` | `--group` 必填 |
 | `experience_memory.py trim --plan <file> --confirm ok` | 仅在用户明确回复 `ok` 后整理全库；改写、合并、删除动作均须有非空 `evidence` | 不自动执行 |
 
-可通过 `python skills/chatgpt-web-skill/scripts/run_agent_browser.py --tab <tab-id> <command>` 调用 `agent-browser`；跨命令任务可通过 `browser_task.py` 获取 lease 并在动作前后保存 snapshot，`runtime_checks.py` 将 Project 双证据、提交状态和图片可见/尺寸检查下沉为结构化结果，图片已出现在 snapshot 时会立刻截图返回，避免无效等待。`visual-review` 由调用方决定触发：仅上传一张图片，固定提示词要求模型只返回一个中文 YAML 代码块；其中逐项列出 `S` 标准检查、缺陷和改进建议。本地按 `critical`、`major`、`minor` 严格计算 `VISUAL_*`，仅 `VISUAL_PASSED` 可继续流程；它不删除或修改 chat。`experience_memory.py` 独占维护统一经验库；trim 计划须覆盖每条原始经验一次，改写、合并和删除须附非空 `evidence`，并仅接受 `--confirm ok`。全库 trim 成功后才更新文件记录版本与计数。DOM selector/ref、视觉质量和授权判断仍须实时验证。PowerShell 中 ref 必须加引号，且 Enter 后须确认用户消息已渲染。详情见 [SKILL.md](skills/chatgpt-web-skill/SKILL.md)。
+可通过 `python skills/chatgpt-web-skill/scripts/run_agent_browser.py --tab <tab-id> <command>` 调用 `agent-browser`；跨命令任务可通过 `browser_task.py` 获取 lease 并在动作前后保存 snapshot，`runtime_checks.py` 将 Project 双证据、提交状态和图片可见/尺寸检查下沉为结构化结果，图片已出现在 snapshot 时会立刻截图返回，避免无效等待。`visual-review` 由调用方决定触发：仅上传一张图片，固定提示词要求模型只返回一个中文 YAML 代码块；其中逐项列出 `S` 标准检查、缺陷和改进建议。本地按 `critical`、`major`、`minor` 严格计算 `VISUAL_*`，仅 `VISUAL_PASSED` 可继续流程；它不删除或修改 chat。`experience_memory.py` 独占维护统一经验库；trim 计划须覆盖每条原始经验一次，改写、合并和删除须附非空 `evidence`，并仅接受 `--confirm ok`。全库 trim 成功后才更新文件记录版本与计数。DOM selector/ref、视觉质量和授权判断仍须实时验证。PowerShell 中 ref 必须加引号，且 Enter 后须确认用户消息已渲染。详情见 [README.md](skills/chatgpt-web-skill/README.md)。
 
 ---
 
@@ -459,7 +459,7 @@ node "skills/dockerhub-mirror/bin/dockerhub-mirror.mjs" --dry-run --image nginx:
 | `--deep` | 额外探测首字节延迟与有限 Blob 吞吐量 | `false` |
 | `--scrape` / `-f` | 发现新的候选镜像源；会写入缓存，需先完成 Skill 约定的授权门禁 | `false` |
 
-未达成 `ok` 共识前仅允许 `--dry-run`；收到 `ok` 后仍须展示范围明确的计划，并等到 `授权执行` 才能运行任何可写分支。详情见 [SKILL.md](skills/dockerhub-mirror/SKILL.md)。
+未达成 `ok` 共识前仅允许 `--dry-run`；收到 `ok` 后仍须展示范围明确的计划，并等到 `授权执行` 才能运行任何可写分支。详情见 [README.md](skills/dockerhub-mirror/README.md)。
 
 ---
 
