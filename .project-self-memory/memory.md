@@ -1,4 +1,4 @@
-<!-- <psm-store version="1" next_id="0008" group_dimension="" /> -->
+<!-- <psm-store version="1" next_id="0010" group_dimension="" /> -->
 <!-- <psm id="0001" type="pitfall" status="active" positive="0" negative="0" created_at="2026-08-11T15:41:36Z" last_scored_at="" /> -->
 `.env` 的反斜杠续行必须在执行 `KEY=value` 校验前合并物理行。对逗号分隔的清单，续行处仍需保留分隔符，例如 `aria-filedown,\` 后接下一行；否则会拼成错误的单个名称（如 `aria-filedowndeep-investigation`）。
 
@@ -19,4 +19,10 @@ Windows PowerShell 5.1 将含中文或 emoji 的 YAML 通过 here-string 管道�
 
 <!-- <psm id="0007" type="fact" status="active" positive="0" negative="0" created_at="2026-08-12T02:52:31Z" last_scored_at="" /> -->
 `tutor-man` 的默认输出语言为中文；代码、命令、API 名称、文件路径和必要技术术语保留原文，用户明确指定其他语言时切换。该规则位于 `skills/tutor-man/SKILL.md` 的 Language 段，并同步到根 `README.md` 参数速查注意事项及 `.claude-plugin/marketplace.json` 描述。2026-08-12 已通过规则断言、Marketplace JSON 解析、`npm run check:main-skills` 和 `git diff --check`。
+
+<!-- <psm id="0008" type="constraint" status="active" positive="0" negative="0" created_at="2026-08-12T06:37:20Z" last_scored_at="" /> -->
+已验证约束：分析 ChatGPT Web 的 `/backend-api/*` 请求时，只能在已登录、既有 ChatGPT tab 上清空 network log 后执行对应可见 UI 操作，再以实际 network requests 和渲染结果建立关联；不得直接请求、重放或保存后台请求数据。当前 tab 曾展示 sidebar 的 Projects、Show more 和 Chats；2026-08-12 刷新时出现 `net::ERR_CONNECTION_CLOSED`，因此具体 snorlax/sidebar 响应仍待网络恢复后由真实 tab 请求复核。
+
+<!-- <psm id="0009" type="experience" status="active" positive="0" negative="0" created_at="2026-08-12T07:40:14Z" last_scored_at="" /> -->
+已验证：`project_locator.py` 在当前已登录 ChatGPT tab 上可从 sidebar 定位并打开 `agents-op`、`foo`、`teck`、`Gu0F1`、`emig`，每次返回真实 `/project` URL 及 `project_url`、`project_title`、`project_composer` 三项证据；对同一主页重复调用幂等成功。不存在项目、非 ChatGPT tab、失效 tab 均返回 `ok=false`/退出码 1，且不改动原页面 URL。该结论依赖当前 ChatGPT UI DOM，selector 仍需后续实时复核。
 

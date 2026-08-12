@@ -54,9 +54,10 @@ def _parse_json_values(output: str) -> list[Any]:
 
 
 def _record_id(record: dict[str, Any]) -> str | None:
-    for key in ("id", "tabId", "targetId", "target_id"):
+    # 当前 agent-browser JSON 输出使用 index；旧版可能使用其他稳定标识。
+    for key in ("id", "tabId", "targetId", "target_id", "index"):
         value = record.get(key)
-        if value:
+        if value is not None and value != "":
             return str(value)
     return None
 
