@@ -73,6 +73,12 @@ python scripts/runtime_checks.py --cdp <configured-port> --tab <tab-id> images -
 # 确认 marker 已离开 composer 并渲染；认证中断会以退出码 2 停止。
 python scripts/runtime_checks.py --cdp <configured-port> --tab <tab-id> message --marker <unique-marker>
 
+# 由当前 sidebar 的真实 Project 行定位并点击主页，再返回实时 URL 和双证据；不拼接 URL 或请求 backend-api。
+python scripts/project_locator.py --cdp <configured-port> --tab <tab-id> --name agents-op
+
+# 无可复用 ChatGPT tab 时，通过 agent-browser 新建任务 tab 后定位；终态必须 release 输出的 lease。
+python scripts/project_locator.py --cdp <configured-port> --new-tab --name agents-op
+
 # 读取、原子追加或按已确认计划整理统一的脱敏经验。
 python scripts/experience_memory.py read
 python scripts/experience_memory.py status
@@ -97,9 +103,9 @@ python scripts/browser_task.py release <lease-path> [--purge]
 
 每次任务按以下顺序执行；每项完成后才进入下一项：
 
-1. 使用当前项目对应的 agent-browser session；按已有 CDP 配置决定是否接入既有浏览器。先枚举 tabs，只有不存在可复用的 ChatGPT tab 时才新建 tab。为任务创建 tab 后读取其稳定 tab ID，并把该 ID 传给每个 `run_agent_browser.py --tab` 与 `runtime_checks.py --tab` 调用。
+1. 使用当前项目对应的 agent-browser session；按已有 CDP 配置决定是否接入既有浏览器。先枚举 tabs，优先复用 ChatGPT tab；没有可复用 tab 时，可通过 `project_locator.py --new-tab --name agents-op` 创建。它经 `browser_task.acquire(... --force-new)` 调用 agent-browser `tab new`，在 skill `.env` 的 `CHATGPT_PROJECT_LOCATOR_NEW_TAB_TIMEOUT_SECONDS=30` **共享总预算**内依次等待 sidebar 与 Project 证据渲染；超时或失败会释放本次新建 tab，成功才返回稳定 `tab_id`、`created_tab=true` 和 lease。把该 ID 传给每个 `run_agent_browser.py --tab` 与 `runtime_checks.py --tab` 调用，终态用 `browser_task.py release <lease>` 关闭新建 tab。
    对需要跨多条命令的任务，优先通过 `browser_task.py acquire` 获取 lease；真实回归使用 `--force-new`，普通任务按精确 URL 复用。
-2. 运行 `runtime_checks.py project --name agents-op` 并结合实时 snapshot，确认页面是 ChatGPT Web 且 Project 名为 `agents-op`。禁止相信旧 tab ID、旧 URL 或记忆中的页面文本。
+2. 若当前 tab 尚未在目标 Project 首页，运行 `project_locator.py --name agents-op`：它从当前 sidebar 的实时 DOM 精确匹配 Project 行、点击同一行的 `Open project home`，再读取浏览器实际导航得到的 URL。不得预存、拼接或从 `/backend-api/*` 推导 Project URL。随后运行 `runtime_checks.py project --name agents-op` 并结合实时 snapshot，确认页面是 ChatGPT Web 且 Project 名为 `agents-op`。禁止相信旧 tab ID、旧 URL 或记忆中的页面文本。
 3. `agents-op` 不存在时，先报告并请求创建 Project 的持久化状态授权；存在时直接使用，名称重复也以实时证据选择正确 Project。
 4. 为当前任务在 `agents-op` 内新建 chat；以当前 session 和 tab 作为本次任务的最小隔离边界。
 5. 终态（成功、取消、平台阻断或不可恢复失败）关闭**本任务创建的** tab，重新枚举 tabs 并确认其消失；复用的既有 tab 不关闭。
@@ -111,6 +117,12 @@ python scripts/browser_task.py release <lease-path> [--purge]
 以下会改变持久化 ChatGPT 状态，未获本次明确授权时停止并书面报告：编辑/清空 Project instructions（`textarea#instructions`）、切换 Library access/Memory 等设置、重命名/分享/置顶/删除 Project 或 chat、批准付费/权限/订阅弹窗、上传到当前项目 chat 以外的位置。`visual-review` 调用仅授权在当前任务 chat 上传本次指定的一张图片和发送固定审查提示词；不授权删除或修改任何 chat。只读页面探测与视觉核验默认允许。
 
 不把未文档化的 `/backend-api/*` 当成稳定自动化 API；只用浏览器 UI/CDP DOM 与当前页面已渲染资源。不得输入凭证、处理付款订阅或批准权限；遇到平台 policy/block 如实报告，不尝试绕过。
+
+### 后台请求观察 / Backend Request Observation
+
+当任务需要理解 ChatGPT Web 自身的后台请求时，只在已登录、已打开的 ChatGPT tab 上观察浏览器真实发出的网络记录；不对 `/backend-api/*` 使用 `open`、`fetch`、`curl`、重放或构造独立请求。先清空当前 tab 的日志，执行对应的**可见 UI 操作**，再读取 `network requests` 并按路径确认请求、方法、状态和触发动作；响应体、cookie、授权头、用户内容和完整私有 URL 都不落盘、不汇报。
+
+例如，`/backend-api/gizmos/snorlax/sidebar?owned_only=true&conversations_per_gizmo=5&limit=20` 只有在展开 ChatGPT sidebar 的 Projects/自定义 GPT 列表或其“Show more”分页时，且网络日志实际出现该路径后，才能把它记录为 sidebar 数据加载请求。参数语义仅作运行时线索：`owned_only=true` 倾向筛选当前用户拥有的条目，`conversations_per_gizmo=5` 倾向为每项附带最多 5 个会话摘要，`limit=20` 倾向限制本页条目数；必须由本次请求和页面渲染共同验证，不能据此推断稳定接口契约。
 
 ## 每次先重新发现 UI / Live Discovery
 
@@ -137,6 +149,15 @@ ChatGPT UI 会变化。DOM selector 与 agent-browser ref（如 `@e123`）都可
 3. 默认避免图片内可读文字；若用户要求文字，使用精确字符串并逐字审阅。
 4. 已观察到 composer 清空表示 prompt 被消费，但这不是生成成功证据。优先运行 `runtime_checks.py images --min-width 1000`；每轮先检查 snapshot，已出现 `Generated image` 时立即保存截图并结束检查，不再空等尺寸轮询。随后结合 composer 状态和截图确认。
 5. 下载优先走页面可见 `Save`/下载按钮；如无按钮，只有当前页能访问的已渲染资源才可经页面内 fetch/canvas 导出。下载完成条件是目标文件已落盘且非空；通用 download 命令返回 canceled、按钮点击成功或浏览器提示都不能单独作为成功证据。用户指定桌面时，先确认下载文件后再移动/命名到桌面。不要用 host `curl` 直取 ChatGPT CDN（常见 403）。
+
+图像导出辅助脚本：
+
+```powershell
+python scripts/image_exporter.py --cdp 9696 --tab <tab-id> --selector 'img[alt^="Generated image"]' --output 'E:\exports\image.png'
+python scripts/image_exporter.py --cdp 9696 --tab <tab-id> --url 'https://example.com/image.png' --output 'E:\exports\image.png'
+```
+
+`--selector` 和 `--url` 都只在当前 Tab 的浏览器上下文读取资源；两者互斥且必须指定 `--output`。selector 匹配多张图时，先排除已滚出视口的候选，再选择与聊天输入框垂直距离最近的可见图；没有聊天框才回退到最后一个可见候选。脚本校验 `image/*`、非空响应并原子落盘，不使用宿主机 `curl`，从而保留当前 Tab 的登录态、Cookie 和 Referer。
 
 ### 编辑与参考图
 
@@ -181,6 +202,7 @@ Project instructions 是用户可见持久化配置，默认先用中文拟稿�
 ## 完成检查 / Completion Checklist
 
 - [ ] 使用当前项目对应 session；仅在无可复用 tab 时新建，并在 `agents-op` 内新建 chat；辅助脚本均已通过 `--tab` 锁定任务 tab。
+- [ ] 如需定位 Project 首页，已由 `project_locator.py` 的实时 sidebar 行匹配和点击取得浏览器实际 URL；未拼接或缓存 Project URL。
 - [ ] 跨命令任务已通过 `browser_task.py` 记录 lease；结束时只释放本次创建的 tab，并重新枚举确认。
 - [ ] 至少两条实时证据确认 `agents-op` Project 归属。
 - [ ] 每次 UI 操作前后均由实时 snapshot 验证；prompt 已确认渲染为用户消息。
@@ -192,4 +214,5 @@ Project instructions 是用户可见持久化配置，默认先用中文拟稿�
 - [ ] 用户要求下载时，目标文件已落盘且非空；桌面交付已核验最终路径。
 - [ ] 已关闭且重新枚举确认任务 tab 消失；未影响原有 tabs。
 - [ ] ChatGPT Search / Deep Research（如使用）已在发送前获得本次明确授权。
+- [ ] 涉及后台请求时，结论来自当前 tab 的网络监听和关联 UI 渲染；未直接调用、重放或持久化 `/backend-api/*` 请求数据。
 - [ ] 未经授权未改变任何持久化 Project 状态。

@@ -43,6 +43,34 @@ from visual_review import (  # noqa: E402
 )
 
 
+class ImageExporterTests(unittest.TestCase):
+    def test_selector_prefers_visible_image_near_composer(self) -> None:
+        """
+        Given：对话页中可能同时存在历史图、当前可见新图和聊天输入框。
+        When：检查 image_exporter 的 selector 选择表达式。
+        Then：先过滤视口外图，再按输入框垂直距离排序并选择最近候选。
+        防回归：不能因历史图刚好贴近视口边界而导出错误图片。
+        """
+        source = (SCRIPTS / "image_exporter.py").read_text(encoding="utf-8")
+        self.assertIn("const intersectsViewport = rect.bottom > 0", source)
+        self.assertIn("document.querySelector('textarea, [contenteditable=\"true\"]')", source)
+        self.assertIn("candidates.sort((a, b) => distance(a) - distance(b))", source)
+        self.assertIn("candidates[0]", source)
+
+    def test_exporter_reads_in_tab_and_writes_atomically(self) -> None:
+        """
+        Given：图像地址只能在当前已登录 Tab 上读取。
+        When：检查 image_exporter 的浏览器读取与写盘契约。
+        Then：使用页面 fetch 的 credentials、校验 image MIME 并用临时文件替换目标。
+        防回归：不得退化成宿主机 curl 或未完成文件直接交付。
+        """
+        source = (SCRIPTS / "image_exporter.py").read_text(encoding="utf-8")
+        self.assertIn("fetch(url, {credentials: 'include'})", source)
+        self.assertIn("contentType.startsWith('image/')", source)
+        self.assertIn("temporary.replace(destination)", source)
+        self.assertNotIn("curl", source.lower())
+
+
 class RunAgentBrowserTests(unittest.TestCase):
     def test_cdp_is_optional(self) -> None:
         command_prefix = ["agent-browser"]

@@ -451,12 +451,14 @@ $chatgpt-web-skill -t 整理统一经验库
 | `--tab <tab-id>` | 每次脚本命令前切换到实时 tab list 返回的稳定任务 tab ID，避免读取其他 CDP tab | 不传 |
 | `browser_task.py acquire/status/action/release` | 必须通过已登录 CDP 浏览器运行；以临时 lease 管理 URL 精确复用或 `--force-new` 专用 tab，动作前后保存 snapshot，release 只关闭本次创建的 tab | 项目 `.env` 的 `9696` |
 | `runtime_checks.py project/images/message` | 机械验证 Project 双证据、生成图尺寸或 prompt 渲染；仍需实时 snapshot/截图复核 | 按当前 session |
+| `project_locator.py --tab <tab-id> --name <project>` / `--new-tab` | 从当前 sidebar 精确匹配 Project 行并点击同一行的 `Open project home`；`--new-tab` 通过 agent-browser 创建任务页并返回 lease，终态需 release；均返回浏览器实际导航的 `/project` URL 与页面证据 | `agents-op` |
+| `image_exporter.py --selector <css>` / `--url <image-url>` | 在指定登录 Tab 的浏览器上下文中读取并自动导出图像到 `--output`；多图选择靠近聊天框的可见图，校验 MIME/非空 | 无 |
 | `visual-review` | 上传一张图片，按 `S` 编号标准获得严格中文 YAML 审查并本地计算视觉状态 | `VISUAL_PENDING` fail-closed |
 | `experience_memory.py read [--full]/status/append/trim` | 读取、原子追加或按确认计划整理统一的脱敏经验；warning 由 Agent 立即中文提醒 | `%USERPROFILE%` 或 `~/.config` |
 | `experience_memory.py append --group <group> ...` | 向预置或已有分组追加已验证经验；自定义分组需逐步加 `--create-group` | `--group` 必填 |
 | `experience_memory.py trim --plan <file> --confirm ok` | 仅在用户明确回复 `ok` 后整理全库；改写、合并、删除动作均须有非空 `evidence` | 不自动执行 |
 
-可通过 `python skills/chatgpt-web-skill/scripts/run_agent_browser.py --tab <tab-id> <command>` 调用 `agent-browser`；跨命令任务可通过 `browser_task.py` 获取 lease 并在动作前后保存 snapshot，`runtime_checks.py` 将 Project 双证据、提交状态和图片可见/尺寸检查下沉为结构化结果，图片已出现在 snapshot 时会立刻截图返回，避免无效等待。`visual-review` 由调用方决定触发：仅上传一张图片，固定提示词要求模型只返回一个中文 YAML 代码块；其中逐项列出 `S` 标准检查、缺陷和改进建议。本地按 `critical`、`major`、`minor` 严格计算 `VISUAL_*`，仅 `VISUAL_PASSED` 可继续流程；它不删除或修改 chat。`experience_memory.py` 独占维护统一经验库；trim 计划须覆盖每条原始经验一次，改写、合并和删除须附非空 `evidence`，并仅接受 `--confirm ok`。全库 trim 成功后才更新文件记录版本与计数。DOM selector/ref、视觉质量和授权判断仍须实时验证。PowerShell 中 ref 必须加引号，且 Enter 后须确认用户消息已渲染。详情见 [README.md](skills/chatgpt-web-skill/README.md)。
+可通过 `python skills/chatgpt-web-skill/scripts/run_agent_browser.py --tab <tab-id> <command>` 调用 `agent-browser`；当前 tab 不在 Project 首页时先用 `project_locator.py` 从实时 sidebar 取得浏览器实际导航 URL，跨命令任务可通过 `browser_task.py` 获取 lease 并在动作前后保存 snapshot，`runtime_checks.py` 将 Project 双证据、提交状态和图片可见/尺寸检查下沉为结构化结果，图片已出现在 snapshot 时会立刻截图返回，避免无效等待。`visual-review` 由调用方决定触发：仅上传一张图片，固定提示词要求模型只返回一个中文 YAML 代码块；其中逐项列出 `S` 标准检查、缺陷和改进建议。本地按 `critical`、`major`、`minor` 严格计算 `VISUAL_*`，仅 `VISUAL_PASSED` 可继续流程；它不删除或修改 chat。`experience_memory.py` 独占维护统一经验库；trim 计划须覆盖每条原始经验一次，改写、合并和删除须附非空 `evidence`，并仅接受 `--confirm ok`。全库 trim 成功后才更新文件记录版本与计数。DOM selector/ref、视觉质量和授权判断仍须实时验证。PowerShell 中 ref 必须加引号，且 Enter 后须确认用户消息已渲染。详情见 [README.md](skills/chatgpt-web-skill/README.md)。
 
 ---
 
