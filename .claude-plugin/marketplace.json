@@ -154,6 +154,13 @@
       "description": "依赖 agent-browser 在指定 agents-op ChatGPT Project 中受授权地生图、编辑或单图结构化视觉审查；以中文 YAML、本地状态和统一经验库形成可验证工作流，不修改任何 ChatGPT 持久设置",
       "version": "1.15.0",
       "category": "automation"
+    },
+    {
+      "name": "tutor-man",
+      "source": "./skills/tutor-man",
+      "description": "通过自适应的费曼式掌握等级快速学会工具、概念、方法或混合主题，默认使用中文回复，并用轻量验证确认掌握程度",
+      "version": "1.0.0",
+      "category": "productivity"
     }
   ]
 }

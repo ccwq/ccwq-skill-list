@@ -71,6 +71,7 @@ npm run check:main-skills
 | `aria-filedown` | 手动授权的 aria2 稳定下载工具，支持代理优先级与项目 `.env` | [SKILL.md](skills/aria-filedown/SKILL.md) |
 | `dockerhub-mirror` | 诊断 Docker Hub 拉取缓慢或失败，并探测、评分和管理镜像候选 | [README.md](skills/dockerhub-mirror/README.md) |
 | `chatgpt-web-skill` | 依赖 agent-browser 在指定 ChatGPT Project 中受授权地生图、编辑或执行单图结构化视觉审查 | [README.md](skills/chatgpt-web-skill/README.md) |
+| `tutor-man` | 通过自适应的费曼式掌握等级，快速学会工具、概念、方法或混合主题，并用轻量验证确认掌握程度 | [SKILL.md](skills/tutor-man/SKILL.md) |
 
 > 触发形式：`/skill-name` 偏 slash command 风格，`$skill-name` 偏按 skill 名触发；实际以你的 Claude Code / skills 运行环境为准。
 
@@ -456,6 +457,27 @@ $chatgpt-web-skill -t 整理统一经验库
 | `experience_memory.py trim --plan <file> --confirm ok` | 仅在用户明确回复 `ok` 后整理全库；改写、合并、删除动作均须有非空 `evidence` | 不自动执行 |
 
 可通过 `python skills/chatgpt-web-skill/scripts/run_agent_browser.py --tab <tab-id> <command>` 调用 `agent-browser`；跨命令任务可通过 `browser_task.py` 获取 lease 并在动作前后保存 snapshot，`runtime_checks.py` 将 Project 双证据、提交状态和图片可见/尺寸检查下沉为结构化结果，图片已出现在 snapshot 时会立刻截图返回，避免无效等待。`visual-review` 由调用方决定触发：仅上传一张图片，固定提示词要求模型只返回一个中文 YAML 代码块；其中逐项列出 `S` 标准检查、缺陷和改进建议。本地按 `critical`、`major`、`minor` 严格计算 `VISUAL_*`，仅 `VISUAL_PASSED` 可继续流程；它不删除或修改 chat。`experience_memory.py` 独占维护统一经验库；trim 计划须覆盖每条原始经验一次，改写、合并和删除须附非空 `evidence`，并仅接受 `--confirm ok`。全库 trim 成功后才更新文件记录版本与计数。DOM selector/ref、视觉质量和授权判断仍须实时验证。PowerShell 中 ref 必须加引号，且 Enter 后须确认用户消息已渲染。详情见 [README.md](skills/chatgpt-web-skill/README.md)。
+
+---
+
+### tutor-man
+
+用自适应的费曼式掌握等级，快速掌握工具、概念、方法或混合主题；默认从 `L4` 开始，并通过最小成功、扩展、轻量验证和针对性修复形成闭环。
+
+```text
+$tutor-man L4 Docker
+$tutor-man L3+L5 Git rebase
+$tutor-man L2 一步一步讲清 HTTP 缓存
+```
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `[L1-L5]` | 目标掌握等级；等级决定所需能力和验证深度，不等同于篇幅 | `L4` |
+| `[Lx+Ly]` | 对比两个掌握等级，先建立较低等级基线，再说明能力增量 | 无 |
+| `[主题]` | 要学习的工具、概念、方法或混合主题 | 必填 |
+| `一步一步` / `全部讲完` / `只讲原理` / `跳过验证` | 调整教学节奏、范围或验证方式的自然语言要求 | 按默认流程 |
+
+注意：默认使用中文回复；涉及版本快速变化、当前实现或存在争议的知识时，Skill 会先核验当前资料；`L3`–`L5` 默认包含一次轻量掌握检查。详情见 [SKILL.md](skills/tutor-man/SKILL.md)。
 
 ---
 
