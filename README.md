@@ -72,6 +72,7 @@ npm run check:main-skills
 | `dockerhub-mirror` | 诊断 Docker Hub 拉取缓慢或失败，并探测、评分和管理镜像候选 | [README.md](skills/dockerhub-mirror/README.md) |
 | `chatgpt-web-skill` | 依赖 agent-browser 在指定 ChatGPT Project 中受授权地生图、编辑或执行单图结构化视觉审查 | [README.md](skills/chatgpt-web-skill/README.md) |
 | `tutor-man` | 通过自适应的费曼式掌握等级，快速学会工具、概念、方法或混合主题，并用轻量验证确认掌握程度 | [SKILL.md](skills/tutor-man/SKILL.md) |
+| `website-state-sync-agent` | 通过 Node.js 直连 Chrome DevTools Protocol 导出、导入和同步加密网站状态 | [SKILL.md](skills/website-state-sync-agent/SKILL.md) |
 
 > 触发形式：`/skill-name` 偏 slash command 风格，`$skill-name` 偏按 skill 名触发；实际以你的 Claude Code / skills 运行环境为准。
 
@@ -480,6 +481,27 @@ $tutor-man L2 一步一步讲清 HTTP 缓存
 | `一步一步` / `全部讲完` / `只讲原理` / `跳过验证` | 调整教学节奏、范围或验证方式的自然语言要求 | 按默认流程 |
 
 注意：默认使用中文回复；涉及版本快速变化、当前实现或存在争议的知识时，Skill 会先核验当前资料；`L3`–`L5` 默认包含一次轻量掌握检查。详情见 [SKILL.md](skills/tutor-man/SKILL.md)。
+
+---
+
+### website-state-sync-agent
+
+用于在已打开或临时隔离的 Chrome 实例之间迁移加密网站 Cookie、`localStorage` 和 `sessionStorage`；任务方法包括 `export`、`import`、`sync` 和 `validate`。
+
+```text
+$website-state-sync-agent 导出当前页面状态
+$website-state-sync-agent 将来源 CDP 的登录态同步到目标页面
+```
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `export --url <url>` | 从动态提供的页面 URL 导出加密状态包 | 无 |
+| `import <file> --url <url>` | 将加密状态包合并写入目标页面 | 无 |
+| `sync --source-cdp <url> --source-url <url> --target-cdp <url> --target-url <url>` | 在两个 CDP 浏览器页面之间同步状态 | 无 |
+| `WEBSET_STATE_SYNC_PASSWORD` | 状态包加密与解密密码 | `1599`（建议显式设置） |
+| `WEBSET_STATE_SYNC_CDP_URLS` / `WEBSET_STATE_SYNC_CDP_URL` | CDP HTTP 服务地址 | 无 |
+
+运行配置只从环境变量读取；默认密码 `1599` 适合本地快速验证，共享或生产环境请显式设置 `WEBSET_STATE_SYNC_PASSWORD`。来源/主开发仓库：[ccwq/website-state-sync-tools-cat](https://github.com/ccwq/website-state-sync-tools-cat)；集中管理与安装入口：[ccwq/ccwq-skill-list](https://github.com/ccwq/ccwq-skill-list)。详情见 [SKILL.md](skills/website-state-sync-agent/SKILL.md)。
 
 ---
 
