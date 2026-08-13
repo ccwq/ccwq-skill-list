@@ -1,0 +1,29 @@
+{
+  "skill_name": "website-state-sync-agent",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "请把当前已打开网站的状态导出成文件；密码已经在当前 PowerShell 环境变量里。",
+      "expected_output": "要求本轮动态提供目标 URL，然后通过默认 CDP 服务池导出加密包到当前目录 .website-state-sync-agent，且不回显密码或包内容。",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "请用本机 Chrome Dev 实例和 localhost:7897 代理启动一个隔离 CDP 端口，把当前 chatgpt.com 的登录态同步到这个临时实例，并验证最终页面和 Storage。",
+      "expected_output": "使用独立 user-data-dir 和 CDP 端口；代理作为 Chrome 启动参数；按发现、连接、导出、写入、导航、回读阶段执行；报告脱敏摘要；分区 Cookie 跳过但不阻断；验证结束清理临时进程和目录，不删除系统 Chrome。",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "远程 CDP 同步失败，日志里有 fetch failed 和 Runtime.evaluate timeout。请定位网络不稳定发生在哪个阶段并决定是否可以报告导入成功。",
+      "expected_output": "分别探测 /json/list HTTP、WebSocket Runtime 和写入阶段；区分 CDP 发现失败与页面运行时超时；没有导出和回读证据时不得报告同步成功。",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "从 C:\\backup\\site-state-bundle.json 恢复当前页面的登录状态。",
+      "expected_output": "从 WEBSET_STATE_SYNC_PASSWORD 环境变量读取密码，未设置时使用默认值 1599；导入要求 encrypted: true，并在来源域或 origin 不匹配时于写入前要求目标映射确认。",
+      "files": []
+    }
+  ]
+}

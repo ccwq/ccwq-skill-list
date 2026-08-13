@@ -161,6 +161,13 @@
       "description": "通过自适应的费曼式掌握等级快速学会工具、概念、方法或混合主题，默认使用中文回复，并用轻量验证确认掌握程度",
       "version": "1.0.0",
       "category": "productivity"
+    },
+    {
+      "name": "website-state-sync-agent",
+      "source": "./skills/website-state-sync-agent",
+      "description": "通过 Node.js 直连 Chrome DevTools Protocol 导出、导入和同步加密网站状态；仅在用户明确要求时使用",
+      "version": "1.0.0",
+      "category": "automation"
     }
   ]
 }
