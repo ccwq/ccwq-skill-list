@@ -16,7 +16,16 @@ from typing import Any, Callable, Sequence
 from urllib.parse import urlsplit
 from uuid import uuid4
 
-from run_agent_browser import build_command, parse_port, session_for_cdp
+from run_agent_browser import (
+    CdpConfigurationError,
+    CdpConnectionError,
+    build_command,
+    cdp_setup_guidance,
+    parse_cdp,
+    resolve_cdp,
+    session_for_cdp,
+    verify_cdp_connection,
+)
 
 
 Runner = Callable[[list[str]], Any]
@@ -333,7 +342,7 @@ def make_runner(session: str | None, cdp: str | None) -> Runner:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="管理 agent-browser 任务 tab 的 lease 与动作证据。")
     parser.add_argument("--session", default=session_for_cdp())
-    parser.add_argument("--cdp", type=parse_port, default=os.environ.get("AGENT_BROWSER_CDP_PORT"))
+    parser.add_argument("--cdp", "-c", type=parse_cdp, help="CDP 端口或 http(s) URL。")
     subparsers = parser.add_subparsers(dest="operation", required=True)
 
     acquire_parser = subparsers.add_parser("acquire")
@@ -353,8 +362,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     release_parser.add_argument("--purge", action="store_true")
 
     args = parser.parse_args(argv)
-    if not args.cdp:
-        print(json.dumps({"ok": False, "operation": args.operation, "error": "未配置已登录浏览器 CDP，拒绝启动新的浏览器会话。"}, ensure_ascii=False))
+    try:
+        args.cdp = resolve_cdp(args.cdp)
+        verify_cdp_connection(args.session, args.cdp)
+    except (CdpConfigurationError, CdpConnectionError, argparse.ArgumentTypeError) as error:
+        print(json.dumps({"ok": False, "operation": args.operation, "error": f"{error}\n{cdp_setup_guidance()}"}, ensure_ascii=False))
         return 2
     try:
         if args.operation == "acquire":

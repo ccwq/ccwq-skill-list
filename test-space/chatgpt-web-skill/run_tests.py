@@ -15,7 +15,16 @@ SCRIPTS = Path(__file__).resolve().parents[2] / "skills" / "chatgpt-web-skill" /
 EXPERIENCE_SCRIPT = SCRIPTS / "experience_memory.py"
 sys.path.insert(0, str(SCRIPTS))
 
-from run_agent_browser import build_command, cli_prefix, load_project_env  # noqa: E402
+from run_agent_browser import (  # noqa: E402
+    DEFAULT_CDP_PORT,
+    build_command,
+    cdp_setup_guidance,
+    cli_prefix,
+    load_project_env,
+    parse_cdp,
+    resolve_cdp,
+    verify_cdp_connection,
+)
 from experience_memory import memory_path  # noqa: E402
 from runtime_checks import (  # noqa: E402
     check_images,
@@ -72,12 +81,18 @@ class ImageExporterTests(unittest.TestCase):
 
 
 class RunAgentBrowserTests(unittest.TestCase):
-    def test_cdp_is_optional(self) -> None:
+    def test_cdp_is_bound_by_connect_not_global_flag(self) -> None:
+        """
+        Given：skill 已在当前 session 中建立 CDP 连接。
+        When：构造后续 agent-browser 业务命令。
+        Then：命令复用 session，但不传全局 --cdp。
+        防回归：部分 agent-browser 版本会静默忽略全局 --cdp 并落回默认浏览器。
+        """
         command_prefix = ["agent-browser"]
         self.assertNotIn("--cdp", build_command("session", None, ["tab", "list"], command_prefix))
         self.assertEqual(
             build_command("session", "9222", ["tab", "list"], command_prefix),
-            ["agent-browser", "--session", "session", "--cdp", "9222", "tab", "list"],
+            ["agent-browser", "--session", "session", "tab", "list"],
         )
         self.assertEqual(
             build_command("session", None, ["tab", "task-tab"], command_prefix),
@@ -91,15 +106,84 @@ class RunAgentBrowserTests(unittest.TestCase):
             self.assertEqual(cli_prefix(), ["npx", "-y", "agent-browser"])
 
     def test_project_env_supplies_cdp_without_overriding_calling_environment(self) -> None:
+        """
+        Given：项目 .env 与调用进程环境都可能提供 CDP。
+        When：加载项目环境配置。
+        Then：缺失变量可由 .env 补充，已有调用环境变量保持不变。
+        防回归：项目配置不得覆盖调用期的更高优先级设置。
+        """
         with tempfile.TemporaryDirectory() as temporary:
             env_path = Path(temporary) / ".env"
-            env_path.write_text("AGENT_BROWSER_CDP_PORT=9696\n", encoding="utf-8")
+            env_path.write_text("AGENT_BROWSER_CDP_PORT=9222\n", encoding="utf-8")
             with patch.dict(os.environ, {}, clear=True):
                 load_project_env(env_path)
-                self.assertEqual(os.environ["AGENT_BROWSER_CDP_PORT"], "9696")
+                self.assertEqual(os.environ["AGENT_BROWSER_CDP_PORT"], "9222")
             with patch.dict(os.environ, {"AGENT_BROWSER_CDP_PORT": "9222"}, clear=True):
                 load_project_env(env_path)
                 self.assertEqual(os.environ["AGENT_BROWSER_CDP_PORT"], "9222")
+
+    def test_cdp_priority_accepts_port_and_remote_url(self) -> None:
+        """
+        Given：调用参数、环境变量、用户级配置与默认端口均可能提供 CDP。
+        When：按既定优先级解析端口和远程 URL。
+        Then：依次选择调用参数、环境变量、用户级配置，最后回退到 9222。
+        防回归：不能因缺少显式参数而跳过用户配置或启动新的浏览器。
+        """
+        with patch("run_agent_browser.configured_cdp", return_value="http://192.168.1.8:9222"):
+            with patch.dict(os.environ, {"AGENT_BROWSER_CDP_PORT": "9333"}, clear=True):
+                self.assertEqual(resolve_cdp("9444"), "9444")
+                self.assertEqual(resolve_cdp(None), "9333")
+            with patch.dict(os.environ, {}, clear=True):
+                self.assertEqual(resolve_cdp(None), "http://192.168.1.8:9222")
+        with patch("run_agent_browser.configured_cdp", return_value=None):
+            with patch.dict(os.environ, {}, clear=True):
+                self.assertEqual(resolve_cdp(None), DEFAULT_CDP_PORT)
+        self.assertEqual(parse_cdp("http://192.168.1.8:9222"), "http://192.168.1.8:9222")
+
+    def test_remote_cdp_url_uses_connect_before_normal_command(self) -> None:
+        """
+        Given：CDP 传入远程 HTTP URL。
+        When：验证既有浏览器连接。
+        Then：先调用 agent-browser connect，再在同一 session 枚举标签页。
+        防回归：不能把 URL 直接传给 --cdp 后意外落回默认浏览器。
+        """
+        websocket_url = "ws://192.168.1.8:9222/devtools/browser/expected"
+        with patch("run_agent_browser.discover_cdp_websocket_url", return_value=websocket_url):
+            with patch(
+                "run_agent_browser.subprocess.run",
+                side_effect=[
+                    CompletedProcess([], 0, "", ""),
+                    CompletedProcess([], 0, websocket_url, ""),
+                    CompletedProcess([], 0, "", ""),
+                ],
+            ) as runner:
+                verify_cdp_connection("task-session", "http://192.168.1.8:9222")
+        self.assertEqual(runner.call_args_list[0].args[0][-2:], ["connect", websocket_url])
+        self.assertEqual(runner.call_args_list[1].args[0][-2:], ["get", "cdp-url"])
+        self.assertEqual(runner.call_args_list[2].args[0][-2:], ["tab", "list"])
+        self.assertNotIn("--cdp", runner.call_args_list[2].args[0])
+        self.assertIn("--cdp/-c > AGENT_BROWSER_CDP_PORT", cdp_setup_guidance())
+
+    def test_port_cdp_uses_connect_before_normal_command(self) -> None:
+        """
+        Given：CDP 传入本地端口。
+        When：验证既有浏览器连接。
+        Then：使用 agent-browser connect <port>，再在同一 session 枚举标签页。
+        防回归：不能把端口交给可能被静默忽略的全局 --cdp。
+        """
+        websocket_url = "ws://127.0.0.1:9222/devtools/browser/expected"
+        with patch("run_agent_browser.discover_cdp_websocket_url", return_value=websocket_url):
+            with patch(
+                "run_agent_browser.subprocess.run",
+                side_effect=[
+                    CompletedProcess([], 0, "", ""),
+                    CompletedProcess([], 0, websocket_url, ""),
+                    CompletedProcess([], 0, "", ""),
+                ],
+            ) as runner:
+                verify_cdp_connection("task-session", "9222")
+        self.assertEqual(runner.call_args_list[0].args[0][-2:], ["connect", websocket_url])
+        self.assertEqual(runner.call_args_list[2].args[0][-2:], ["tab", "list"])
 
 
 class RuntimeChecksTests(unittest.TestCase):
@@ -238,10 +322,16 @@ class ScenarioRegressionTests(unittest.TestCase):
         )
 
     def test_case_4_session_tab_and_cdp_are_runtime_parameters(self) -> None:
+        """
+        Given：两个独立的任务 session 和不同 CDP 解析结果。
+        When：构造各自的后续 agent-browser 命令。
+        Then：每条命令只保留自己的 session，CDP 已由先前 connect 绑定。
+        防回归：不得混用旧 session，或重新加入会静默回落的全局 --cdp。
+        """
         command_prefix = ["agent-browser"]
         first_tab = build_command("case-4-a", "9222", ["tab", "t-a"], command_prefix)
         second_tab = build_command("case-4-b", None, ["tab", "t-b"], command_prefix)
-        self.assertEqual(first_tab, ["agent-browser", "--session", "case-4-a", "--cdp", "9222", "tab", "t-a"])
+        self.assertEqual(first_tab, ["agent-browser", "--session", "case-4-a", "tab", "t-a"])
         self.assertEqual(second_tab, ["agent-browser", "--session", "case-4-b", "tab", "t-b"])
         self.assertNotIn("case-4-a", second_tab)
         self.assertNotIn("--cdp", second_tab)
@@ -379,6 +469,12 @@ class BrowserTaskTests(unittest.TestCase):
             self.assertIn(["tab", "close", "t8"], calls)
 
     def test_action_keeps_arbitrary_subcommand_but_strips_context_overrides(self) -> None:
+        """
+        Given：lease 已锁定任务 tab 与 CDP session，动作参数尝试覆盖 CDP。
+        When：执行任意 agent-browser 子命令。
+        Then：保留业务动作，但移除会破坏 lease 上下文的覆盖参数。
+        防回归：动作不得切换到其他 CDP 目标或 tab。
+        """
         with tempfile.TemporaryDirectory() as temporary:
             lease = Path(temporary) / "lease.json"
             lease.write_text(
@@ -393,7 +489,7 @@ class BrowserTaskTests(unittest.TestCase):
                     return "snapshot"
                 return ""
 
-            action_task(str(lease), ["--cdp", "9696", "click", "@e123"], runner)
+            action_task(str(lease), ["--cdp", "9333", "click", "@e123"], runner)
             self.assertIn(["click", "@e123"], calls)
 
     def test_release_keeps_reused_tab_open(self) -> None:
@@ -620,7 +716,7 @@ class ExperienceMemoryTests(unittest.TestCase):
             self.assertEqual(code, 0)
             self.assertEqual(payload["actual_entry_count"], 1)
             content = path.read_text(encoding="utf-8")
-            self.assertIn("Skill-Version: 1.15.0", content)
+            self.assertIn("Skill-Version: 1.15.1", content)
             self.assertIn("Entry-Count: 1", content)
             self.assertIn("最近核验: 2026-08-04", content)
 

@@ -3,7 +3,7 @@ name: chatgpt-web-skill
 description: 通过 ChatGPT Web 进行信息搜集、Deep Research、图片生成编辑、结构化视觉审查和统一经验整理。
 license: MIT
 metadata:
-  version: 1.15.0
+  version: 1.15.1
   tags: [chatgpt, chatgpt-web, agent-browser, image-generation, image-editing, visual-review, research]
   related_skills: [agent-browser]
 ---
@@ -14,11 +14,11 @@ metadata:
 
 本 skill 依赖 `agent-browser` skill 与其 CLI 操作 ChatGPT Web UI；不提供独立的浏览器自动化实现。`agents-op` 指 **ChatGPT Web Project**，不是本地 Git/workspace 项目；它是图片生成与编辑的指定工作区，也可用于聊天、图片审阅、网页研究和讨论。
 
-优先通过 `scripts/run_agent_browser.py` 调用 `agent-browser` CLI，统一传递 session 和 CDP 配置。ChatGPT Web 任务必须连接已登录的既有浏览器，禁止在未配置 CDP 时启动新的浏览器会话；项目 `.env` 默认提供 `AGENT_BROWSER_CDP_PORT=9696` 和 `AGENT_BROWSER_USE_DEFAULT_CDP_SESSION=1`。在该模式下省略自定义 `--session`，复用 CDP 默认 daemon；调用期显式 `--cdp` 或环境变量可覆盖端口。没有默认 CDP daemon 时应报告阻断，不创建新浏览器。会话名默认取当前项目绝对路径去除 `/` 后的字符串（非 CDP 默认 daemon 场景），截图保存到 `%temp%\agent-browser-captures\`。先枚举现有 tabs；目标 URL 已打开时复用该 tab，不要重复打开。tab ID 只在当前 daemon 生命周期内有效：看到 `daemon version mismatch`、daemon restart 或 tab 切换失败时，立刻重新执行 `tab list`，废弃旧 ID 与旧 lease，不按编号猜测替代 tab。例如：
+优先通过 `scripts/run_agent_browser.py` 调用 `agent-browser` CLI，统一传递 session 和 CDP 配置。ChatGPT Web 任务只连接已登录的既有浏览器，不启动新的浏览器会话。CDP 优先级固定为：调用期 `--cdp`/`-c` > `AGENT_BROWSER_CDP_PORT` > 用户级 `agent-browser` 配置文件的 `cdp` > `9222`。`--cdp`/`-c` 接受端口（如 `9222`）或完整 `http(s)` URL（如 `http://192.168.1.8:9222`）；两种形式都先通过 `/json/version` 发现目标 WebSocket，再由 `agent-browser connect` 建立当前 session 并核验目标，避免静默落回默认浏览器。用户级配置路径为 Windows `%USERPROFILE%\.agent-browser\config.json`、macOS/Linux `~/.agent-browser/config.json`，内容示例为 `{ "cdp": 9222 }`。连接失败时，报告该优先级与配置方式，不创建新浏览器。会话名默认取当前项目绝对路径去除 `/` 后的字符串（非 CDP 默认 daemon 场景），截图保存到 `%temp%\agent-browser-captures\`。先枚举现有 tabs；目标 URL 已打开时复用该 tab，不要重复打开。tab ID 只在当前 daemon 生命周期内有效：看到 `daemon version mismatch`、daemon restart 或 tab 切换失败时，立刻重新执行 `tab list`，废弃旧 ID 与旧 lease，不按编号猜测替代 tab。例如：
 
 ```powershell
 python scripts/run_agent_browser.py tab list
-python scripts/run_agent_browser.py --cdp <configured-port> snapshot -i
+python scripts/run_agent_browser.py -c <port-or-url> snapshot -i
 ```
 
 此 skill 的全部业务动作都在 ChatGPT Web 对话内完成；不把它用作直接浏览、抓取或自动化外部网站的通用工具。普通讨论可直接在 chat 中进行。只有确有必要使用 ChatGPT Web 的 Search 或 Deep Research 时，发送前先向用户说明理由并取得本次明确授权；未获授权则继续普通对话，或报告信息边界。
@@ -65,19 +65,19 @@ python scripts/experience_memory.py trim --plan <confirmed-plan.json> --confirm 
 
 ```powershell
 # 返回至少两条 Project 实时归属证据，否则退出码为 1。
-python scripts/runtime_checks.py --cdp <configured-port> --tab <tab-id> project --name agents-op
+python scripts/runtime_checks.py -c <port-or-url> --tab <tab-id> project --name agents-op
 
 # 每轮先检查快照；一旦图片已可见就立即截图并返回，不再空等尺寸轮询。
-python scripts/runtime_checks.py --cdp <configured-port> --tab <tab-id> images --min-width 1000 --screenshot <temp-path>
+python scripts/runtime_checks.py -c <port-or-url> --tab <tab-id> images --min-width 1000 --screenshot <temp-path>
 
 # 确认 marker 已离开 composer 并渲染；认证中断会以退出码 2 停止。
-python scripts/runtime_checks.py --cdp <configured-port> --tab <tab-id> message --marker <unique-marker>
+python scripts/runtime_checks.py -c <port-or-url> --tab <tab-id> message --marker <unique-marker>
 
 # 由当前 sidebar 的真实 Project 行定位并点击主页，再返回实时 URL 和双证据；不拼接 URL 或请求 backend-api。
-python scripts/project_locator.py --cdp <configured-port> --tab <tab-id> --name agents-op
+python scripts/project_locator.py -c <port-or-url> --tab <tab-id> --name agents-op
 
 # 无可复用 ChatGPT tab 时，通过 agent-browser 新建任务 tab 后定位；终态必须 release 输出的 lease。
-python scripts/project_locator.py --cdp <configured-port> --new-tab --name agents-op
+python scripts/project_locator.py -c <port-or-url> --new-tab --name agents-op
 
 # 读取、原子追加或按已确认计划整理统一的脱敏经验。
 python scripts/experience_memory.py read
@@ -153,8 +153,8 @@ ChatGPT UI 会变化。DOM selector 与 agent-browser ref（如 `@e123`）都可
 图像导出辅助脚本：
 
 ```powershell
-python scripts/image_exporter.py --cdp 9696 --tab <tab-id> --selector 'img[alt^="Generated image"]' --output 'E:\exports\image.png'
-python scripts/image_exporter.py --cdp 9696 --tab <tab-id> --url 'https://example.com/image.png' --output 'E:\exports\image.png'
+python scripts/image_exporter.py -c <port-or-url> --tab <tab-id> --selector 'img[alt^="Generated image"]' --output 'E:\exports\image.png'
+python scripts/image_exporter.py -c <port-or-url> --tab <tab-id> --url 'https://example.com/image.png' --output 'E:\exports\image.png'
 ```
 
 `--selector` 和 `--url` 都只在当前 Tab 的浏览器上下文读取资源；两者互斥且必须指定 `--output`。selector 匹配多张图时，先排除已滚出视口的候选，再选择与聊天输入框垂直距离最近的可见图；没有聊天框才回退到最后一个可见候选。脚本校验 `image/*`、非空响应并原子落盘，不使用宿主机 `curl`，从而保留当前 Tab 的登录态、Cookie 和 Referer。

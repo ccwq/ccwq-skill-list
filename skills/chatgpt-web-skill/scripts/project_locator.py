@@ -12,7 +12,17 @@ import time
 from pathlib import Path
 from typing import Sequence
 
-from run_agent_browser import build_command, load_project_env, parse_port, session_for_cdp
+from run_agent_browser import (
+    CdpConfigurationError,
+    CdpConnectionError,
+    build_command,
+    cdp_setup_guidance,
+    load_project_env,
+    parse_cdp,
+    resolve_cdp,
+    session_for_cdp,
+    verify_cdp_connection,
+)
 from runtime_checks import evaluate_project
 from browser_task import acquire_task, release_task
 
@@ -199,7 +209,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="从 ChatGPT sidebar 定位并打开 Project 主页。")
     parser.add_argument("--name", default="agents-op", help="精确匹配的 Project 名称。")
     parser.add_argument("--session", default=session_for_cdp())
-    parser.add_argument("--cdp", type=parse_port, default=os.environ.get("AGENT_BROWSER_CDP_PORT"))
+    parser.add_argument("--cdp", "-c", type=parse_cdp, help="CDP 端口或 http(s) URL。")
     tab_group = parser.add_mutually_exclusive_group(required=True)
     tab_group.add_argument("--tab", help="复用的已登录 ChatGPT tab ID。")
     tab_group.add_argument(
@@ -220,8 +230,11 @@ def main() -> int:
         help="--new-tab 轮询间隔秒数；默认读取 skill .env。",
     )
     args = parser.parse_args()
-    if not args.cdp:
-        print(json.dumps({"ok": False, "error": "未配置已登录浏览器 CDP，拒绝启动新的浏览器会话。"}, ensure_ascii=False))
+    try:
+        args.cdp = resolve_cdp(args.cdp)
+        verify_cdp_connection(args.session, args.cdp)
+    except (CdpConfigurationError, CdpConnectionError, argparse.ArgumentTypeError) as error:
+        print(json.dumps({"ok": False, "error": f"{error}\n{cdp_setup_guidance()}"}, ensure_ascii=False))
         return 2
     try:
         if args.new_tab:

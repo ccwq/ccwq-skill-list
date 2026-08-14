@@ -13,7 +13,17 @@ import tempfile
 import time
 from pathlib import Path
 
-from run_agent_browser import build_command, load_project_env, parse_port, session_for_cdp
+from run_agent_browser import (
+    CdpConfigurationError,
+    CdpConnectionError,
+    build_command,
+    cdp_setup_guidance,
+    load_project_env,
+    parse_cdp,
+    resolve_cdp,
+    session_for_cdp,
+    verify_cdp_connection,
+)
 
 
 EXPORT_EXPRESSION = r"""
@@ -174,7 +184,7 @@ def download_via_save(session: str | None, cdp: str, tab: str, selector: str, de
 def main() -> int:
     load_project_env()
     parser = argparse.ArgumentParser(description='在当前登录浏览器上下文中导出图像。')
-    parser.add_argument('--cdp', type=parse_port, default=os.environ.get('AGENT_BROWSER_CDP_PORT'))
+    parser.add_argument('--cdp', '-c', type=parse_cdp, help='CDP 端口或 http(s) URL。')
     parser.add_argument('--session', default=session_for_cdp())
     parser.add_argument('--tab', required=True, help='实时 tab ID。')
     source = parser.add_mutually_exclusive_group(required=True)
@@ -182,8 +192,11 @@ def main() -> int:
     source.add_argument('--url', help='图像 URL；在当前 Tab 页面上下文中 fetch。')
     parser.add_argument('--output', required=True, help='目标文件路径。')
     args = parser.parse_args()
-    if not args.cdp:
-        print(json.dumps({'ok': False, 'error': '未配置已登录浏览器 CDP。'}, ensure_ascii=False))
+    try:
+        args.cdp = resolve_cdp(args.cdp)
+        verify_cdp_connection(args.session, args.cdp)
+    except (CdpConfigurationError, CdpConnectionError, argparse.ArgumentTypeError) as error:
+        print(json.dumps({'ok': False, 'error': f'{error}\n{cdp_setup_guidance()}'}, ensure_ascii=False))
         return 2
     try:
         destination = Path(args.output).expanduser().resolve()

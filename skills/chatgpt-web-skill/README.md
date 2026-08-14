@@ -5,7 +5,7 @@
 ## 使用前提
 
 - 已安装并可使用 `agent-browser`。
-- 已有登录态浏览器，并通过 CDP 接入；项目默认端口为 `9696`。
+- 已有登录态浏览器，并通过 CDP 接入。优先使用脚本参数 `--cdp`/`-c`；完整优先级见根 README 的参数速查。
 - 任务在 ChatGPT Web 的 `agents-op` Project 中进行。
 
 先复用已打开的目标 tab；没有可用 CDP daemon 或无法确认 Project 归属时，Skill 会停止并报告，不会新开未登录的浏览器实例。
@@ -29,7 +29,7 @@ python skills/chatgpt-web-skill/scripts/browser_task.py release <lease-path>
 若当前 tab 不在目标 Project 首页，可从实时 sidebar 精确定位并跳转：
 
 ```powershell
-python skills/chatgpt-web-skill/scripts/project_locator.py --cdp 9696 --tab <tab-id> --name agents-op
+python skills/chatgpt-web-skill/scripts/project_locator.py -c <port-or-url> --tab <tab-id> --name agents-op
 ```
 
 脚本只点击当前页面中与 Project 名同一行的 `Open project home`，并返回浏览器实际导航后的 `/project` URL 与页面证据；不预存/拼接 URL，也不直接请求 `/backend-api/*`。
@@ -37,7 +37,7 @@ python skills/chatgpt-web-skill/scripts/project_locator.py --cdp 9696 --tab <tab
 没有可复用 ChatGPT tab 时，使用 `--new-tab`。脚本经 `agent-browser tab new` 创建任务页，输出 `tab_id` 和 lease；新页定位与主页证据共享 skill 内部 `.env` 的 30 秒总超时（`CHATGPT_PROJECT_LOCATOR_NEW_TAB_TIMEOUT_SECONDS`），调用时可用 `--new-tab-timeout` 覆盖；任务结束后释放该 lease：
 
 ```powershell
-python skills/chatgpt-web-skill/scripts/project_locator.py --cdp 9696 --new-tab --name agents-op
+python skills/chatgpt-web-skill/scripts/project_locator.py -c <port-or-url> --new-tab --name agents-op
 python skills/chatgpt-web-skill/scripts/browser_task.py release <lease-path>
 ```
 
@@ -47,12 +47,12 @@ python skills/chatgpt-web-skill/scripts/browser_task.py release <lease-path>
 
 ```powershell
 python skills/chatgpt-web-skill/scripts/image_exporter.py `
-  --cdp 9696 --tab <tab-id> `
+  -c <port-or-url> --tab <tab-id> `
   --selector 'img[alt^="Generated image"]' `
   --output 'E:\exports\image.png'
 
 python skills/chatgpt-web-skill/scripts/image_exporter.py `
-  --cdp 9696 --tab <tab-id> `
+  -c <port-or-url> --tab <tab-id> `
   --url 'https://example.com/image.png' `
   --output 'E:\exports\image.png'
 ```

@@ -12,7 +12,17 @@ import time
 from pathlib import Path
 from typing import Sequence
 
-from run_agent_browser import build_command, load_project_env, parse_port, session_for_cdp
+from run_agent_browser import (
+    CdpConfigurationError,
+    CdpConnectionError,
+    build_command,
+    cdp_setup_guidance,
+    load_project_env,
+    parse_cdp,
+    resolve_cdp,
+    session_for_cdp,
+    verify_cdp_connection,
+)
 
 
 def run_cli(session: str, cdp: str | None, args: Sequence[str], tab: str | None = None) -> str:
@@ -233,7 +243,7 @@ def main() -> int:
     load_project_env()
     parser = argparse.ArgumentParser(description="执行 ChatGPT Web 的确定性运行时检查。")
     parser.add_argument("--session", default=session_for_cdp())
-    parser.add_argument("--cdp", type=parse_port, default=os.environ.get("AGENT_BROWSER_CDP_PORT"))
+    parser.add_argument("--cdp", "-c", type=parse_cdp, help="CDP 端口或 http(s) URL。")
     parser.add_argument("--tab", help="每个读取前强制选中的稳定 agent-browser tab ID。")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -254,8 +264,11 @@ def main() -> int:
     message_parser.add_argument("--timeout", type=float, default=20)
     message_parser.add_argument("--interval", type=float, default=2)
     args = parser.parse_args()
-    if not args.cdp:
-        print(json.dumps({"ok": False, "error": "未配置已登录浏览器 CDP，拒绝启动新的浏览器会话。"}, ensure_ascii=False))
+    try:
+        args.cdp = resolve_cdp(args.cdp)
+        verify_cdp_connection(args.session, args.cdp)
+    except (CdpConfigurationError, CdpConnectionError, argparse.ArgumentTypeError) as error:
+        print(json.dumps({"ok": False, "error": f"{error}\n{cdp_setup_guidance()}"}, ensure_ascii=False))
         return 2
 
     try:
