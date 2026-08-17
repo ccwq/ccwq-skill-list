@@ -20,8 +20,8 @@ Never assume the current working directory is the skill directory.
 The state sequence is `讨论中 → 待共识 → 待授权 → 执行中 → 已完成`.
 
 - Before the exact consensus phrase `ok`, limit activity to questions, analysis, read-only research, comparison, and `--dry-run` probes. A requested operation is a goal, not authorization.
-- After `ok`, present a bounded plan and request the exact execution phrase `授权执行`.
-- After `授权执行`, perform only the agreed write-capable branch. A changed scope, cost, risk, or execution path returns to discussion.
+- After `ok`, present a bounded plan and request the exact execution phrase `okok`.
+- After `okok`, perform only the agreed write-capable branch. A changed scope, cost, risk, or execution path returns to discussion.
 - Keep replacement Docker commands as output only. Never modify Docker daemon settings, restart Docker, execute `docker pull` or `docker run`, or send private-image credentials through a public mirror.
 
 When a new operational request still needs decisions, or a previous assumption is invalidated, read [the extended discussion protocol](references/decision-gate.md) before asking questions.

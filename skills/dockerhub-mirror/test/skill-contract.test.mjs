@@ -34,7 +34,7 @@ test('SKILL uses a model-facing triage description and ordered completion criter
 test('common gate and absolute entrypoint are inline', async () => {
   const skill = await read('SKILL.md');
   assert.match(skill, /exact consensus phrase `ok`/);
-  assert.match(skill, /exact execution phrase `授权执行`/);
+  assert.match(skill, /exact execution phrase `okok`/);
   assert.match(skill, /<skill-root>\/bin\/dockerhub-mirror\.mjs/);
   assert.doesNotMatch(skill, /node scripts\//);
 });
