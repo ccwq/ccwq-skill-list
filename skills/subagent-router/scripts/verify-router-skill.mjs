@@ -24,6 +24,6 @@ for (const relative of markdown) {
 }
 const corpus = markdown.map((relative) => fs.existsSync(path.join(root, relative)) ? fs.readFileSync(path.join(root, relative), 'utf8') : '').join('\n');
 for (const phrase of ['native_spawn', 'okok', 'delegation envelope', 'parent_model', 'active_workers', 'Luna', 'Terra', 'Sol', 'minimal', 'summarized', 'expanded', 'unverified', 'Never silently']) if (!corpus.includes(phrase)) errors.push('missing core semantic: ' + phrase);
-for (const obsolete of ['external_exec', 'native_unsupported', 'native_supported', '授权执行', '已达成共同理解']) if (corpus.includes(obsolete)) errors.push('obsolete V2 semantic remains: ' + obsolete);
+for (const obsolete of ['external_exec', 'native_unsupported', 'native_supported', 'okok', '已达成共同理解']) if (corpus.includes(obsolete)) errors.push('obsolete V2 semantic remains: ' + obsolete);
 if (errors.length) { errors.forEach((error) => console.error('verify-router-skill: ' + error)); process.exit(2); }
 console.log('verify-router-skill: valid V3 native nesting, authorization, references, frontmatter, and JSON examples');

@@ -117,7 +117,7 @@ class SubagentRouterV3Tests(unittest.TestCase):
     def test_v3_corpus_has_one_okok_gate_and_no_legacy_semantics(self) -> None:
         for token in ("okok", "delegation envelope", "Luna", "Terra", "Sol", "native_spawn"):
             self.assertIn(token, self.corpus)
-        for obsolete in ("external_exec", "native_supported", "native_unsupported", "授权执行", "已达成共同理解"):
+        for obsolete in ("external_exec", "native_supported", "native_unsupported", "okok", "已达成共同理解"):
             self.assertNotIn(obsolete, self.corpus)
         self.assertRegex(self.skill, r"(?is)removing leading and trailing whitespace.{0,120}exactly equal lowercase okok")
 
