@@ -73,6 +73,7 @@ npm run check:main-skills
 | `chatgpt-web-skill` | 依赖 agent-browser 在指定 ChatGPT Project 中受授权地生图、编辑或执行单图结构化视觉审查 | [README.md](skills/chatgpt-web-skill/README.md) |
 | `tutor-man` | 通过自适应的费曼式掌握等级，快速学会工具、概念、方法或混合主题，并用轻量验证确认掌握程度 | [SKILL.md](skills/tutor-man/SKILL.md) |
 | `website-state-sync-agent` | 通过 Node.js 直连 Chrome DevTools Protocol 导出、导入和同步加密网站状态 | [SKILL.md](skills/website-state-sync-agent/SKILL.md) |
+| `network-debug` | 证据驱动定位跨平台网络连通性、DNS、路由、TCP/UDP、HTTP/TLS、代理、VPN 与 overlay 故障 | [SKILL.md](skills/network-debug/SKILL.md) |
 
 > 触发形式：`/skill-name` 偏 slash command 风格，`$skill-name` 偏按 skill 名触发；实际以你的 Claude Code / skills 运行环境为准。
 
@@ -136,6 +137,18 @@ Git 提交与 `.gitignore` 维护工具，支持规划、讨论、修改、执�
 ```
 
 模式：plan / discuss / modify / commit / plan+commit / commit+push / plan+commit+push / sub-agent / sub-agent+push / ignore / default。`--plan` 可简写为 `-p`，`--discuss` 可简写为 `-d`，`--commit` 可简写为 `-c`，`--push` 可简写为 `-P`，`--sub-agent` 可简写为 `-s`，`--ignore` 可简写为 `-i`。`-pcP` / `--plan --commit --push` 可一步规划、提交并 push；`-s` / `--sub-agent` 会在当前工作目录创建一个子智能体、同步等待它执行 `git-up -pc`，`-sP`、`-s -P`、`--sub-agent --push` 则执行 `git-up -pcP`。`-s` 后的描述性文本是强制提交边界，子智能体不能满足时必须停止，父智能体不会改为自行提交；它不与 `-p`、`-c`、`-d`、`--modify`、`-i` 等主模式混用，但可与 `-l/--lang` 组合。`-i` 自动识别 Node.js/Python 项目，只增量加入带中文用途说明的高置信度规则，默认不处理 `.env`；可用技术栈参数限缩范围，并用 `--add <规则> --reason <说明>` 加入自定义规则。已有等价规则会跳过；`--clean` 只预览 Git-up 管理区块的重复项，须额外传 `--apply` 才会删除。`--push/-P` 只支持绑定 `-c`、`-pc` 或 `-s`，不支持单独 push；push 只在网络/传输类错误失败后最多重试 3 次，认证、权限、无 upstream、non-fast-forward 等非网络错误不重试。`-l/--lang` 控制输出语言，支持 `zh`（默认）和 `en`，影响计划说明、讨论问题、commit subject/body 和最终汇报；type/scope/emoji、文件路径和命令保持原样。`--discuss/-d` 内置轻量讨论流程：只围绕提交计划逐个提出 1-3 个关键问题，每问给推荐答案；按拆分边界、文件归属/排除项、commit 顺序等决策分支推进，事实先查代码或 git 状态，决策再问用户，达成共识前不提交。`-c` 优先用 `scripts/commit_plan.py` 直接执行；解析失败时 LLM 修复 YAML 并重试 1 次，仍失败回退为原有提交路径。计划仍存于对话上下文，故 `-p` 与 `-c` 需在同一会话。详情见 [README.md](skills/git-up/README.md)。
+
+---
+
+### network-debug
+
+手动触发的跨平台网络故障诊断技能，按分层证据定位首个失败边界。
+
+```text
+$network-debug 排查当前主机访问目标 API 的 DNS、TCP、TLS 与代理问题
+```
+
+无显式参数；直接描述平台、目标、现象和已观察到的错误即可。技能默认不由模型自动调用。详情见 [SKILL.md](skills/network-debug/SKILL.md)。
 
 ---
 

@@ -168,6 +168,13 @@
       "description": "通过 Node.js 直连 Chrome DevTools Protocol 导出、导入和同步加密网站状态；仅在用户明确要求时使用",
       "version": "1.0.0",
       "category": "automation"
+    },
+    {
+      "name": "network-debug",
+      "source": "./skills/network-debug",
+      "description": "手动触发的证据驱动跨平台网络故障诊断，覆盖 DNS、路由、TCP/UDP、HTTP/TLS、代理、VPN 与 overlay",
+      "version": "0.2.0",
+      "category": "devtools"
     }
   ]
 }

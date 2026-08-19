@@ -1,0 +1,62 @@
+[
+  {
+    "query": "一台电脑访问某个HTTPS服务超时，但同网另一台设备正常，帮我定位是DNS、路由还是TLS",
+    "should_trigger": true,
+    "expected": "使用通用分层模型和跨设备对照。"
+  },
+  {
+    "query": "Linux服务器通过HTTP代理访问HTTPS时CONNECT成功，随后TLS handshake timeout",
+    "should_trigger": true,
+    "expected": "不直接归咎TLS，先检查代理outbound。"
+  },
+  {
+    "query": "Windows curl报证书吊销服务器离线，但换网络正常",
+    "should_trigger": true,
+    "expected": "加载Windows/Schannel适配器并做窄对照。"
+  },
+  {
+    "query": "macOS开VPN后只有IPv6网站不通，IPv4正常",
+    "should_trigger": true,
+    "expected": "检查IPv4/IPv6路由、DNS和VPN分流。"
+  },
+  {
+    "query": "NAS通过WireGuard能握手但访问远端子网失败",
+    "should_trigger": true,
+    "expected": "检查AllowedIPs、路由、转发、防火墙、DNS、MTU。"
+  },
+  {
+    "query": "Tailscale两端在线但只能走relay，速度很差",
+    "should_trigger": true,
+    "expected": "区分控制面在线和direct/relay数据路径。"
+  },
+  {
+    "query": "代理软件里某个域名走特定规则后失败，其他域名正常",
+    "should_trigger": true,
+    "expected": "先确认规则命中、策略递归和最终outbound，不限定产品。"
+  },
+  {
+    "query": "容器里DNS正常但TCP连接外网超时，宿主机正常",
+    "should_trigger": true,
+    "expected": "检查namespace/CNI/路由/NAT差异。"
+  },
+  {
+    "query": "手机连Wi‑Fi访问不了某网站，但蜂窝网络可以",
+    "should_trigger": true,
+    "expected": "在受限观测环境中用Wi‑Fi/蜂窝对照。"
+  },
+  {
+    "query": "路由器后面的设备小请求正常，大文件传输经常卡住",
+    "should_trigger": true,
+    "expected": "提高MTU/PMTU、丢包、中间设备假设优先级。"
+  },
+  {
+    "query": "帮我写一个WireGuard配置文件",
+    "should_trigger": false,
+    "expected": "配置生成不是故障诊断。"
+  },
+  {
+    "query": "HTTP 404是什么意思",
+    "should_trigger": false,
+    "expected": "普通状态码解释不触发完整排障。"
+  }
+]
