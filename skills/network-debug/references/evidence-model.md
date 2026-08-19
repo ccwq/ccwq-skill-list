@@ -1,23 +1,23 @@
-# Generic Evidence Model
+# 通用证据模型
 
-Model every failing flow as:
+将每条失败流建模为：
 
 ```text
-source process/device
-→ source address
-→ resolver result
-→ route/interface
-→ transport
-→ optional proxy/VPN/tunnel
-→ optional policy/peer/outbound
-→ remote path
-→ target
+源进程/设备
+→ 源地址
+→ resolver 结果
+→ 路由/接口
+→ 传输层
+→ 可选的 proxy/VPN/tunnel
+→ 可选的 policy/peer/outbound
+→ 远端路径
+→ 目标
 → security/session
-→ application response
+→ 应用响应
 ```
 
-Prefer evidence nearest the failing boundary. Proxy logs showing `dial timeout` are stronger for outbound diagnosis than a client-side TLS error. Route lookup for the actual target is stronger than default-route inspection. Transfer counters are stronger than a UI “connected” badge.
+优先使用最接近失败边界的证据。Proxy 日志中的 `dial timeout` 比客户端 TLS error 更能说明 outbound 问题；针对实际目标的 route lookup 比检查 default route 更有力；传输计数器比 UI 的“connected”徽章更可靠。
 
-Maintain at least two plausible hypotheses until a controlled test separates them.
+至少保留两个合理假设，直到受控测试将它们区分开。
 
-Do not collapse distinct chains such as certificate-revocation failure for one target and proxy-outbound timeout for another into a single “TLS problem”.
+不要把不同故障链合并成单一的“TLS 问题”，例如一个目标的 certificate-revocation failure 与另一个目标的 proxy-outbound timeout。

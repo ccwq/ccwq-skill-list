@@ -1,6 +1,6 @@
-# macOS Adapter
+# macOS 适配器
 
-Typical read-only primitives:
+典型只读命令：
 
 ```sh
 ifconfig
@@ -12,10 +12,10 @@ networksetup -getsecurewebproxy <service>
 curl -v ...
 ```
 
-Listening sockets, when available:
+查看监听 socket（可用时）：
 
 ```sh
 lsof -nP -iTCP -sTCP:LISTEN
 ```
 
-Do not assume macOS system proxy, application proxy, and VPN routing are identical.
+不要假设 macOS system proxy、应用 proxy 和 VPN routing 完全相同。

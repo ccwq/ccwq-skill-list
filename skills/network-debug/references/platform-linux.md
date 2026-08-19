@@ -1,8 +1,8 @@
-# Linux / BSD Adapter
+# Linux / BSD 适配器
 
-Use tools already present; do not auto-install packages.
+使用系统已有工具，不要自动安装软件包。
 
-Typical read-only primitives:
+典型只读命令：
 
 ```sh
 ip addr
@@ -14,12 +14,12 @@ getent ahosts <host>
 curl -v ...
 ```
 
-Alternatives may include `ifconfig`, `netstat`, `route`, `dig`, `drill`, or `host`.
+替代命令可能包括 `ifconfig`、`netstat`、`route`、`dig`、`drill` 或 `host`。
 
-For a specific destination:
+针对具体目标：
 
 ```sh
 ip route get <ip>
 ```
 
-In container/network-namespace cases, distinguish host routing from container routing and identify bridge/NAT/CNI behavior. Host success does not prove container success.
+在容器或 network namespace 场景中，要区分宿主机路由与容器路由，并识别 bridge/NAT/CNI 行为。宿主机成功不代表容器成功。

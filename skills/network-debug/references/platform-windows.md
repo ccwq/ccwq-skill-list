@@ -1,39 +1,39 @@
-# Windows Adapter
+# Windows 适配器
 
-Use only when a relevant endpoint/gateway runs Windows.
+仅当相关 endpoint/gateway 运行在 Windows 上时使用。
 
-Prefer `curl.exe` explicitly.
+优先明确调用 `curl.exe`。
 
-For CMD users, PowerShell collectors may be invoked with:
+CMD 用户可以这样调用 PowerShell collector：
 
 ```cmd
 powershell.exe -NoProfile -NonInteractive -Command "..."
 ```
 
-If hidden local secret input is needed, omit `-NonInteractive`.
+如果需要隐藏输入私密信息，省略 `-NonInteractive`。
 
-## Clipboard-first
+## 剪贴板优先
 
-For user-run collectors, prefer sanitized output directly to clipboard:
+用户执行的 collector 优先将脱敏结果直接复制到剪贴板：
 
 ```powershell
 $out -join [Environment]::NewLine | Set-Clipboard
 Write-Host '诊断结果已复制到剪贴板，请直接回来粘贴。'
 ```
 
-If clipboard access fails, print the already-redacted result and optionally save a random `%TEMP%` file.
+剪贴板不可用时，打印已经脱敏的结果，并可选地保存到随机 `%TEMP%` 文件。
 
-## PowerShell reliability
+## PowerShell 可靠性
 
-Avoid `%`, `?`, `gp`, `cat`, ambiguous `curl`, and Bash `%%`. Use full cmdlets and custom names such as `Get-DiagProxy`.
+避免 `%`、`?`、`gp`、`cat`、含义不明确的 `curl` 和 Bash `%%`。使用完整 cmdlet，并使用 `Get-DiagProxy` 这类自定义名称。
 
-For UTF-8 vendor JSON under Windows PowerShell 5.1, write with `curl.exe`, then read with:
+Windows PowerShell 5.1 读取 UTF-8 vendor JSON 时，使用 `curl.exe` 写入文件，然后：
 
 ```powershell
 [IO.File]::ReadAllText($path,[Text.Encoding]::UTF8)
 ```
 
-## Read-only primitives
+## 只读命令
 
 ```powershell
 Get-NetAdapter
@@ -55,6 +55,6 @@ netsh interface ipv4 show subinterfaces
 netsh interface ipv6 show subinterfaces
 ```
 
-Choose the smallest relevant subset.
+选择与当前问题最相关的最小子集。
 
-If curl uses Schannel, follow `tls-http.md`; do not assume every Schannel error is a Windows TLS root cause.
+如果 curl 使用 Schannel，遵循 `tls-http.md`；不要假设每个 Schannel error 都是 Windows TLS 根因。

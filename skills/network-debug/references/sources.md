@@ -1,6 +1,6 @@
-# Source Index
+# 来源索引
 
-Use current official documentation when version-specific behavior matters.
+涉及版本特定行为时，使用当前官方文档。
 
 - curl: https://curl.se/docs/manpage.html
 - Microsoft NetTCPIP: https://learn.microsoft.com/powershell/module/nettcpip/
