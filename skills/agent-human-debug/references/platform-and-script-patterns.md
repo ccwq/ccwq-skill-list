@@ -1,440 +1,74 @@
-# 跨平台与脚本参考
+# 跨平台执行与安全模式
 
-本文件仅在需要生成实际诊断脚本时读取。不要每轮机械加载全部内容。
+本文件仅在需要生成实际 probe 时读取。它给出 adapter 选择与安全构造规则；实际命令仍须受当前环境、最小假设和 `probe-contract.md` 约束。
 
-## 1. 剪切板能力
+## Adapter 能力表
 
-### Windows
+| 环境 | 首选 | 剪切板尝试顺序 | 临时文件 | 禁止假设 |
+|---|---|---|---|---|
+| Windows PowerShell | `powershell.exe -NoProfile -NonInteractive` 或现有 PowerShell | `Set-Clipboard`、`clip.exe` | `[IO.Path]::GetTempPath()` + 原子创建 | GUI、管理员、PowerShell 7 |
+| Windows CMD | `cmd.exe`；复杂脱敏可调用现有 PowerShell | `clip.exe` | PowerShell 原子创建；否则仅终端 | PowerShell 一定存在 |
+| Linux/macOS Bash/Zsh | 当前 Shell | `pbcopy`、`wl-copy`、`xclip`、`xsel` | `mktemp` + `chmod 600` | `sudo`、桌面或 clipboard 工具 |
+| WSL | 当前 Bash | 先检测 `clip.exe`，再 POSIX 工具 | `mktemp` | Windows 剪切板可访问 |
+| SSH/容器/CI | 当前远端 Shell | 默认跳过，探测到才尝试 | `mktemp` 或 runner 临时目录 | 有 GUI/交互会话 |
+| Node/Python | 仅在该运行时已存在且能降低复杂度时 | 子进程 stdin 传递文本 | 安全排他创建 | 可自动安装依赖 |
 
-优先：
+所有 adapter 都必须输出 `debug-report-protocol.md` 的 `SUMMARY / EVIDENCE / NEXT` 和 `RESULT_READY`，不能沿用自由文本成功提示。
 
-1. PowerShell `Set-Clipboard`
-2. `clip.exe`
+## 采集、报告与退出语义
 
-SSH 到 Windows、后台服务或非交互会话中，不得假定桌面剪切板可访问。
+1. 每条待执行命令单独捕获 stdout、stderr、退出码、超时或缺失工具状态；一个子命令失败不能阻断其余独立采集。
+2. 汇总原始结果仅保留在进程内存/受控管道，按 `sanitization.md` 处理后才可建立 `debug_report`。
+3. 若任一必要采集失败但仍有证据，`collection_status=partial`；不能构成可信报告才是 `fatal`。
+4. 剪切板只接收已脱敏完整报告。成功时输出 `RESULT_READY run_id=<id> clipboard=ok`；失败时输出同一报告和 `clipboard=unavailable`。
+5. 脱敏规则异常或疑似敏感内容残留时，设 `redaction_status=review` 或 `failed`、`clipboard=skipped_for_review`；禁止自动写剪切板。
 
-### macOS
+剪切板失败只影响交付路径，不得改变采集状态，也不得被误报为被测对象故障。
 
-优先 `pbcopy`，通过标准输入传值，不要把完整结果放到命令行参数。
+## 剪切板构造
 
-### Linux Wayland
+- 必须通过标准输入传递报告，不能把报告拼进命令行参数、进程参数或 shell 历史。
+- PowerShell 使用 `try/catch` 包裹 `Set-Clipboard` 与 `clip.exe` 调用；失败后继续终端回退。
+- Bash/Zsh 依次以 `command -v` 检测 `pbcopy`、`wl-copy`、`xclip`、`xsel`、`clip.exe`；一个工具失败后继续尝试，最终失败不可中断报告输出。
+- Node/Python 子进程必须关闭 shell 拼接（Node `shell: false`；Python 使用 argv 数组），并使用超时。
+- 不得读取、备份、清空或覆盖执行前剪切板。
 
-检测：
+## 随机且不可覆盖的临时文件
 
-```bash
-command -v wl-copy
+临时文件只是剪切板失败或人工审阅时的可选降级，并且只允许写入**已经脱敏**的完整报告。
+
+| Adapter | 合规构造 |
+|---|---|
+| Bash/Zsh | `mktemp "${TMPDIR:-/tmp}/agent-human-debug.XXXXXXXX.txt"`；写前确认成功，随后 `chmod 600`（尽力） |
+| Python | `tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", delete=False, prefix="agent-human-debug-", suffix=".txt")`；创建后写入并关闭 |
+| Node.js | `fs.openSync(path.join(os.tmpdir(), randomName), "wx", 0o600)`；仅成功获得 fd 后写入并关闭 |
+| PowerShell | `[IO.File]::Open($path, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)`；冲突则生成新随机名重试有限次数 |
+
+创建失败时不得回退到固定文件名或覆盖写入；应保留终端中已脱敏报告，并将 `collection_status` 或交付异常写入 `EVIDENCE`。文件创建后显示绝对路径与对应清理命令，但不在用户回传前自动删除。
+
+## PowerShell 采集模式
+
+不要以全局 `$ErrorActionPreference = 'Stop'` 包住整段 probe，否则单个查询异常会阻止报告生成。应在单个命令周围使用 `try/catch`，分别记录：
+
+```text
+- tool=<name> status=unavailable
+- command=<name> status=failed exit_code=<n>
+- command=<name> status=timeout
 ```
 
-### Linux X11
+只有报告自身的构建失败才可标为 `collection_status=fatal`。不得使用 `Invoke-Expression`，不得把用户输入拼成可执行 PowerShell。
 
-依次检测：
+## CMD 约束
 
-```bash
-command -v xclip
-command -v xsel
-```
+CMD 的结构化脱敏能力有限。用户明确指定 CMD 时，优先收窄为无凭据白名单采集；若现有 PowerShell 可用，可由 CMD 调用它进行内存中的结构化报告和安全回退。用户禁止 PowerShell 时，不得把未经可靠脱敏的内容写入文件或剪切板。
 
-不得自动安装缺失工具。
+## 每次生成脚本前自检
 
-### WSL
-
-可尝试 `clip.exe`；失败后降级为控制台 + 系统临时文件。
-
-### SSH / 容器 / CI
-
-无图形会话时不要假定剪切板存在；已有能力失败后直接降级。
-
-## 2. 临时文件规则
-
-Linux/macOS 优先 `$TMPDIR`、`/tmp`、`mktemp`；权限尽量 `600`。
-
-Windows 使用 `[System.IO.Path]::GetTempPath()` 和随机文件名。
-
-规则：
-
-- 随机命名。
-- 不覆盖已有文件。
-- 只保存脱敏后的结果。
-- 显示绝对路径。
-- 提供删除命令。
-- 不在用户回传前自动删除。
-
-### 首轮固定探测的 backup 与容错
-
-首轮 `CMD`/`Bash` 探针使用唯一 `run_id` 生成随机临时文件名，只保存内存中已经处理过的结果，拒绝覆盖已有文件。写入失败返回 `COLLECTION_FATAL`；独立命令失败不阻断其他探测，字段标记为 `[status=failed]`。
-
-结果状态约定：
-
-- `REDACTION_OK`：固定白名单探测未发现凭证字段，可尝试写剪切板。
-- `REDACTION_REVIEW`：脱敏规则异常或出现疑似敏感内容；结果仍完整输出到终端并写入临时文件，但不自动写剪切板，提示用户人工审查。
-- `COLLECTION_PARTIAL`：部分命令失败，仍有可用结果。
-- `COLLECTION_FATAL`：脚本自身不可恢复异常。
-
-不读取或备份执行前的原剪切板；不上传、不安装依赖、不提权。剪切板失败只改变交付路径，不改变采集结果：同一份处理后内容输出到终端并保留在临时文件，同时显示绝对路径和清理命令。
-
-## 3. 脱敏重点
-
-重点识别以下键名或头部：
-
-- password / passwd / pwd
-- token / access_token / refresh_token
-- secret / client_secret
-- api_key / apikey
-- authorization / bearer
-- cookie / set-cookie
-- access_key / secret_key
-- private key
-
-同时考虑 JSON、YAML、INI、Shell、环境变量、URL、Header 等格式。
-
-环境变量采集优先白名单，不要默认执行并回传完整 `env` / `printenv` / `set` / `Get-ChildItem Env:`。
-
-读取配置文件时优先提取相关键；敏感值只报告“存在/缺失”、长度或指纹。
-
-## 4. Python 参考骨架
-
-```python
-from __future__ import annotations
-
-import os
-import platform
-import re
-import secrets
-import subprocess
-import tempfile
-from pathlib import Path
-
-
-def run_collection() -> tuple[str, int]:
-    completed = subprocess.run(
-        ["COMMAND", "ARGUMENT"],
-        text=True,
-        capture_output=True,
-        check=False,
-        timeout=30,
-    )
-    combined = (
-        "$ COMMAND ARGUMENT\n"
-        f"[exit_code={completed.returncode}]\n"
-        f"{completed.stdout}\n{completed.stderr}"
-    )
-    return combined, completed.returncode
-
-
-def redact(text: str) -> str:
-    rules = [
-        (
-            re.compile(
-                r"(?i)(password|passwd|pwd|token|secret|api[_-]?key)"
-                r"(\s*[:=]\s*)([^\s,;]+)"
-            ),
-            r"\1\2<REDACTED:CREDENTIAL>",
-        ),
-        (
-            re.compile(r"(?i)(authorization\s*:\s*bearer\s+)\S+"),
-            r"\1<REDACTED:CREDENTIAL>",
-        ),
-    ]
-    result = text
-    for pattern, replacement in rules:
-        result = pattern.sub(replacement, result)
-    return result
-
-
-def copy_to_clipboard(text: str) -> bool:
-    system = platform.system().lower()
-    if system == "darwin":
-        candidates = [["pbcopy"]]
-    elif system == "windows":
-        candidates = [["clip.exe"]]
-    else:
-        candidates = [
-            ["wl-copy"],
-            ["xclip", "-selection", "clipboard"],
-            ["xsel", "--clipboard", "--input"],
-        ]
-
-    for command in candidates:
-        try:
-            completed = subprocess.run(
-                command,
-                input=text,
-                text=True,
-                capture_output=True,
-                check=False,
-                timeout=10,
-            )
-            if completed.returncode == 0:
-                return True
-        except (FileNotFoundError, subprocess.TimeoutExpired):
-            continue
-    return False
-
-
-def write_fallback(text: str) -> Path:
-    path = Path(tempfile.gettempdir()) / f"agent-diag-{secrets.token_hex(6)}.txt"
-    path.write_text(text, encoding="utf-8")
-    if os.name != "nt":
-        path.chmod(0o600)
-    return path
-
-
-def main() -> int:
-    raw, rc = run_collection()
-    sanitized = redact(raw)
-
-    if copy_to_clipboard(sanitized):
-        print("结果已脱敏并复制到剪切板，请直接粘贴回复。")
-        return 0 if rc == 0 else 10
-
-    path = write_fallback(sanitized)
-    print(sanitized)
-    print("\n剪切板不可用，脱敏结果同时保存到：")
-    print(path)
-    print("请复制上方结果，或读取该文件后粘贴回复。")
-    return 20 if rc == 0 else 30
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
-```
-
-生成实际脚本时替换命令、增加当前场景专项脱敏规则，并避免保存未脱敏原文。
-
-## 5. Node.js 参考骨架
-
-```javascript
-"use strict";
-
-const crypto = require("crypto");
-const fs = require("fs");
-const os = require("os");
-const path = require("path");
-const { spawnSync } = require("child_process");
-
-function collect() {
-  const result = spawnSync("COMMAND", ["ARGUMENT"], {
-    encoding: "utf8",
-    shell: false,
-    timeout: 30000,
-  });
-
-  const exitCode = Number.isInteger(result.status) ? result.status : 1;
-  return {
-    exitCode,
-    output: [
-      "$ COMMAND ARGUMENT",
-      `[exit_code=${exitCode}]`,
-      result.stdout || "",
-      result.stderr || "",
-      result.error ? String(result.error.message || result.error) : "",
-    ].join("\n"),
-  };
-}
-
-function redact(text) {
-  return text
-    .replace(
-      /(password|passwd|pwd|token|secret|api[_-]?key)(\s*[:=]\s*)([^\s,;]+)/gi,
-      "$1$2<REDACTED:CREDENTIAL>",
-    )
-    .replace(
-      /(authorization\s*:\s*bearer\s+)\S+/gi,
-      "$1<REDACTED:CREDENTIAL>",
-    );
-}
-
-function tryClipboard(text) {
-  const candidates =
-    process.platform === "darwin"
-      ? [["pbcopy", []]]
-      : process.platform === "win32"
-        ? [["clip.exe", []]]
-        : [
-            ["wl-copy", []],
-            ["xclip", ["-selection", "clipboard"]],
-            ["xsel", ["--clipboard", "--input"]],
-          ];
-
-  for (const [command, args] of candidates) {
-    const result = spawnSync(command, args, {
-      input: text,
-      encoding: "utf8",
-      shell: false,
-      timeout: 10000,
-    });
-    if (!result.error && result.status === 0) return true;
-  }
-  return false;
-}
-
-function writeFallback(text) {
-  const filename = `agent-diag-${crypto.randomBytes(6).toString("hex")}.txt`;
-  const filePath = path.join(os.tmpdir(), filename);
-  fs.writeFileSync(filePath, text, { encoding: "utf8", mode: 0o600 });
-  return filePath;
-}
-
-const { output, exitCode } = collect();
-const sanitized = redact(output);
-
-if (tryClipboard(sanitized)) {
-  console.log("结果已脱敏并复制到剪切板，请直接粘贴回复。");
-  process.exit(exitCode === 0 ? 0 : 10);
-}
-
-const filePath = writeFallback(sanitized);
-console.log(sanitized);
-console.log("\n剪切板不可用，脱敏结果同时保存到：");
-console.log(filePath);
-console.log("请复制上方结果，或读取该文件后粘贴回复。");
-process.exit(exitCode === 0 ? 20 : 30);
-```
-
-禁止使用 `shell: true` 拼接未经验证的用户输入。
-
-## 6. PowerShell 参考骨架
-
-```powershell
-$ErrorActionPreference = "Stop"
-
-function Protect-DiagnosticText {
-    param([Parameter(Mandatory)][string]$Text)
-
-    $result = $Text
-    $result = [regex]::Replace(
-        $result,
-        '(?i)(password|passwd|pwd|token|secret|api[_-]?key)(\s*[:=]\s*)([^\s,;]+)',
-        '$1$2<REDACTED:CREDENTIAL>'
-    )
-    $result = [regex]::Replace(
-        $result,
-        '(?i)(authorization\s*:\s*bearer\s+)\S+',
-        '$1<REDACTED:CREDENTIAL>'
-    )
-    return $result
-}
-
-function Set-DiagnosticClipboard {
-    param([Parameter(Mandatory)][string]$Text)
-
-    try {
-        if (Get-Command Set-Clipboard -ErrorAction SilentlyContinue) {
-            Set-Clipboard -Value $Text
-            return $true
-        }
-        if (Get-Command clip.exe -ErrorAction SilentlyContinue) {
-            $Text | clip.exe
-            return ($LASTEXITCODE -eq 0)
-        }
-    } catch {
-        return $false
-    }
-    return $false
-}
-
-# 替换为当前任务只读命令，并在内存中捕获结果。
-$output = & COMMAND ARGUMENT 2>&1 | Out-String
-$rc = $LASTEXITCODE
-$raw = "`$ COMMAND ARGUMENT`n[exit_code=$rc]`n$output"
-$safe = Protect-DiagnosticText -Text $raw
-
-if (Set-DiagnosticClipboard -Text $safe) {
-    Write-Host "结果已脱敏并复制到剪切板，请直接粘贴回复。"
-    if ($rc -eq 0) { exit 0 } else { exit 10 }
-}
-
-$tempDir = [System.IO.Path]::GetTempPath()
-$name = "agent-diag-$([guid]::NewGuid().ToString('N')).txt"
-$path = Join-Path $tempDir $name
-[System.IO.File]::WriteAllText($path, $safe, [System.Text.UTF8Encoding]::new($false))
-
-Write-Host $safe
-Write-Host ""
-Write-Host "剪切板不可用，脱敏结果同时保存到："
-Write-Host $path
-Write-Host "请复制上方结果，或读取该文件后粘贴回复。"
-if ($rc -eq 0) { exit 20 } else { exit 30 }
-```
-
-避免 `Invoke-Expression`。
-
-## 7. Bash 参考骨架
-
-```bash
-#!/usr/bin/env bash
-set -u
-set -o pipefail
-
-collect() {
-  local output rc
-  output="$(
-    {
-      printf '%s\n' '$ COMMAND ARGUMENT'
-      COMMAND ARGUMENT
-    } 2>&1
-  )"
-  rc=$?
-  printf '[exit_code=%s]\n%s\n' "$rc" "$output"
-  return "$rc"
-}
-
-redact() {
-  sed -E \
-    -e 's/((password|passwd|pwd|token|secret|api[_-]?key)[[:space:]]*[:=][[:space:]]*)[^[:space:],;]+/\1<REDACTED:CREDENTIAL>/Ig' \
-    -e 's/(authorization[[:space:]]*:[[:space:]]*bearer[[:space:]]+)[^[:space:]]+/\1<REDACTED:CREDENTIAL>/Ig'
-}
-
-copy_clipboard() {
-  local text="$1"
-  if command -v pbcopy >/dev/null 2>&1; then printf '%s' "$text" | pbcopy; return $?; fi
-  if command -v wl-copy >/dev/null 2>&1; then printf '%s' "$text" | wl-copy; return $?; fi
-  if command -v xclip >/dev/null 2>&1; then printf '%s' "$text" | xclip -selection clipboard; return $?; fi
-  if command -v xsel >/dev/null 2>&1; then printf '%s' "$text" | xsel --clipboard --input; return $?; fi
-  if command -v clip.exe >/dev/null 2>&1; then printf '%s' "$text" | clip.exe; return $?; fi
-  return 1
-}
-
-raw="$(collect)"
-rc=$?
-safe="$(printf '%s' "$raw" | redact)"
-
-if copy_clipboard "$safe"; then
-  printf '%s\n' '结果已脱敏并复制到剪切板，请直接粘贴回复。'
-  [ "$rc" -eq 0 ] && exit 0 || exit 10
-fi
-
-tmp_file="$(mktemp "${TMPDIR:-/tmp}/agent-diag.XXXXXXXX.txt")" || exit 40
-chmod 600 "$tmp_file" 2>/dev/null || true
-printf '%s\n' "$safe" >"$tmp_file"
-
-printf '%s\n' "$safe"
-printf '\n剪切板不可用，脱敏结果同时保存到：\n%s\n' "$tmp_file"
-printf '%s\n' '请复制上方结果，或读取该文件后粘贴回复。'
-printf '清理命令：rm -f -- %q\n' "$tmp_file"
-[ "$rc" -eq 0 ] && exit 20 || exit 30
-```
-
-避免 `eval`、未引用变量、`curl | sh`、自动 `sudo`，以及在脱敏前 `tee` 原始输出。
-
-## 8. CMD 注意事项
-
-CMD 的可靠文本处理和脱敏能力有限。
-
-用户指定 CMD 时可以使用；简单采集可由 CMD 完成。复杂脱敏优先让 CMD 调用系统已有 PowerShell 进行内存处理和剪切板写入。
-
-如果用户明确禁止 PowerShell，应说明 CMD 脱敏局限并缩小采集范围，而不是把未脱敏结果落盘。
-
-## 9. 每次生成实际脚本前的自检
-
-- 是否只读，或已获得对应修改授权？
-- 是否只提供一个主要脚本？
-- 是否符合用户指定语言？
-- 是否在脱敏前打印/落盘原始输出？
-- 是否可能把凭证暴露到命令行参数、进程列表或 Shell 历史？
-- 是否自动安装依赖或提权？
-- 是否覆盖已有文件？
-- 剪切板成功时是否只打印成功提示？
-- 剪切板失败时控制台与临时文件是否内容一致？
-- 是否提供临时文件清理方式？
-- 是否把剪切板失败和采集失败区分开？
+- 环境 profile 是否仍适用，且只选了一个合适 adapter？
+- 当前命令是否只验证一个高价值假设，并设置了日志/请求/目录等采集上限？
+- 每个独立子命令是否捕获了状态，而非遇错中止？
+- 是否在任何输出、剪切板和临时文件之前完成脱敏？
+- 是否生成 `SUMMARY`、`EVIDENCE`、`NEXT` 和 `RESULT_READY`？
+- clipboard 失败和脱敏失败是否分别降级，且不妨碍报告？
+- 临时文件是否以排他方式创建、仅含脱敏内容、且提供清理命令？
+- 是否避免自动安装、提权、`eval`/`Invoke-Expression`、`shell: true`、未引用变量和 `curl | sh`？

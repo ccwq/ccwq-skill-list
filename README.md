@@ -61,7 +61,7 @@ npm run check:main-skills
 | `deep-investigation` | 对公共事件、组织、人物、政策或商业议题进行可追溯的深度调查复盘 | [SKILL.md](skills/deep-investigation/SKILL.md) |
 | `tool-evaluator` | 基于 Gate、分级证据和动态权重，调查、比较并筛选最适合当前约束的工具 | [SKILL.md](skills/tool-evaluator/SKILL.md) |
 | `debug-instrumentation` | 为调试问题添加、采集和分析可清理的 token 化日志埋点 | [SKILL.md](skills/debug-instrumentation/SKILL.md) |
-| `agent-human-debug` | 由 Agent 接待、人类本地执行的技术联调、诊断、验证与修复协调 | [SKILL.md](skills/agent-human-debug/SKILL.md) |
+| `agent-human-debug` | 跨平台的人机协作故障诊断：最小探测、自动脱敏、clipboard-first 回传与风险授权 | [README.md](skills/agent-human-debug/README.md) |
 | `rd-mode` | 远程开发模式规则，约束 host/server 协作并统一 CDP 浏览器操作（abc 命令） | [README.md](skills/rd-mode/README.md) |
 | `lite-team` | 轻量多 Agent 协作，用 docs/bbs/lite-team-bbs.md 协作板在不同 Agent/session 间手动交接 | [README.md](skills/lite-team/README.md) |
 | `subagent-router` | 预览并确认后临时创建 Codex 子 Agent，支持动态模型路由与多 Agent 开发 | [README.md](skills/subagent-router/README.md) |
@@ -282,7 +282,7 @@ $debug-instrumentation 我已经加了一些 log，日志在 E:\logs\worker.log�
 
 ### agent-human-debug
 
-由 Agent 作为唯一接待者、人类作为本地执行端，协调技术联调、故障诊断、验证与修复。
+由 Agent 作为唯一接待者、人类作为执行端的跨平台故障诊断框架。先识别环境，再选择最小只读 probe；结果统一脱敏为 `debug_report`，优先复制剪切板，失败后回退到终端和临时文件。
 
 ```text
 $agent-human-debug 排查 Windows 本地服务调用接口偶发超时
@@ -293,7 +293,7 @@ $agent-human-debug 联调容器中的前后端问题，要求每轮只执行一�
 |------|------|--------|
 | `[待处理事项]` | 联调、诊断、验证或修复目标，可补充环境、约束和期望证据 | 无 |
 
-无额外命令参数。默认只读、证据优先；任何修改都必须单独说明影响、风险、回滚与验证方式，并取得针对当前操作的明确授权。详情见 [SKILL.md](skills/agent-human-debug/SKILL.md)。
+无额外命令参数。默认只读、证据优先；不默认创建文件、保存日志、安装工具或上传完整信息。任何修改都必须单独说明影响、风险、回滚与验证方式，并取得针对当前操作的明确授权。详情见 [README.md](skills/agent-human-debug/README.md)。
 
 ---
 

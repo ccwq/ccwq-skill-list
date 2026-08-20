@@ -74,8 +74,8 @@
     {
       "name": "agent-human-debug",
       "source": "./skills/agent-human-debug",
-      "description": "由 Agent 作为唯一接待者、人类作为本地执行端，协调本地、远程、服务器、容器、云服务、代码与接口的联调、诊断、验证与修复",
-      "version": "1.0.0",
+      "description": "跨平台人机协作故障诊断：先识别环境，再以最小 probe 采集证据；统一脱敏 debug_report，clipboard-first 回传并支持安全降级、风险授权与验证",
+      "version": "2.0.0",
       "category": "devtools"
     },
     {
