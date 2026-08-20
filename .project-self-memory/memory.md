@@ -1,4 +1,4 @@
-<!-- <psm-store version="1" next_id="0010" group_dimension="" /> -->
+<!-- <psm-store version="1" next_id="0011" group_dimension="" /> -->
 <!-- <psm id="0001" type="pitfall" status="active" positive="0" negative="0" created_at="2026-08-11T15:41:36Z" last_scored_at="" /> -->
 `.env` 的反斜杠续行必须在执行 `KEY=value` 校验前合并物理行。对逗号分隔的清单，续行处仍需保留分隔符，例如 `aria-filedown,\` 后接下一行；否则会拼成错误的单个名称（如 `aria-filedowndeep-investigation`）。
 
@@ -25,4 +25,7 @@ Windows PowerShell 5.1 将含中文或 emoji 的 YAML 通过 here-string 管道�
 
 <!-- <psm id="0009" type="experience" status="active" positive="0" negative="0" created_at="2026-08-12T07:40:14Z" last_scored_at="" /> -->
 已验证：`project_locator.py` 在当前已登录 ChatGPT tab 上可从 sidebar 定位并打开 `agents-op`、`foo`、`teck`、`Gu0F1`、`emig`，每次返回真实 `/project` URL 及 `project_url`、`project_title`、`project_composer` 三项证据；对同一主页重复调用幂等成功。不存在项目、非 ChatGPT tab、失效 tab 均返回 `ok=false`/退出码 1，且不改动原页面 URL。该结论依赖当前 ChatGPT UI DOM，selector 仍需后续实时复核。
+
+<!-- <psm id="0010" type="fact" status="active" positive="0" negative="0" created_at="2026-08-20T02:06:51Z" last_scored_at="" /> -->
+本次已验证：agent-human-debug v2 采用环境优先、最小 probe、统一 debug_report（SUMMARY/EVIDENCE/NEXT）、先脱敏后 clipboard-first 回传；剪切板失败时回退到终端和随机排他临时文件。新增 environment-detection、probe-contract、debug-report-protocol、sanitization 参考，并以 Node 离线契约测试覆盖关键边界。提交 66f3ba0；目标测试、主 Skill manifest 测试、仓库现有 Python 回归、JSON 与空白检查通过。check:main-skills 仍会因用户已有 .env 漂移报告不同步，不应擅自同步。
 
