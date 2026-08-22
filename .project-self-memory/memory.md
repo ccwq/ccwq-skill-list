@@ -1,4 +1,4 @@
-<!-- <psm-store version="1" next_id="0011" group_dimension="" /> -->
+<!-- <psm-store version="1" next_id="0012" group_dimension="" /> -->
 <!-- <psm id="0001" type="pitfall" status="active" positive="0" negative="0" created_at="2026-08-11T15:41:36Z" last_scored_at="" /> -->
 `.env` 的反斜杠续行必须在执行 `KEY=value` 校验前合并物理行。对逗号分隔的清单，续行处仍需保留分隔符，例如 `aria-filedown,\` 后接下一行；否则会拼成错误的单个名称（如 `aria-filedowndeep-investigation`）。
 
@@ -28,4 +28,7 @@ Windows PowerShell 5.1 将含中文或 emoji 的 YAML 通过 here-string 管道�
 
 <!-- <psm id="0010" type="fact" status="active" positive="0" negative="0" created_at="2026-08-20T02:06:51Z" last_scored_at="" /> -->
 本次已验证：agent-human-debug v2 采用环境优先、最小 probe、统一 debug_report（SUMMARY/EVIDENCE/NEXT）、先脱敏后 clipboard-first 回传；剪切板失败时回退到终端和随机排他临时文件。新增 environment-detection、probe-contract、debug-report-protocol、sanitization 参考，并以 Node 离线契约测试覆盖关键边界。提交 66f3ba0；目标测试、主 Skill manifest 测试、仓库现有 Python 回归、JSON 与空白检查通过。check:main-skills 仍会因用户已有 .env 漂移报告不同步，不应擅自同步。
+
+<!-- <psm id="0011" type="fact" status="active" positive="0" negative="0" created_at="2026-08-22T13:06:52Z" last_scored_at="" /> -->
+已验证：仓库新增 scripts/package-skills.mjs，Windows 下通过 PowerShell/.NET ZipFile 将 skills/*/SKILL.md Skill 分别打包到 skill-zips/<name>.zip；pnpm run zip 已成功生成当前 25 个 Skill 压缩包，zip 内以 Skill 内容为根，同名包覆盖且不会删除其他旧包。pnpm run test:package-skills 离线测试通过。
 
