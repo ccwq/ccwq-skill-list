@@ -75,6 +75,7 @@ npm run check:main-skills
 | `tutor-man` | 通过自适应的费曼式掌握等级，快速学会工具、概念、方法或混合主题，并用轻量验证确认掌握程度 | [SKILL.md](skills/tutor-man/SKILL.md) |
 | `website-state-sync-agent` | 通过 Node.js 直连 Chrome DevTools Protocol 导出、导入和同步加密网站状态 | [SKILL.md](skills/website-state-sync-agent/SKILL.md) |
 | `network-debug` | 证据驱动定位跨平台网络连通性、DNS、路由、TCP/UDP、HTTP/TLS、代理、VPN 与 overlay 故障 | [SKILL.md](skills/network-debug/SKILL.md) |
+| `progressive-doc` | 使用渐进式披露结构创建、改写或审查中文技术文章 | [SKILL.md](skills/progressive-doc/SKILL.md) |
 
 > 触发形式：`/skill-name` 偏 slash command 风格，`$skill-name` 偏按 skill 名触发；实际以你的 Claude Code / skills 运行环境为准。
 
@@ -574,6 +575,25 @@ node "skills/dockerhub-mirror/bin/dockerhub-mirror.mjs" --dry-run --image nginx:
 | `--scrape` / `-f` | 发现新的候选镜像源；会写入缓存，需先完成 Skill 约定的授权门禁 | `false` |
 
 未达成 `ok` 共识前仅允许 `--dry-run`；收到 `ok` 后仍须展示范围明确的计划，并等到 `授权执行` 才能运行任何可写分支。详情见 [README.md](skills/dockerhub-mirror/README.md)。
+
+---
+
+### progressive-doc
+
+使用渐进式披露结构创建、改写或审查中文技术文章，先交付可行动的速览，再用证据、机制和边界展开深度正文。
+
+```text
+$progressive-doc 写一篇面向后端工程师的 Redis 缓存一致性教程
+$progressive-doc 审查这篇事故复盘，标出证据缺口和未核验论断
+```
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `[文章任务]` | 科普、教程、调查、对比、架构分析、事故复盘或观点文章的创建、改写与审查需求 | 必填 |
+| `[目标读者]` | 读者角色与技术水平；会影响文章结构和技术深度 | 根据上下文推断 |
+| `[交付范围]` | 大纲、初稿、改写、审查或发布后复盘 | 根据请求判断 |
+
+事实不足时会标注未知、推断与建议，不补造证据；完整流程见 [SKILL.md](skills/progressive-doc/SKILL.md)。
 
 ---
 

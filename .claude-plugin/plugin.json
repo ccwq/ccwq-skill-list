@@ -17,6 +17,7 @@
     "./skills/tool-evaluator",
     "./skills/agent-human-debug",
     "./skills/network-debug",
-    "./skills/engineering-method-selector"
+    "./skills/engineering-method-selector",
+    "./skills/progressive-doc"
   ]
 }
