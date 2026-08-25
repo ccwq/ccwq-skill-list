@@ -1,0 +1,23 @@
+{
+  "skill_name": "engineering-method-selector",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "我们要给现有订单系统增加退款能力，需求有多个例外规则，团队担心边界遗漏和后续架构争议。请帮我选择工程方法并给出最小验证方案。",
+      "expected_output": "工程诊断卡，推荐 User Story、Acceptance Criteria、ADR 与测试策略的组合，说明产物、约束、风险和证据。",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "线上偶发支付超时，日志不完整，暂时无法稳定复现。现在应该采用什么排障方法，先产出什么东西，怎么证明假设？",
+      "expected_output": "工程诊断卡，推荐 Incident Response、Hypothesis-Driven Debugging 和日志/实验验证，避免直接猜测或先重构。",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "我在考虑用 CQRS 还是简单的 CRUD 来支持报表查询，预计数据量会增长，但当前团队规模很小。请按质量属性和证据给出方法选择建议。",
+      "expected_output": "工程诊断卡，识别为设计/决策问题，推荐 ADR、Trade-off Matrix 和 Benchmark/Experiment，并说明何时选择 CQRS。",
+      "files": []
+    }
+  ]
+}

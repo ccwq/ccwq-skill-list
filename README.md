@@ -68,6 +68,7 @@ npm run check:main-skills
 | `gemin-mirror` | Gemini/兼容镜像站的探针、账号切换与 API-first 安全会话删除 | [SKILL.md](skills/gemin-mirror/SKILL.md) |
 | `project-self-memory` | 通过 Node CLI 维护项目级结论记忆、评分、分组与 legacy 迁移 | [README.md](skills/project-self-memory/README.md) |
 | `pro-grilling` | 手动逐层厘清复杂决策，在共同理解前保持只读 | [SKILL.md](skills/pro-grilling/SKILL.md) |
+| `engineering-method-selector` | 根据工程阶段、产物、质量属性和风险组合推荐可验证的方法论 | [SKILL.md](skills/engineering-method-selector/SKILL.md) |
 | `aria-filedown` | 手动授权的 aria2 稳定下载工具，支持代理优先级与项目 `.env` | [SKILL.md](skills/aria-filedown/SKILL.md) |
 | `dockerhub-mirror` | 诊断 Docker Hub 拉取缓慢或失败，并探测、评分和管理镜像候选 | [README.md](skills/dockerhub-mirror/README.md) |
 | `chatgpt-web-skill` | 依赖 agent-browser 在指定 ChatGPT Project 中受授权地生图、编辑或执行单图结构化视觉审查 | [README.md](skills/chatgpt-web-skill/README.md) |
@@ -418,6 +419,24 @@ $pro-grilling 我们要重做登录态方案，但先把安全、兼容和上线
 | `[待讨论事项]` | 需要逐层澄清的计划、决策或复杂任务；不传时会先询问事项 | 无 |
 
 Codex 使用 `$pro-grilling` 显式调用。调查档位为“直接继续 / 快速核验 / 充分调查”，只有结论或后续路径可能改变时才会询问选择。详情见 [SKILL.md](skills/pro-grilling/SKILL.md)。
+
+---
+
+### engineering-method-selector
+
+显式调用的工程方法论选择器：把用户上下文路由到问题分类、工程活动、产物、质量属性和方法组合，并输出约束与证据验证。
+
+```text
+$engineering-method-selector 为订单系统增加退款能力，需求复杂且担心边界遗漏
+$engineering-method-selector 排查线上偶发支付超时，日志不完整，如何选择排障方法
+$engineering-method-selector 比较 CQRS 与 CRUD，重点看扩展性、性能和团队成本
+```
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `[工程问题]` | 目标、上下文、约束、风险、阶段或待改进产物；可自然语言描述 | 无 |
+
+默认只输出工程诊断卡，不主动执行改码、部署或生产变更；建议始终绑定可观察证据。详情见 [SKILL.md](skills/engineering-method-selector/SKILL.md)。
 
 ---
 

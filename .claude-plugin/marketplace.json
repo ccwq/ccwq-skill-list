@@ -135,6 +135,13 @@
       "category": "productivity"
     },
     {
+      "name": "engineering-method-selector",
+      "source": "./skills/engineering-method-selector",
+      "description": "根据工程阶段、产物、质量属性和风险组合推荐可验证的方法论，并输出最小约束、收益、风险与证据验证",
+      "version": "0.1.0",
+      "category": "productivity"
+    },
+    {
       "name": "aria-filedown",
       "source": "./skills/aria-filedown",
       "description": "手动授权的 aria2 稳定下载工具：网络异常后提示，支持 --proxy/-p、ARIA2_PROXY/PROXY 与项目 .env 代理配置",

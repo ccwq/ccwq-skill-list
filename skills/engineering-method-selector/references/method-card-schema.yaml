@@ -1,0 +1,18 @@
+# Engineering method card schema
+name: string                 # stable display name
+id: string                   # kebab-case lookup key
+type: pattern|practice|process|heuristic
+domain: requirement|design|coding|testing|debug|review|operation|ai_engineering|decision
+problem: string              # problem this method solves
+signals: [string]            # observable signals
+artifact: [string]           # primary artifacts produced or improved
+quality_attribute: [string]  # quality attributes affected
+concept: string              # one-sentence meaning
+when_use: [string]
+avoid: [string]
+related: [string]
+constraints: [string]
+benefit: [string]
+risk: [string]
+evidence: [test_result|benchmark|metric|log|experiment|review|production_signal]
+examples: [string]
