@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parent
 PROJECT_ROOT = ROOT.parent.parent
 SCRIPT = PROJECT_ROOT / "skills" / "git-up" / "scripts" / "commit_plan.py"
 IGNORE_SCRIPT = PROJECT_ROOT / "skills" / "git-up" / "scripts" / "gitignore_manager.py"
+FAST_PATH_SCRIPT = PROJECT_ROOT / "skills" / "git-up" / "scripts" / "inspect_fast_path.py"
 
 
 class TestFailure(AssertionError):
@@ -101,8 +102,15 @@ def parse_json(result: subprocess.CompletedProcess[str]) -> dict[str, object]:
         raise TestFailure(f"输出不是合法 JSON: {result.stdout}") from exc
 
 
-def run_plan(mode: str, yaml_text: str, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
+def run_plan(
+    mode: str,
+    yaml_text: str,
+    cwd: Path | None = None,
+    extra_args: list[str] | None = None,
+) -> subprocess.CompletedProcess[str]:
     command = [sys.executable, str(SCRIPT), mode]
+    if extra_args:
+        command.extend(extra_args)
     if cwd is not None:
         command.extend(["--cwd", str(cwd)])
     return run_command(command, PROJECT_ROOT, yaml_text)
@@ -124,6 +132,125 @@ def run_plan_file(mode: str, yaml_text: str) -> subprocess.CompletedProcess[str]
 
 def run_ignore(arguments: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
     return run_command([sys.executable, str(IGNORE_SCRIPT), "--cwd", str(cwd), *arguments], PROJECT_ROOT)
+
+
+def run_fast_path(cwd: Path) -> subprocess.CompletedProcess[str]:
+    return run_command([sys.executable, str(FAST_PATH_SCRIPT), "--cwd", str(cwd)], PROJECT_ROOT)
+
+
+def test_fast_path_accepts_single_module_change():
+    """
+    Given：仓库只有一个模块中的一个已跟踪文件发生修改，且暂存区为空。
+    When：运行快车道只读检查器。
+    Then：返回 eligible=true、单模块判断和空回退原因。
+    防回归：确保简单 -pc/-pcP 场景不会被不必要地降级到完整 YAML 流程。
+    """
+    with tempfile.TemporaryDirectory(prefix="git-up-fast-simple-") as tmp:
+        repo = Path(tmp)
+        init_repo(repo)
+        (repo / "README.md").write_text("# changed\n", encoding="utf-8")
+        result = run_fast_path(repo)
+        payload = parse_json(result)
+        assert_true(result.returncode == 0, result.stderr or result.stdout)
+        assert_true(payload["eligible"] is True, "单模块小改动应进入快车道")
+        assert_true(payload["file_count"] == 1, "应报告一个改动文件")
+        assert_true(payload["fallback_reasons"] == [], "命中快车道时不应有回退原因")
+
+
+def test_fast_path_rejects_pre_staged_change():
+    """
+    Given：仓库 index 已存在用户预先暂存的文件。
+    When：运行快车道只读检查器。
+    Then：返回 eligible=false 和 staged_changes_present 原因。
+    防回归：快车道不能绕过现有 staged 内容保护。
+    """
+    with tempfile.TemporaryDirectory(prefix="git-up-fast-staged-") as tmp:
+        repo = Path(tmp)
+        init_repo(repo)
+        (repo / "staged.txt").write_text("staged\n", encoding="utf-8")
+        run_command(["git", "add", "staged.txt"], repo)
+        result = run_fast_path(repo)
+        payload = parse_json(result)
+        assert_true(result.returncode == 0, result.stderr or result.stdout)
+        assert_true(payload["eligible"] is False, "已有 staged 内容时必须回退")
+        assert_true("staged_changes_present" in payload["fallback_reasons"], "应报告 staged 原因")
+
+
+def test_fast_path_rejects_cross_module_changes():
+    """
+    Given：两个不同顶层模块各有一个文件发生修改。
+    When：运行快车道只读检查器。
+    Then：返回 eligible=false 和 multiple_modules 原因。
+    防回归：避免把跨模块改动错误压缩为单一提交。
+    """
+    with tempfile.TemporaryDirectory(prefix="git-up-fast-modules-") as tmp:
+        repo = Path(tmp)
+        init_repo(repo)
+        for path in (repo / "src" / "a.txt", repo / "docs" / "b.txt"):
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("change\n", encoding="utf-8")
+        run_command(["git", "add", "src/a.txt", "docs/b.txt"], repo)
+        run_command(["git", "commit", "-m", "seed modules"], repo)
+        (repo / "src" / "a.txt").write_text("change 2\n", encoding="utf-8")
+        (repo / "docs" / "b.txt").write_text("change 2\n", encoding="utf-8")
+        result = run_fast_path(repo)
+        payload = parse_json(result)
+        assert_true(result.returncode == 0, result.stderr or result.stdout)
+        assert_true(payload["eligible"] is False, "跨模块改动必须回退")
+        assert_true("multiple_modules" in payload["fallback_reasons"], "应报告跨模块原因")
+
+
+def test_fast_path_rejects_too_many_files():
+    """
+    Given：单一模块内有六个已跟踪文件发生修改。
+    When：运行默认上限为五个文件的快车道只读检查器。
+    Then：返回 eligible=false 和 file_count_exceeded 原因。
+    防回归：防止文件数量膨胀后仍错误跳过完整 YAML 规划。
+    """
+    with tempfile.TemporaryDirectory(prefix="git-up-fast-count-") as tmp:
+        repo = Path(tmp)
+        init_repo(repo)
+        paths = []
+        for index in range(6):
+            path = repo / "src" / f"file-{index}.txt"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("base\n", encoding="utf-8")
+            paths.append(path.relative_to(repo).as_posix())
+        run_command(["git", "add", *paths], repo)
+        run_command(["git", "commit", "-m", "seed files"], repo)
+        for path_text in paths:
+            (repo / path_text).write_text("changed\n", encoding="utf-8")
+        result = run_fast_path(repo)
+        payload = parse_json(result)
+        assert_true(result.returncode == 0, result.stderr or result.stdout)
+        assert_true(payload["eligible"] is False, "超过五个文件时必须回退")
+        assert_true("file_count_exceeded" in payload["fallback_reasons"], "应报告文件数超限")
+
+
+def test_fast_path_rejects_merge_conflict():
+    """
+    Given：仓库处于未解决 merge conflict 状态。
+    When：运行快车道只读检查器。
+    Then：返回 eligible=false 和 conflicts_present 原因。
+    防回归：快车道不得绕过冲突处理或把冲突文件纳入自动提交。
+    """
+    with tempfile.TemporaryDirectory(prefix="git-up-fast-conflict-") as tmp:
+        repo = Path(tmp)
+        init_repo(repo)
+        base_branch = run_command(["git", "branch", "--show-current"], repo).stdout.strip()
+        run_command(["git", "checkout", "-b", "topic"], repo)
+        (repo / "README.md").write_text("# topic\n", encoding="utf-8")
+        run_command(["git", "commit", "-am", "topic change"], repo)
+        run_command(["git", "checkout", base_branch], repo)
+        (repo / "README.md").write_text("# base\n", encoding="utf-8")
+        run_command(["git", "commit", "-am", "base change"], repo)
+        merge = run_command(["git", "merge", "topic"], repo)
+        assert_true(merge.returncode != 0, "测试前置应形成 merge conflict")
+        result = run_fast_path(repo)
+        payload = parse_json(result)
+        assert_true(result.returncode == 0, result.stderr or result.stdout)
+        assert_true(payload["eligible"] is False, "冲突状态必须回退")
+        assert_true("conflicts_present" in payload["fallback_reasons"], "应报告冲突原因")
 
 
 def init_repo(repo: Path):
@@ -295,6 +422,7 @@ def test_commit_plan_executes_only_planned_files():
         committed = run_command(["git", "show", "--name-only", "--format=", "HEAD"], repo)
         assert_true(result.returncode == 0, result.stdout)
         assert_true(payload["ok"] is True, "提交应成功")
+        assert_true(payload["fast_path_used"] is False, "普通执行不得误报快车道")
         assert_true("planned.txt" in committed.stdout, "计划内文件应进入提交")
         assert_true("?? unplanned.txt" in status.stdout, "计划外文件应保持未跟踪")
 
@@ -324,6 +452,28 @@ def test_commit_refuses_pre_staged_changes():
         assert_true(result.returncode == 1, "已有 staged 内容时应拒绝执行")
         assert_true(payload["code"] == "staged_changes_present", "错误码应说明 staged 冲突")
         assert_true(before == after, "拒绝执行时不应产生新提交")
+
+
+def test_commit_reports_fast_path_usage():
+    """
+    Given：一个安全检查已确认的单 step 提交计划。
+    When：执行器收到 --fast-path 标记完成提交。
+    Then：结构化结果返回 fast_path_used=true。
+    防回归：让性能路径是否实际命中可观测，避免只在 Skill 文档中宣称优化。
+    """
+    with tempfile.TemporaryDirectory(prefix="git-up-fast-exec-") as tmp:
+        repo = Path(tmp)
+        init_repo(repo)
+        (repo / "planned.txt").write_text("planned\n", encoding="utf-8")
+        yaml_text = """- step: 1
+  subject: "test(plan): fast path marker"
+  files:
+    - planned.txt
+"""
+        result = run_plan("commit", yaml_text, repo, ["--fast-path"])
+        payload = parse_json(result)
+        assert_true(result.returncode == 0, result.stdout)
+        assert_true(payload["fast_path_used"] is True, "执行结果应标记快车道")
 
 
 def test_ignore_auto_detects_node_and_creates_documented_rules():
@@ -423,6 +573,12 @@ def main() -> int:
         test_git_bash_printf_pipe_preserves_plan_variants,
         test_commit_plan_executes_only_planned_files,
         test_commit_refuses_pre_staged_changes,
+        test_commit_reports_fast_path_usage,
+        test_fast_path_accepts_single_module_change,
+        test_fast_path_rejects_pre_staged_change,
+        test_fast_path_rejects_cross_module_changes,
+        test_fast_path_rejects_too_many_files,
+        test_fast_path_rejects_merge_conflict,
         test_ignore_auto_detects_node_and_creates_documented_rules,
         test_ignore_selected_stack_does_not_expand_other_detected_stack,
         test_ignore_custom_rule_is_documented_and_idempotent,
