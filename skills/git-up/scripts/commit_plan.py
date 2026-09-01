@@ -233,7 +233,7 @@ def has_staged_diff(cwd: Path) -> bool:
     return result.returncode == 1
 
 
-def execute_plan(steps: list[Step], cwd: Path) -> dict[str, object]:
+def execute_plan(steps: list[Step], cwd: Path, fast_path_used: bool = False) -> dict[str, object]:
     preflight = ensure_clean_index(cwd)
     if preflight is not None:
         return preflight
@@ -270,6 +270,7 @@ def execute_plan(steps: list[Step], cwd: Path) -> dict[str, object]:
 
     return {
         "ok": True,
+        "fast_path_used": fast_path_used,
         "completed_steps": completed,
         "skipped_steps": skipped,
         "git_log": log_result.stdout.strip(),
@@ -283,6 +284,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--plan-file",
         help="read the UTF-8 plan from a file instead of stdin (recommended for Windows PowerShell)",
+    )
+    parser.add_argument(
+        "--fast-path",
+        action="store_true",
+        help="mark this execution as the validated -pc/-pcP fast path",
     )
     return parser
 
@@ -321,7 +327,7 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps({"ok": True, "steps": [item.__dict__ for item in steps]}, ensure_ascii=False, indent=2))
         return 0
 
-    result = execute_plan(steps, cwd)
+    result = execute_plan(steps, cwd, fast_path_used=args.fast_path)
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0 if result.get("ok") else 1
 
