@@ -4,6 +4,10 @@ All notable changes to this skill will be documented in this file.
 
 ## Unreleased
 
+### 性能
+- `-pc/-pcP` 新增自适应快车道：一次聚合只读检查通过后，简单单提交不再回显完整 YAML；执行结果提供 `fast_path_used`，回退时提供 `fallback_reasons`。
+- 主 `SKILL.md` 改为按模式渐进披露，将 Windows、push、ignore 的低频细节移到 `references/`，降低常用调用的上下文载入量。
+
 ### 修复
 - `commit_plan.py` 新增 UTF-8 `--plan-file` 入口，避免 Windows PowerShell 5.1 原生管道将中文和 emoji 替换为 `?`。
 - 补充 Windows 提交计划的编码使用说明和回归测试。

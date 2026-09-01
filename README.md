@@ -51,7 +51,7 @@ npm run check:main-skills
 |-------|------|------|
 | `software-license-checker` | 评估软件企业内部使用的许可证合规风险，输出法务预警报告 | [README.md](skills/software-license-checker/README.md) |
 | `git-history-cleaner` | 清理 Git 仓库历史中的特定文件或目录 | [SKILL.md](skills/git-history-cleaner/SKILL.md) |
-| `git-up` | Git 提交与 `.gitignore` 维护工具，支持规划、讨论、提交、子智能体完全委派和忽略规则维护 | [README.md](skills/git-up/README.md) |
+| `git-up` | Git 提交与 `.gitignore` 维护工具，支持快车道、规划、讨论、提交、子智能体完全委派和忽略规则维护 | [README.md](skills/git-up/README.md) |
 | `nano-prompt` | AI 图像提示词生成，基于分层结构构建专业级提示词 | [SKILL.md](skills/nano-prompt/SKILL.md) |
 | `ffmpeg-video-processing` | 使用 ffmpeg / ffprobe 处理音视频，包括压缩、转码、裁剪与媒体检查 | [SKILL.md](skills/ffmpeg-video-processing/SKILL.md) |
 | `codex-windows-hooks-fix` | 修复 Windows 环境中 Codex hooks 入口命令、PowerShell 包装器和 stdout JSON schema 问题 | [README.md](skills/codex-windows-hooks-fix/README.md) |
@@ -118,15 +118,15 @@ $git-history-cleaner --repo /path/to/repo --path "*.log" --auto
 
 ### git-up
 
-Git 提交与 `.gitignore` 维护工具，支持规划、讨论、修改、执行提交和完全委派子智能体提交。
+Git 提交与 `.gitignore` 维护工具，支持规划、讨论、修改、执行提交和完全委派子智能体提交；简单、安全的 `-pc/-pcP` 自动走快车道。
 
 ```text
 /git-up --plan, -p      # 分析 diff，在会话中输出 YAML 提交计划
 /git-up --discuss, -d    # 轻量讨论提交计划，最多 1-3 个关键问题
 /git-up --modify <内容>  # 根据反馈调整计划并重新输出
 /git-up --commit, -c    # 优先用 Python fast path 执行会话中的计划
-/git-up --plan --commit, -pc  # 一步规划并提交，不等待用户确认
-/git-up --plan --commit --push, -pcP  # 一步规划、提交并 push
+/git-up --plan --commit, -pc  # 一步规划并提交；简单安全场景返回紧凑摘要
+/git-up --plan --commit --push, -pcP  # 一步规划、提交并 push；同样支持快车道
 /git-up --sub-agent, -s 仅提交 skills/git-up  # 委派一个子智能体执行 git-up -pc
 /git-up -sP 仅提交 skills/git-up  # 委派一个子智能体执行 git-up -pcP
 /git-up --ignore, -i       # 自动识别技术栈，直接创建或增量维护 .gitignore
