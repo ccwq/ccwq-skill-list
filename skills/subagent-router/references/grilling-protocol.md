@@ -16,6 +16,6 @@ When the objective, success criteria, constraints, tradeoffs, risks, validation,
 
 当前共识 | 关键决策 | 依赖风险 | 验收标准 | 剩余未决
 
-Then present the concise execution preview and wait for one exact user message: okok. It must be the standalone normalized message defined in [the main Skill](../SKILL.md). No discussion phrase authorizes execution.
+Then present the concise execution preview. By default, wait for one exact user message: okok. It must be the standalone normalized message defined in [the main Skill](../SKILL.md); no discussion phrase authorizes execution. When `-f/--fast` is set, skip this confirmation wait and proceed immediately, while retaining the same scope, permission, validation, and delegation-envelope checks.
 
-After okok, create only the Workers and writes in that preview. A material plan change invalidates the preview, so present a revised preview and wait for a new okok.
+After okok, or immediately in fast mode, create only the Workers and writes in that preview. A material plan change invalidates the preview; in normal mode present a revised preview and wait for a new okok, while fast mode must stop and recompute the plan before proceeding.

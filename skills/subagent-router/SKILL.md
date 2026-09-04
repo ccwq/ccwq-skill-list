@@ -16,6 +16,7 @@ Read option tokens immediately after $subagent-router until the first non-option
 - -t / --terra: balanced.
 - -s / --sol: quality-first.
 - -g / --grilling: one-question-at-a-time discussion.
+- -f / --fast: bypass the user confirmation gate and begin execution immediately after the plan is internally complete.
 - -gl, -gt, and -gs: supported combinations; -g means -gl.
 
 Reject conflicting strategies and unknown leading options before planning. Policies tune quality, cost, reasoning, concurrency, and review; they are not model locks or permission to create a Worker.
@@ -36,7 +37,7 @@ role | goal | model/reasoning | permission and owned scope | validation | delega
 
 A delegation envelope records whether the Worker may create children, the allowed child models, maximum depth, maximum total Workers, and concurrency. Reveal context expansion, temporary-copy/worktree use, retries, or other exceptional boundaries only when they apply.
 
-Only one user message can authorize the current preview: after removing leading and trailing whitespace, it must exactly equal lowercase okok. It is valid only after the latest preview. A quoted example, code block, or longer sentence containing okok is not authorization.
+Unless `-f/--fast` is set, only one user message can authorize the current preview: after removing leading and trailing whitespace, it must exactly equal lowercase okok. It is valid only after the latest preview. A quoted example, code block, or longer sentence containing okok is not authorization. With `-f/--fast`, skip the confirmation wait and begin execution as soon as the objective, scope, permissions, validation, and delegation envelope are internally complete; `fast` does not relax any of those boundaries.
 
 Treat okok as approval of one current preview, never as a durable boolean. A material change to model, reasoning, permission, owned scope, validation, context/workspace, concurrency, or delegation envelope invalidates the preview. Present the revised preview and wait for a new exact okok.
 
@@ -57,7 +58,7 @@ Never fabricate a parent model. If it cannot be determined cheaply from current 
 
 Every Worker gets one bounded objective, completion standard, permission, allowed and forbidden scope, requested model/reasoning, context level, workspace ownership, delegation envelope, evidence/validation, and failure contract. Default context is minimal. Read [the Worker contract](references/worker-contract.md) and validate task packages or returns with scripts/validate-worker-contract.mjs.
 
-After an exact okok, create only the native Workers described by the current preview. Preserve the authorized model, reasoning, permission, context, workspace, scope, validation, and delegation envelope. Give writers exclusive files or modules; serialize overlapping files, dependencies, and verification environments.
+After an exact okok, or immediately when `-f/--fast` is set, create only the native Workers described by the current preview. Preserve the authorized model, reasoning, permission, context, workspace, scope, validation, and delegation envelope. Give writers exclusive files or modules; serialize overlapping files, dependencies, and verification environments.
 
 Apply [failure policy](references/failure-policy.md). A Worker must not silently substitute model, reasoning, permission, scope, or delegation bounds.
 

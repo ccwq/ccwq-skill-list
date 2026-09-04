@@ -34,7 +34,7 @@ Before every spawn, the dispatcher supplies active_workers: the current number o
 
 The envelope is an authorization boundary, not a model-capability restriction. Within it, Terra and Sol can adapt their task tree without another confirmation. A requested child outside it requires a revised preview and a new okok.
 
-Use node scripts/route-decision.mjs <input.json> to make a proposed child decision reproducible. The input identifies the parent and requested models, exact authorization message, current depth/count, and delegation envelope.
+Use node scripts/route-decision.mjs <input.json> to make a proposed child decision reproducible. The input identifies the parent and requested models, exact authorization message, optional `fast` boolean, current depth/count, and delegation envelope. `fast: true` bypasses only the user confirmation check.
 
 ## Team design
 

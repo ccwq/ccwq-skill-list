@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
 
-const usage = 'Usage: node route-decision.mjs [--input <input.json|->] [<input.json|->]\nBoth --input and the legacy positional input are supported; provide exactly one.\nRequired: parent_model, requested_model, authorization_message, current_depth, workers_created, active_workers, delegation.';
+const usage = 'Usage: node route-decision.mjs [--input <input.json|->] [<input.json|->]\nBoth --input and the legacy positional input are supported; provide exactly one.\nRequired: parent_model, requested_model, authorization_message, current_depth, workers_created, active_workers, delegation. Optional: fast (boolean).';
 const fail = (message) => { console.error('route-decision: ' + message); console.error(usage); process.exit(2); };
 const args = process.argv.slice(2);
 if (args.includes('-h') || args.includes('--help')) { console.log(usage); process.exit(0); }
@@ -26,6 +26,7 @@ const integer = (value) => Number.isInteger(value) && value >= 0;
 if (!models.has(input.parent_model)) fail('parent_model must be luna, terra, or sol');
 if (!models.has(input.requested_model)) fail('requested_model must be luna, terra, or sol');
 if (typeof input.authorization_message !== 'string') fail('authorization_message must be a string');
+if (input.fast !== undefined && typeof input.fast !== 'boolean') fail('fast must be boolean when provided');
 if (!integer(input.current_depth)) fail('current_depth must be a non-negative integer');
 if (!integer(input.workers_created)) fail('workers_created must be a non-negative integer');
 if (!integer(input.active_workers)) fail('active_workers must be a non-negative integer');
@@ -42,7 +43,7 @@ const blocked = (reason, authorizationRequired = false) => ({
   authorization_required: authorizationRequired,
 });
 let output;
-if (input.authorization_message.trim() !== 'okok') {
+if (!input.fast && input.authorization_message.trim() !== 'okok') {
   output = blocked('a standalone exact okok authorization is required before execution', true);
 } else if (input.parent_model === 'luna') {
   output = blocked('Luna cannot create child Workers; use direct main-thread work or rerun from Terra or Sol');
@@ -62,7 +63,7 @@ if (input.authorization_message.trim() !== 'okok') {
   output = {
     backend: 'native_spawn',
     executable: true,
-    reason: 'native model nesting is authorized inside the current delegation envelope',
+    reason: input.fast ? 'fast mode bypasses the user confirmation gate; native model nesting is otherwise authorized inside the current delegation envelope' : 'native model nesting is authorized inside the current delegation envelope',
     authorization_required: false,
   };
 }

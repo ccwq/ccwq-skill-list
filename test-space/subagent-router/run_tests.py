@@ -117,7 +117,7 @@ class SubagentRouterV3Tests(unittest.TestCase):
     def test_v3_corpus_has_one_okok_gate_and_no_legacy_semantics(self) -> None:
         for token in ("okok", "delegation envelope", "Luna", "Terra", "Sol", "native_spawn"):
             self.assertIn(token, self.corpus)
-        for obsolete in ("external_exec", "native_supported", "native_unsupported", "okok", "已达成共同理解"):
+        for obsolete in ("external_exec", "native_supported", "native_unsupported", "已达成共同理解"):
             self.assertNotIn(obsolete, self.corpus)
         self.assertRegex(self.skill, r"(?is)removing leading and trailing whitespace.{0,120}exactly equal lowercase okok")
 
@@ -182,6 +182,23 @@ class SubagentRouterV3Tests(unittest.TestCase):
             decision = json.loads(result.stdout)
             self.assertFalse(decision["executable"])
             self.assertTrue(decision["authorization_required"])
+
+    #
+    # Given：显式 fast 模式表示用户已选择跳过确认等待
+    # When：授权消息不是 okok，但 fast=true 且 delegation envelope 合法
+    # Then：路由器直接允许 native_spawn，且不标记需要授权
+    # 防回归：确保 --fast/-f 只跳过确认，不被默认 okok 门禁拦截
+    # /
+    def test_route_fast_mode_bypasses_confirmation_gate(self) -> None:
+        payload = self.route_payload()
+        payload["authorization_message"] = ""
+        payload["fast"] = True
+        result = self.run_json(SCRIPTS["route"], payload, "--input")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        decision = json.loads(result.stdout)
+        self.assertTrue(decision["executable"])
+        self.assertFalse(decision["authorization_required"])
+        self.assertIn("fast mode", decision["reason"])
 
     #
     # Given：深度、数量、模型列表和并发均是用户批准的派生额度
