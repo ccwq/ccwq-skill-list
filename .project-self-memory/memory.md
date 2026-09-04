@@ -1,4 +1,4 @@
-<!-- <psm-store version="1" next_id="0012" group_dimension="" /> -->
+<!-- <psm-store version="1" next_id="0013" group_dimension="" /> -->
 <!-- <psm id="0001" type="pitfall" status="active" positive="0" negative="0" created_at="2026-08-11T15:41:36Z" last_scored_at="" /> -->
 `.env` 的反斜杠续行必须在执行 `KEY=value` 校验前合并物理行。对逗号分隔的清单，续行处仍需保留分隔符，例如 `aria-filedown,\` 后接下一行；否则会拼成错误的单个名称（如 `aria-filedowndeep-investigation`）。
 
@@ -31,4 +31,7 @@ Windows PowerShell 5.1 将含中文或 emoji 的 YAML 通过 here-string 管道�
 
 <!-- <psm id="0011" type="fact" status="active" positive="0" negative="0" created_at="2026-08-22T13:06:52Z" last_scored_at="" /> -->
 已验证：仓库新增 scripts/package-skills.mjs，Windows 下通过 PowerShell/.NET ZipFile 将 skills/*/SKILL.md Skill 分别打包到 skill-zips/<name>.zip；pnpm run zip 已成功生成当前 25 个 Skill 压缩包，zip 内以 Skill 内容为根，同名包覆盖且不会删除其他旧包。pnpm run test:package-skills 离线测试通过。
+
+<!-- <psm id="0012" type="fact" status="active" positive="0" negative="0" created_at="2026-09-04T08:15:16Z" last_scored_at="" /> -->
+已验证：ccwq-skill-list 的 subagent-router 新增 --fast/-f。fast 仅绕过用户 okok 确认等待，route-decision.mjs 通过 fast=true 可执行但仍校验模型、Luna 派生限制、delegation envelope、深度、数量和并发；根 README、skill README、协议引用与 marketplace 已同步，专用回归 16/16 通过。
 
