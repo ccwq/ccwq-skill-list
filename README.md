@@ -451,6 +451,7 @@ Luna 可作为叶节点 Worker，但 Luna 主线程或 Luna Worker 都不能派�
 $subagent-router -t 调查登录失败的前后端原因，并独立复核修复方案
 $subagent-router -gs 讨论支付模块迁移的边界、风险和验收方式
 $subagent-router -l 并行梳理项目结构、检查缺陷并分析测试覆盖
+$subagent-router -f -t 直接实施已明确的多 Agent 修复任务，跳过 okok 确认
 ```
 
 | 参数 | 说明 | 默认值 |
@@ -460,6 +461,7 @@ $subagent-router -l 并行梳理项目结构、检查缺陷并分析测试覆盖
 | `-t` / `--terra` | 平衡策略；适合普通实现、测试和需要嵌套的任务 | 无 |
 | `-s` / `--sol` | 质量优先的完整路由策略；提高 Sol/复核倾向而非强制全部使用 Sol | 无 |
 | `-g` / `--grilling` | 先进入单问题、只读调查讨论门禁 | 关闭 |
+| `-f` / `--fast` | 跳过用户 `okok` 确认，条件完整后直接开始实施；不绕过范围、权限、验证或 delegation envelope 校验 | 关闭 |
 | `-gl` / `-gt` / `-gs` | 同时记录讨论完成后的路由策略 | 无 |
 
 所有策略默认最多 5 个临时子 Agent；更高总量须写入预览的派生额度。策略不是模型锁。默认上下文为 minimal，任何模型、推理强度、权限、上下文、工作区或派生额度变化均不得静默替换。可用确定性辅助脚本预览派生决策、校验 Worker 契约和静态检查 Skill：node skills/subagent-router/scripts/route-decision.mjs --help、node skills/subagent-router/scripts/validate-worker-contract.mjs --help、node skills/subagent-router/scripts/verify-router-skill.mjs --help。详情见 [README.md](skills/subagent-router/README.md)。
