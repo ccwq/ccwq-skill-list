@@ -1,4 +1,4 @@
-<!-- <psm-store version="1" next_id="0013" group_dimension="" /> -->
+<!-- <psm-store version="1" next_id="0015" group_dimension="" /> -->
 <!-- <psm id="0001" type="pitfall" status="active" positive="0" negative="0" created_at="2026-08-11T15:41:36Z" last_scored_at="" /> -->
 `.env` 的反斜杠续行必须在执行 `KEY=value` 校验前合并物理行。对逗号分隔的清单，续行处仍需保留分隔符，例如 `aria-filedown,\` 后接下一行；否则会拼成错误的单个名称（如 `aria-filedowndeep-investigation`）。
 
@@ -34,4 +34,10 @@ Windows PowerShell 5.1 将含中文或 emoji 的 YAML 通过 here-string 管道�
 
 <!-- <psm id="0012" type="fact" status="active" positive="0" negative="0" created_at="2026-09-04T08:15:16Z" last_scored_at="" /> -->
 已验证：ccwq-skill-list 的 subagent-router 新增 --fast/-f。fast 仅绕过用户 okok 确认等待，route-decision.mjs 通过 fast=true 可执行但仍校验模型、Luna 派生限制、delegation envelope、深度、数量和并发；根 README、skill README、协议引用与 marketplace 已同步，专用回归 16/16 通过。
+
+<!-- <psm id="0013" type="fact" status="active" positive="0" negative="0" created_at="2026-09-30T08:19:22Z" last_scored_at="" /> -->
+已验证：2026-09-30 将 `rd-tencent/.agents/skills/bash-completion` 纳入 ccwq-skill-list 的做法可复用为“完整外部 Skill 包纳入”流程：整目录复制到 `skills/bash-completion`（36 个源文件 SHA-256 与源目录逐一比对一致），再新增 `CHANGELOG.md`（1.0.0）；同步根 README 的「可用 Skill」索引行与「参数速查」小节（探针 `scripts/probe-bash.sh`、验证器 `python3 scripts/verify-pty.py --tests/--timeout/--user-config`），并在 `.claude-plugin/marketplace.json` 添加 `name`/`source: ./skills/bash-completion`/`description`/`version: 1.0.0`/`category: devtools`；未加入 `.env` 的 `MAIN_LIST`，因此 `plugin.json` 不变且 `node scripts/sync-main-skill-manifest.mjs --check` 仍输出 `MAIN_SKILL_MANIFEST_VALID`。`skills/bash-completion` 内部存在反向引用 `references/*.md → ../evals/*`（container-lab/*.py、test_verify_pty.py、validation.md、musl-validation.md），故 evals 不能整体裁剪，否则断链；`evals/musl-evidence` 与 `evals/podman-evidence` 无任何引用但按源目录原样保留。`node scripts/package-skills.mjs --skill bash-completion` 生成 `skill-zips/bash-completion.zip` 后 zip 总数 27→28；README 全部详情链接存在、marketplace JSON 可解析、`git diff --check` 通过。提交 14b18c2 前的最终一致性核对为：磁盘 28 个 skill、README 索引 28 行、zip 28 个、marketplace 27 条。
+
+<!-- <psm id="0014" type="pitfall" status="active" positive="0" negative="0" created_at="2026-09-30T08:19:22Z" last_scored_at="" /> -->
+已验证避坑：`test-space/package-skills/run_tests.mjs` 在干净 HEAD（6f8e6ff）上就失败，与新增 skill 无关；根因是第 33 行在 PowerShell 里用 `$_.FullName.Substring('<JS 侧前缀>'.Length + 1)` 去掉临时目录前缀，而 Node 的 `os.tmpdir()` 在本机返回 8.3 短名 `C:\Users\ADMINI~1\AppData\Local\Temp`，PowerShell 展开的 `FullName` 是长名 `C:\Users\Administrator\...`，两者长度差使截取偏移 4–5 个字符，断言得到 `nded\SKILL.md`。凡在 Windows 下用 Node 计算路径前缀、再用 PowerShell 做子串截取的测试都会踩这个坑；应改用 `Resolve-Path`/`Convert-Path` 取得实际前缀后做 `.Replace()`，或先 `[System.IO.Path]::GetFullPath()` 归一化，不要用 `Substring(长度差)`。另：本项目 `core.autocrlf=true` 且无根 `.gitattributes`，新纳入含 `.sh`/`.py` 的 skill 时 Git 会提示 “LF will be replaced by CRLF”；索引与提交对象仍是 LF，但若在 Linux 侧以工作区副本执行 `probe-bash.sh` 需确认无 CR。
 
