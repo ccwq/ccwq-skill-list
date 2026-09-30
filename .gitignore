@@ -35,3 +35,7 @@ docs/*
 /research_*
 
 __tmp*
+/*.pid
+/*.port
+/*.stream
+/.planning
