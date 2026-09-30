@@ -189,6 +189,13 @@
       "description": "使用渐进式披露结构创建、改写或审查中文技术文章",
       "version": "1.0.0",
       "category": "writing"
+    },
+    {
+      "name": "bash-completion",
+      "source": "./skills/bash-completion",
+      "description": "配置、安装或排查 Bash 补全体验：普通 Tab 候选、fzf 模糊选择与快捷键、ble.sh 实时建议与高亮、zoxide 跳转，以及组件启动顺序与冲突；附静态探针与实验性 PTY 验证器",
+      "version": "1.0.0",
+      "category": "devtools"
     }
   ]
 }

@@ -76,6 +76,7 @@ npm run check:main-skills
 | `website-state-sync-agent` | 通过 Node.js 直连 Chrome DevTools Protocol 导出、导入和同步加密网站状态 | [SKILL.md](skills/website-state-sync-agent/SKILL.md) |
 | `network-debug` | 证据驱动定位跨平台网络连通性、DNS、路由、TCP/UDP、HTTP/TLS、代理、VPN 与 overlay 故障 | [SKILL.md](skills/network-debug/SKILL.md) |
 | `progressive-doc` | 使用渐进式披露结构创建、改写或审查中文技术文章 | [SKILL.md](skills/progressive-doc/SKILL.md) |
+| `bash-completion` | 配置、安装或排查 Bash 补全体验：Tab 候选、fzf 模糊选择、ble.sh 建议与高亮、zoxide 跳转及启动顺序冲突 | [SKILL.md](skills/bash-completion/SKILL.md) |
 
 > 触发形式：`/skill-name` 偏 slash command 风格，`$skill-name` 偏按 skill 名触发；实际以你的 Claude Code / skills 运行环境为准。
 
@@ -596,6 +597,28 @@ $progressive-doc 审查这篇事故复盘，标出证据缺口和未核验论断
 | `[交付范围]` | 大纲、初稿、改写、审查或发布后复盘 | 根据请求判断 |
 
 事实不足时会标注未知、推断与建议，不补造证据；完整流程见 [SKILL.md](skills/progressive-doc/SKILL.md)。
+
+---
+
+### bash-completion
+
+配置、安装或排查 Bash 补全体验：普通 Tab 候选、fzf 模糊选择与快捷键、ble.sh 实时建议/语法高亮、zoxide 跳转，以及各组件的启动顺序与冲突。适用于“输入命令没提示”“Tab 不补全”“Ctrl-R 失效”；不用于普通 shell 脚本编写，也不默认迁移到 zsh/fish。
+
+```text
+$bash-completion 输入 git 后没有自动建议，Ctrl-R 和 Tab 都正常，帮我找原因
+$bash-completion 在新机器上配置 Bash 补全，先只做只读检查，不要安装
+$bash-completion 发行版 fzf 不支持 --bash，但有 key-bindings.bash，要不要升级
+```
+
+辅助脚本（按需调用，脚本本身不连接主机、不提权）：
+
+| 脚本 | 说明 | 默认值 |
+|------|------|--------|
+| `scripts/probe-bash.sh` | POSIX sh 静态探针：进程模式、TTY、locale、工具路径、启动文件存在性；不执行找到的工具、不 source 配置、不输出配置正文 | 无参数 |
+| `scripts/verify-pty.py --tests <项> --timeout <秒>` | 实验性 PTY 验证器，按 `readiness`、`tab`、`fzf-history`、`fzf-files`、`fzf-dirs`、`ble` 分项验证 | 干净 Bash + 临时 HOME，`--timeout 15` |
+| `scripts/verify-pty.py --user-config` | 加载真实用户启动文件后才验真实配置，非沙箱 | 关闭 |
+
+无固定 CLI 参数，用自然语言说明目标环境与现象即可。默认先做只读基线，再按授权分阶段变更并保留回滚；未指定远程目标时先问，不从提权后的 HOME 推断配置对象。探针与验证器只在已选定的 Unix 环境内运行，不负责连接和提权。详情见 [SKILL.md](skills/bash-completion/SKILL.md)。
 
 ---
 

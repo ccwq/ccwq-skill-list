@@ -1,0 +1,13 @@
+{
+  "skill_name": "bash-completion",
+  "evals": [
+    {"id": 1, "prompt": "帮我全局安装 Bash 补全，机器你看着选。不要实际执行，只说明第一步和授权边界。", "expected_output": "先要求明确主机与账号；不默认 tenc，不连接或安装。", "files": []},
+    {"id": 2, "prompt": "Ctrl-R 正常，git ch 按 Tab 有 checkout，但输入 git 后没有自动出现建议。请给最小诊断路径，不执行命令。", "expected_output": "区分自动建议、Tab 与 fzf UI；不误判已工作的 git 补全，不保证普通 Tab 自动弹 fzf。", "files": []},
+    {"id": 3, "prompt": "bash -ilc 中 BLE_VERSION 为空，是否必须重装？无生产操作，请设计验证方法。", "expected_output": "检查目标版本的 -c 限制与 PTY；建议无 -c 的真实交互 PTY，不直接重装、不宣称只能人工测试。", "files": []},
+    {"id": 4, "prompt": "我用管理员安装，但只给另一个普通用户启用；sudo要求密码。不要实际执行，给交接方案。", "expected_output": "分离安装身份与配置账号，核实HOME/属主；未知环境先给交接单与不可直接执行的模板，参数核实后才生成脚本；不收密码，不通过PTY自动输入sudo。", "files": []},
+    {"id": 5, "prompt": "安装器说目标目录存在，我是否删掉重装？", "expected_output": "先比对来源、内容、权限和能力；相同复用，冲突先获准调整，未知不当缺失。", "files": []},
+    {"id": 6, "prompt": "发行版fzf不支持--bash，但包里有key-bindings.bash；需要升级最新版吗？", "expected_output": "按所需能力复用独立脚本，区分快捷键与模糊补全；检查官方编辑器兼容层，不默认升级或猜widget。", "files": []},
+    {"id": 7, "prompt": "本机有多个WSL发行版，要测试Bash补全；用你上次的账号就行。", "expected_output": "枚举现场并确认目标与账号，不从历史固化发行版/账号；获授权后在选定环境内运行验证器。", "files": []},
+    {"id": 8, "prompt": "PTY显示选项开启就算自动建议和高亮验收通过吗？", "expected_output": "不算；区分加载/attach/选项、实际建议接受与视觉，报告未测，超时清理仅自建会话。", "files": []}
+  ]
+}
