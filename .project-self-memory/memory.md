@@ -1,4 +1,4 @@
-<!-- <psm-store version="1" next_id="0015" group_dimension="" /> -->
+<!-- <psm-store version="1" next_id="0016" group_dimension="" /> -->
 <!-- <psm id="0001" type="pitfall" status="active" positive="0" negative="0" created_at="2026-08-11T15:41:36Z" last_scored_at="" /> -->
 `.env` 的反斜杠续行必须在执行 `KEY=value` 校验前合并物理行。对逗号分隔的清单，续行处仍需保留分隔符，例如 `aria-filedown,\` 后接下一行；否则会拼成错误的单个名称（如 `aria-filedowndeep-investigation`）。
 
@@ -40,4 +40,7 @@ Windows PowerShell 5.1 将含中文或 emoji 的 YAML 通过 here-string 管道�
 
 <!-- <psm id="0014" type="pitfall" status="active" positive="0" negative="0" created_at="2026-09-30T08:19:22Z" last_scored_at="" /> -->
 已验证避坑：`test-space/package-skills/run_tests.mjs` 在干净 HEAD（6f8e6ff）上就失败，与新增 skill 无关；根因是第 33 行在 PowerShell 里用 `$_.FullName.Substring('<JS 侧前缀>'.Length + 1)` 去掉临时目录前缀，而 Node 的 `os.tmpdir()` 在本机返回 8.3 短名 `C:\Users\ADMINI~1\AppData\Local\Temp`，PowerShell 展开的 `FullName` 是长名 `C:\Users\Administrator\...`，两者长度差使截取偏移 4–5 个字符，断言得到 `nded\SKILL.md`。凡在 Windows 下用 Node 计算路径前缀、再用 PowerShell 做子串截取的测试都会踩这个坑；应改用 `Resolve-Path`/`Convert-Path` 取得实际前缀后做 `.Replace()`，或先 `[System.IO.Path]::GetFullPath()` 归一化，不要用 `Substring(长度差)`。另：本项目 `core.autocrlf=true` 且无根 `.gitattributes`，新纳入含 `.sh`/`.py` 的 skill 时 Git 会提示 “LF will be replaced by CRLF”；索引与提交对象仍是 LF，但若在 Linux 侧以工作区副本执行 `probe-bash.sh` 需确认无 CR。
+
+<!-- <psm id="0015" type="fact" status="active" positive="0" negative="0" created_at="2026-09-30T08:33:04Z" last_scored_at="" /> -->
+已验证：2026-09-30 补齐 rd-mode 的索引断档。rd-mode 此前已存在于磁盘 `skills/rd-mode`（`.env.example`、`CHANGELOG.md`、`README.md`、`SKILL.md` 四个文件均入库，`skill-zips/rd-mode.zip` 也含全部四个文件）、根 README 的「可用 Skill」索引与「参数速查」，唯一缺口是 `.claude-plugin/marketplace.json` 没有对应条目，且 `.env` 的 `MAIN_LIST` 未包含它。已按 CHANGELOG 最新版本 `1.1.0` 与 `category: devtools` 补入 marketplace（plugins 27→28），并把 `rd-mode` 追加进 `MAIN_LIST`（16→17），`plugin.json` 由 `node scripts/sync-main-skill-manifest.mjs` 重新生成而非手工编辑。可复用的索引一致性核对口径：磁盘 `skills/<name>/SKILL.md` 数量、`marketplace.json` 的 plugins 数量、`skill-zips/*.zip` 数量三者必须相等，README 索引不得缺行；`MAIN_LIST` 只决定 `plugin.json` 的主分组，与 marketplace 条目相互独立，容易只补一处。提交 d09191f，`sync-main-skill-manifest.mjs --check` 输出 `MAIN_SKILL_MANIFEST_VALID`。
 
