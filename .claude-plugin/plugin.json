@@ -18,6 +18,7 @@
     "./skills/agent-human-debug",
     "./skills/network-debug",
     "./skills/engineering-method-selector",
-    "./skills/progressive-doc"
+    "./skills/progressive-doc",
+    "./skills/rd-mode"
   ]
 }

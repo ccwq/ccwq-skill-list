@@ -196,6 +196,13 @@
       "description": "配置、安装或排查 Bash 补全体验：普通 Tab 候选、fzf 模糊选择与快捷键、ble.sh 实时建议与高亮、zoxide 跳转，以及组件启动顺序与冲突；附静态探针与实验性 PTY 验证器",
       "version": "1.0.0",
       "category": "devtools"
+    },
+    {
+      "name": "rd-mode",
+      "source": "./skills/rd-mode",
+      "description": "远程开发模式规则：约束 agent 在无桌面 server 上协作，把需要桌面/浏览器的操作交给 host，并统一通过 abc 命令操作 host 浏览器（CDP）；含 rd-mode --init 问答式配置初始化",
+      "version": "1.1.0",
+      "category": "devtools"
     }
   ]
 }
