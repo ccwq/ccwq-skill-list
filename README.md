@@ -77,6 +77,7 @@ npm run check:main-skills
 | `network-debug` | 证据驱动定位跨平台网络连通性、DNS、路由、TCP/UDP、HTTP/TLS、代理、VPN 与 overlay 故障 | [SKILL.md](skills/network-debug/SKILL.md) |
 | `progressive-doc` | 使用渐进式披露结构创建、改写或审查中文技术文章 | [SKILL.md](skills/progressive-doc/SKILL.md) |
 | `bash-completion` | 配置、安装或排查 Bash 补全体验：Tab 候选、fzf 模糊选择、ble.sh 建议与高亮、zoxide 跳转及启动顺序冲突 | [SKILL.md](skills/bash-completion/SKILL.md) |
+| `claude-proj-skill-linker` | 把项目 `.agents/skills` 通过目录链接接入 `.claude/skills`，迁移实体 skill 与整理链接入口 | [SKILL.md](skills/claude-proj-skill-linker/SKILL.md) |
 
 > 触发形式：`/skill-name` 偏 slash command 风格，`$skill-name` 偏按 skill 名触发；实际以你的 Claude Code / skills 运行环境为准。
 
@@ -619,6 +620,28 @@ $bash-completion 发行版 fzf 不支持 --bash，但有 key-bindings.bash，要
 | `scripts/verify-pty.py --user-config` | 加载真实用户启动文件后才验真实配置，非沙箱 | 关闭 |
 
 无固定 CLI 参数，用自然语言说明目标环境与现象即可。默认先做只读基线，再按授权分阶段变更并保留回滚；未指定远程目标时先问，不从提权后的 HOME 推断配置对象。探针与验证器只在已选定的 Unix 环境内运行，不负责连接和提权。详情见 [SKILL.md](skills/bash-completion/SKILL.md)。
+
+---
+
+### claude-proj-skill-linker
+
+把项目 `.agents/skills` 下的 skill 通过目录链接接入项目 `.claude/skills`，并把 `.claude` 中的实体 skill 迁移到 `.agents`。依赖 Node.js ≥ 20。
+
+```bash
+node <skill-dir>/scripts/link-skills.mjs --project-root <root>                    # 只读预览，输出 JSON 与 digest
+node <skill-dir>/scripts/link-skills.mjs --project-root <root> --skill my-skill   # 只预览指定 skill
+node <skill-dir>/scripts/link-skills.mjs --project-root <root> --apply --expect <digest>  # 确认后执行
+```
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `--project-root <dir>` | 被整理的项目根目录 | 当前工作目录 |
+| `--skill <name>` | 只处理指定 skill，可重复传入 | 两侧全部子项 |
+| `--apply` | 执行变更 | false（只读预览） |
+| `--expect <digest>` | 执行必填，须匹配最新预览的摘要 | 无 |
+| `--help` / `-h` | 输出帮助 | - |
+
+`--expect` 必须来自紧邻的预览，参数范围与预览一致，状态变化时报 `STALE` 需重新预览确认；项目根及 `.agents`/`.claude` 容器必须是实体目录，链接容器被拒绝。详情见 [SKILL.md](skills/claude-proj-skill-linker/SKILL.md)。
 
 ---
 

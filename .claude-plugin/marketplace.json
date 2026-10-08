@@ -203,6 +203,13 @@
       "description": "远程开发模式规则：约束 agent 在无桌面 server 上协作，把需要桌面/浏览器的操作交给 host，并统一通过 abc 命令操作 host 浏览器（CDP）；含 rd-mode --init 问答式配置初始化",
       "version": "1.1.0",
       "category": "devtools"
+    },
+    {
+      "name": "claude-proj-skill-linker",
+      "source": "./skills/claude-proj-skill-linker",
+      "description": "项目级 skill 接入与链接整理：把 .agents/skills 通过目录链接接入 .claude/skills、迁移实体 skill 到 .agents；默认只读预览，确认摘要后执行，Windows junction 与 POSIX 符号链接，绝不写入全局配置",
+      "version": "1.0.0",
+      "category": "devtools"
     }
   ]
 }
