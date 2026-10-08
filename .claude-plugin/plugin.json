@@ -19,6 +19,7 @@
     "./skills/network-debug",
     "./skills/engineering-method-selector",
     "./skills/progressive-doc",
-    "./skills/rd-mode"
+    "./skills/rd-mode",
+    "./skills/claude-proj-skill-linker"
   ]
 }
