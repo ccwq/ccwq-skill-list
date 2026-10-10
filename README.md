@@ -77,7 +77,7 @@ npm run check:main-skills
 | `network-debug` | 证据驱动定位跨平台网络连通性、DNS、路由、TCP/UDP、HTTP/TLS、代理、VPN 与 overlay 故障 | [SKILL.md](skills/network-debug/SKILL.md) |
 | `progressive-doc` | 使用渐进式披露结构创建、改写或审查中文技术文章 | [SKILL.md](skills/progressive-doc/SKILL.md) |
 | `bash-completion` | 配置、安装或排查 Bash 补全体验：Tab 候选、fzf 模糊选择、ble.sh 建议与高亮、zoxide 跳转及启动顺序冲突 | [SKILL.md](skills/bash-completion/SKILL.md) |
-| `claude-proj-skill-linker` | 把项目 `.agents/skills` 通过目录链接接入 `.claude/skills`，迁移实体 skill 与整理链接入口 | [SKILL.md](skills/claude-proj-skill-linker/SKILL.md) |
+| `claude-proj-skill-linker` | 把项目 `.agents/skills` 通过目录链接接入 `.claude/skills`，迁移实体 skill 与整理链接入口；CLI 提供稳定输出契约并独立验收入口 | [SKILL.md](skills/claude-proj-skill-linker/SKILL.md) |
 
 > 触发形式：`/skill-name` 偏 slash command 风格，`$skill-name` 偏按 skill 名触发；实际以你的 Claude Code / skills 运行环境为准。
 
@@ -641,7 +641,7 @@ node <skill-dir>/scripts/link-skills.mjs --project-root <root> --apply --expect 
 | `--expect <digest>` | 执行必填，须匹配最新预览的摘要 | 无 |
 | `--help` / `-h` | 输出帮助 | - |
 
-`--expect` 必须来自紧邻的预览，参数范围与预览一致，状态变化时报 `STALE` 需重新预览确认；项目根及 `.agents`/`.claude` 容器必须是实体目录，链接容器被拒绝。详情见 [SKILL.md](skills/claude-proj-skill-linker/SKILL.md)。
+`--expect` 必须来自紧邻的预览，参数范围与预览一致，状态变化时报 `STALE` 需重新预览确认；成功必须同时满足 exit 0、stdout 合法 JSON 和文件系统验收（入口为 Junction/SymbolicLink、指向 canonical source、经入口可读 `SKILL.md`）。成功 preview/apply 输出 JSON，参数错误为 stderr/exit 2，运行时或验收失败为 `ERROR <code>`/非 0；项目根及 `.agents`/`.claude` 容器必须是实体目录，链接容器被拒绝。详情见 [SKILL.md](skills/claude-proj-skill-linker/SKILL.md)。
 
 ---
 

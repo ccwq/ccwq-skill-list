@@ -7,10 +7,37 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { createHash } from 'node:crypto';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import process from 'node:process';
 
 const MIN_NODE_MAJOR = 20;
+
+function comparablePath(value) {
+  if (typeof value !== 'string' || value.length === 0) return [];
+  try {
+    const filesystemPath = value.startsWith('file:')
+      ? fileURLToPath(value)
+      : path.resolve(value);
+    const candidates = new Set([path.normalize(filesystemPath)]);
+    try {
+      candidates.add(fs.realpathSync.native(filesystemPath));
+    } catch {
+      // The lexical path is still useful when the invocation path is absent.
+    }
+    for (const candidate of [...candidates]) {
+      candidates.add(fileURLToPath(pathToFileURL(candidate)));
+    }
+    return [...candidates].map((candidate) => process.platform === 'win32' ? candidate.toLowerCase() : candidate);
+  } catch {
+    return [];
+  }
+}
+
+export function isDirectExecution(argvPath, moduleUrl) {
+  const argvCandidates = comparablePath(argvPath);
+  const moduleCandidates = comparablePath(moduleUrl);
+  return argvCandidates.some((candidate) => moduleCandidates.includes(candidate));
+}
 
 export const USAGE = `Usage:
   link-skills.mjs [--project-root <dir>] [--skill <name>...] [--apply --expect <digest>]
@@ -170,6 +197,23 @@ async function readSkillMd(skillPath) {
   }
 }
 
+function readSkillMdSync(skillPath) {
+  const skillFile = path.join(skillPath, 'SKILL.md');
+  try {
+    const stats = fs.lstatSync(skillFile);
+    if (!stats.isFile()) return false;
+    const handle = fs.openSync(skillFile, 'r');
+    try {
+      const buffer = Buffer.alloc(1);
+      fs.readSync(handle, buffer, 0, 1, 0);
+      return true;
+    } finally {
+      fs.closeSync(handle);
+    }
+  } catch {
+    return false;
+  }
+}
 export async function classifySkillEntry(fullPath) {
   const stats = await lstatEntry(fullPath);
   if (stats === null) return { kind: 'absent' };
@@ -229,10 +273,10 @@ export async function prepareContext(options) {
   const realRoot = (await realPathIfExists(root)) ?? root;
   const realReason = isProtectedRoot(realRoot);
   if (realReason !== null) fail('BAD_ROOT', `Refusing to operate on ${realReason} (resolved): ${realRoot}`);
-  const agentsSkills = path.join(realRoot, '.agents', 'skills');
-  const claudeSkills = path.join(realRoot, '.claude', 'skills');
+  const agentsSkills = path.join(root, '.agents', 'skills');
+  const claudeSkills = path.join(root, '.claude', 'skills');
   await assertProtectedAncestors(realRoot);
-  return { root: realRoot, agentsSkills, claudeSkills, selected: options.skills ?? [] };
+  return { root, agentsSkills, claudeSkills, selected: options.skills ?? [] };
 }
 
 function skillTargetPaths(ctx, name) {
@@ -484,6 +528,9 @@ function verifyEntry(ctx, name, entryPath) {
     const { source } = skillTargetPaths(ctx, name);
     fail('VERIFY', `Entry does not point at canonical source ${source}: ${entryPath}`);
   }
+  if (!readSkillMdSync(entryPath)) {
+    fail('VERIFY', `SKILL.md is not readable through entry: ${path.join(entryPath, 'SKILL.md')}`);
+  }
 }
 
 async function restoreMoved(source, originalEntryPath, createdEntryPath, expectedTarget) {
@@ -595,6 +642,19 @@ export async function run(options) {
       };
     }
   }
+  for (const result of results) {
+    const item = planned.find((candidate) => candidate.name === result.name);
+    try {
+      verifyEntry(ctx, item.name, item.entry);
+    } catch (error) {
+      return {
+        report: buildReport(ctx, items, summary, 'apply', results),
+        exitCode: 1,
+        error: { code: error.code ?? 'ERROR', message: error.message, name: item.name },
+        stoppedBefore: [],
+      };
+    }
+  }
   return { report: buildReport(ctx, items, summary, 'apply', results), exitCode: 0 };
 }
 
@@ -604,12 +664,11 @@ async function main() {
   try {
     parsed = parseArgs(argv);
   } catch (error) {
-    if (error.code === 'USAGE') {
-      process.stderr.write(`${error.message}\n`);
-      process.exitCode = 2;
-      return;
-    }
-    throw error;
+    process.stderr.write(error.code === 'USAGE'
+      ? `${error.message}\n`
+      : `ERROR ${error.code ?? 'USAGE'}: ${error.message}\n`);
+    process.exitCode = 2;
+    return;
   }
   if (parsed.help) {
     process.stdout.write(`${USAGE}\n`);
@@ -631,6 +690,6 @@ async function main() {
   }
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))) {
+if (isDirectExecution(process.argv[1], import.meta.url)) {
   await main();
 }

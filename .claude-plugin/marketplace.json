@@ -207,8 +207,8 @@
     {
       "name": "claude-proj-skill-linker",
       "source": "./skills/claude-proj-skill-linker",
-      "description": "项目级 skill 接入与链接整理：把 .agents/skills 通过目录链接接入 .claude/skills、迁移实体 skill 到 .agents；默认只读预览，确认摘要后执行，Windows junction 与 POSIX 符号链接，绝不写入全局配置",
-      "version": "1.0.0",
+      "description": "项目级 skill 接入与链接整理：把 .agents/skills 通过目录链接接入 .claude/skills、迁移实体 skill 到 .agents；默认只读预览，确认摘要后执行，CLI 提供稳定 JSON/退出码契约，并独立验证 Windows junction 或 POSIX 符号链接指向 canonical source 且可读 SKILL.md，绝不写入全局配置",
+      "version": "1.0.1",
       "category": "devtools"
     }
   ]
