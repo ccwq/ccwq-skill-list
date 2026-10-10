@@ -641,7 +641,7 @@ node <skill-dir>/scripts/link-skills.mjs --project-root <root> --apply --expect 
 | `--expect <digest>` | 执行必填，须匹配最新预览的摘要 | 无 |
 | `--help` / `-h` | 输出帮助 | - |
 
-`--expect` 必须来自紧邻的预览，参数范围与预览一致，状态变化时报 `STALE` 需重新预览确认；成功必须同时满足 exit 0、stdout 合法 JSON 和文件系统验收（入口为 Junction/SymbolicLink、指向 canonical source、经入口可读 `SKILL.md`）。成功 preview/apply 输出 JSON，参数错误为 stderr/exit 2，运行时或验收失败为 `ERROR <code>`/非 0；项目根及 `.agents`/`.claude` 容器必须是实体目录，链接容器被拒绝。详情见 [SKILL.md](skills/claude-proj-skill-linker/SKILL.md)。
+`--expect` 必须来自紧邻的预览，参数范围与预览一致，状态变化时报 `STALE` 需重新预览确认；成功需通过 CLI 输出与入口状态核对。项目根及 `.agents`/`.claude` 容器必须是实体目录，链接容器被拒绝。详情见 [SKILL.md](skills/claude-proj-skill-linker/SKILL.md)。
 
 ---
 

@@ -676,12 +676,13 @@ async function main() {
   }
   try {
     const outcome = await run(parsed);
-    process.stdout.write(`${JSON.stringify(outcome.report, null, 2)}\n`);
     if (outcome.error) {
-      process.stderr.write(`ERROR ${outcome.error.code} at ${outcome.error.name}: ${outcome.error.message}\n`);
-      if (outcome.stoppedBefore.length > 0) {
+      process.stderr.write(`ERROR ${outcome.error.code}: ${outcome.error.message} (skill: ${outcome.error.name})\n`);
+      if (outcome.stoppedBefore?.length > 0) {
         process.stderr.write(`Stopped before: ${outcome.stoppedBefore.join(', ')}\n`);
       }
+    } else {
+      process.stdout.write(`${JSON.stringify(outcome.report, null, 2)}\n`);
     }
     process.exitCode = outcome.exitCode;
   } catch (error) {
