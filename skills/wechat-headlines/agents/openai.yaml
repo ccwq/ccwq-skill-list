@@ -1,0 +1,13 @@
+interface:
+  display_name: 公众号标题生成
+  short_description: 根据正文、要点或文件生成六条不同方向的公众号标题，兼顾点击吸引力与事实边界
+  default_prompt: 请使用 $wechat-headlines，根据以下材料生成公众号标题。
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg
+policy:
+  products:
+  - chatgpt
+  - codex
+  - api
+  - atlas
+  allow_implicit_invocation: true

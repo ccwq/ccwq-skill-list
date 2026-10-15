@@ -78,6 +78,7 @@ npm run check:main-skills
 | `progressive-doc` | 使用渐进式披露结构创建、改写或审查中文技术文章 | [SKILL.md](skills/progressive-doc/SKILL.md) |
 | `bash-completion` | 配置、安装或排查 Bash 补全体验：Tab 候选、fzf 模糊选择、ble.sh 建议与高亮、zoxide 跳转及启动顺序冲突 | [SKILL.md](skills/bash-completion/SKILL.md) |
 | `claude-proj-skill-linker` | 把项目 `.agents/skills` 通过目录链接接入 `.claude/skills`，迁移实体 skill 与整理链接入口；CLI 提供稳定输出契约并独立验收入口 | [SKILL.md](skills/claude-proj-skill-linker/SKILL.md) |
+| `wechat-headlines` | 根据正文、要点、链接或文件生成与优化微信公众号标题，默认六条不同方向候选并首推一条 | [SKILL.md](skills/wechat-headlines/SKILL.md) |
 
 > 触发形式：`/skill-name` 偏 slash command 风格，`$skill-name` 偏按 skill 名触发；实际以你的 Claude Code / skills 运行环境为准。
 
@@ -642,6 +643,20 @@ node <skill-dir>/scripts/link-skills.mjs --project-root <root> --apply --expect 
 | `--help` / `-h` | 输出帮助 | - |
 
 `--expect` 必须来自紧邻的预览，参数范围与预览一致，状态变化时报 `STALE` 需重新预览确认；成功需通过 CLI 输出与入口状态核对。项目根及 `.agents`/`.claude` 容器必须是实体目录，链接容器被拒绝。详情见 [SKILL.md](skills/claude-proj-skill-linker/SKILL.md)。
+
+---
+
+### wechat-headlines
+
+根据文章正文、简短要点、链接或文件生成与优化微信公众号标题，默认给出六条不同方向的候选并首推一条。
+
+```text
+$wechat-headlines 根据这篇正文生成标题：<粘贴正文或要点>
+$wechat-headlines https://example.com/post/123  （按链接正文起标题）
+$wechat-headlines 更短、更尖锐一些，换三个方向  （按反馈迭代）
+```
+
+无显式参数，直接提供正文、要点、链接或文件等本次材料与要求即可。默认先给初稿再按反馈调整；链接只读取目标内容，不扩展外部资料。标题承诺必须能在正文兑现，不虚构实测与效果。详情见 [SKILL.md](skills/wechat-headlines/SKILL.md)。
 
 ---
 
