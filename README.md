@@ -1,17 +1,15 @@
-# Claude Code Skill 仓库
+# Agent Skill 仓库
 
-本仓库用于存放和管理 Claude Code 的自定义 Skill。
+本仓库收集一些真是工作中常用的Agent Skill, 无关具体业务。
 
 https://github.com/ccwq/ccwq-skill-list
 
-本 README 只做两件事：**安装索引** 与 **各 skill 的参数速查**。每个 skill 的完整说明在其自身的文档里，文末链接直达。
+## 安装
 
-## 快速开始
-
-最简：交互式选择并安装全部可用 skill。
+最简：启动交互式安装，勾选需要的 Skill。
 
 ```bash
-npx -y skills add ccwq/ccwq-skill-list
+npx skills add ccwq/ccwq-skill-list
 ```
 
 逐步加参数（按需组合）：
@@ -30,143 +28,364 @@ npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code
 npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code --skill git-up nano-prompt
 ```
 
-> 仓库根目录已存在 `.claude-plugin/marketplace.json`，仓库正在向 Plugin Marketplace 形态演进；当前实际内容仍以 `skills/` 为主，故安装方式只保留基于 `skills` CLI 的形式。
+本仓库不固定外部 `skills` CLI 的版本。
 
-## 主 Skill 分组
-
-`npx skills add ccwq/ccwq-skill-list` 的交互选择器会把 `.env` 中 `MAIN_LIST` 列出的 Skill 放在 `ccwq-skill-list` 主分组；其余已发现的 `skills/*/SKILL.md` 自动归入 `Other`。
-
-修改清单后执行：
-
-```bash
-npm run sync:main-skills
-npm run check:main-skills
-```
-
-`MAIN_LIST` 是逗号分隔的 Skill 名列表，必须指向存在的 `skills/<name>/SKILL.md`。生成文件 `.claude-plugin/plugin.json` 不手工编辑。
+> 当前通过 `skills` CLI 安装。仓库包含 Plugin Marketplace 元数据，但插件安装尚未验证。
 
 ## 可用 Skill
 
+点击「速查」查看调用与参数。点击「README」或「SKILL」打开详细说明。
+
 | Skill | 说明 | 详情 |
 |-------|------|------|
-| `software-license-checker` | 评估软件企业内部使用的许可证合规风险，输出法务预警报告 | [README.md](skills/software-license-checker/README.md) |
-| `git-history-cleaner` | 清理 Git 仓库历史中的特定文件或目录 | [SKILL.md](skills/git-history-cleaner/SKILL.md) |
-| `git-up` | Git 提交与 `.gitignore` 维护工具，支持快车道、规划、讨论、提交、子智能体完全委派和忽略规则维护 | [README.md](skills/git-up/README.md) |
-| `nano-prompt` | AI 图像提示词生成，基于分层结构构建专业级提示词 | [SKILL.md](skills/nano-prompt/SKILL.md) |
-| `ffmpeg-video-processing` | 使用 ffmpeg / ffprobe 处理音视频，包括压缩、转码、裁剪与媒体检查 | [SKILL.md](skills/ffmpeg-video-processing/SKILL.md) |
-| `codex-windows-hooks-fix` | 修复 Windows 环境中 Codex hooks 入口命令、PowerShell 包装器和 stdout JSON schema 问题 | [README.md](skills/codex-windows-hooks-fix/README.md) |
-| `ntl-script-descriptions` | 为包含 package.json 的项目补充 ntl 可读取的 scripts 中文说明 | [SKILL.md](skills/ntl-script-descriptions/SKILL.md) |
-| `npm-license-declaration` | 为前端项目生成 npm 第三方依赖许可证声明文档 | [SKILL.md](skills/npm-license-declaration/SKILL.md) |
-| `joint-debugging` | 手动协调技术联调、故障诊断、验证与修复，按单主线轮次与证据/授权边界推进 | [SKILL.md](skills/joint-debugging/SKILL.md) |
-| `deep-investigation` | 对公共事件、组织、人物、政策或商业议题进行可追溯的深度调查复盘 | [SKILL.md](skills/deep-investigation/SKILL.md) |
-| `tool-evaluator` | 基于 Gate、分级证据和动态权重，调查、比较并筛选最适合当前约束的工具 | [SKILL.md](skills/tool-evaluator/SKILL.md) |
-| `debug-instrumentation` | 为调试问题添加、采集和分析可清理的 token 化日志埋点 | [SKILL.md](skills/debug-instrumentation/SKILL.md) |
-| `agent-human-debug` | 跨平台的人机协作故障诊断：最小探测、自动脱敏、clipboard-first 回传与风险授权 | [README.md](skills/agent-human-debug/README.md) |
-| `rd-mode` | 远程开发模式规则，约束 host/server 协作并统一 CDP 浏览器操作（abc 命令） | [README.md](skills/rd-mode/README.md) |
-| `lite-team` | 轻量多 Agent 协作，用 docs/bbs/lite-team-bbs.md 协作板在不同 Agent/session 间手动交接 | [README.md](skills/lite-team/README.md) |
-| `subagent-router` | 预览并确认后临时创建 Codex 子 Agent，支持动态模型路由与多 Agent 开发 | [README.md](skills/subagent-router/README.md) |
-| `gemin-mirror` | Gemini/兼容镜像站的探针、账号切换与 API-first 安全会话删除 | [SKILL.md](skills/gemin-mirror/SKILL.md) |
-| `project-self-memory` | 通过 Node CLI 维护项目级结论记忆、评分、分组与 legacy 迁移 | [README.md](skills/project-self-memory/README.md) |
-| `pro-grilling` | 手动逐层厘清复杂决策，在共同理解前保持只读 | [SKILL.md](skills/pro-grilling/SKILL.md) |
-| `engineering-method-selector` | 根据工程阶段、产物、质量属性和风险组合推荐可验证的方法论 | [SKILL.md](skills/engineering-method-selector/SKILL.md) |
-| `aria-filedown` | 手动授权的 aria2 稳定下载工具，支持代理优先级与项目 `.env` | [SKILL.md](skills/aria-filedown/SKILL.md) |
-| `dockerhub-mirror` | 诊断 Docker Hub 拉取缓慢或失败，并探测、评分和管理镜像候选 | [README.md](skills/dockerhub-mirror/README.md) |
-| `chatgpt-web-skill` | 依赖 agent-browser 在指定 ChatGPT Project 中受授权地生图、编辑或执行单图结构化视觉审查 | [README.md](skills/chatgpt-web-skill/README.md) |
-| `tutor-man` | 通过自适应的费曼式掌握等级，快速学会工具、概念、方法或混合主题，并用轻量验证确认掌握程度 | [SKILL.md](skills/tutor-man/SKILL.md) |
-| `website-state-sync-agent` | 通过 Node.js 直连 Chrome DevTools Protocol 导出、导入和同步加密网站状态 | [SKILL.md](skills/website-state-sync-agent/SKILL.md) |
-| `network-debug` | 证据驱动定位跨平台网络连通性、DNS、路由、TCP/UDP、HTTP/TLS、代理、VPN 与 overlay 故障 | [SKILL.md](skills/network-debug/SKILL.md) |
-| `progressive-doc` | 使用渐进式披露结构创建、改写或审查中文技术文章 | [SKILL.md](skills/progressive-doc/SKILL.md) |
-| `bash-completion` | 配置、安装或排查 Bash 补全体验：Tab 候选、fzf 模糊选择、ble.sh 建议与高亮、zoxide 跳转及启动顺序冲突 | [SKILL.md](skills/bash-completion/SKILL.md) |
-| `claude-proj-skill-linker` | 把项目 `.agents/skills` 通过目录链接接入 `.claude/skills`，迁移实体 skill 与整理链接入口；CLI 提供稳定输出契约并独立验收入口 | [SKILL.md](skills/claude-proj-skill-linker/SKILL.md) |
-| `wechat-headlines` | 根据正文、要点、链接或文件生成与优化微信公众号标题，默认六条不同方向候选并首推一条 | [SKILL.md](skills/wechat-headlines/SKILL.md) |
+| `agent-human-debug` | Agent 主导、人类执行的跨平台故障诊断；最小只读 probe、脱敏回传 | [速查](#agent-human-debug) · [README](skills/agent-human-debug/README.md) |
+| `aria-filedown` | 手动授权的 aria2 稳定下载，支持代理优先级与项目 `.env` | [速查](#aria-filedown) · [SKILL](skills/aria-filedown/SKILL.md) |
+| `bash-completion` | 配置与排查 Bash 补全：Tab、fzf、ble.sh、zoxide 及启动顺序冲突 | [速查](#bash-completion) · [SKILL](skills/bash-completion/SKILL.md) |
+| `chatgpt-web-skill` | 在指定 ChatGPT Project 中受授权地生图、改图与单图结构化审查 | [速查](#chatgpt-web-skill) · [README](skills/chatgpt-web-skill/README.md) |
+| `claude-proj-skill-linker` | 把 `.agents/skills` 通过目录链接接入 `.claude/skills`，并整理链接入口 | [速查](#claude-proj-skill-linker) · [SKILL](skills/claude-proj-skill-linker/SKILL.md) |
+| `codex-windows-hooks-fix` | 修复 Windows 上 Codex hooks 的命令入口、包装器与 JSON 输出 | [速查](#codex-windows-hooks-fix) · [README](skills/codex-windows-hooks-fix/README.md) |
+| `debug-instrumentation` | 添加、采集和分析可清理的 token 化调试日志埋点 | [速查](#debug-instrumentation) · [SKILL](skills/debug-instrumentation/SKILL.md) |
+| `deep-investigation` | 对公共事件、组织、人物或商业议题做可追溯的深度调查复盘 | [速查](#deep-investigation) · [SKILL](skills/deep-investigation/SKILL.md) |
+| `dockerhub-mirror` | 诊断 Docker Hub 拉取卡顿，探测、评分并管理镜像候选 | [速查](#dockerhub-mirror) · [README](skills/dockerhub-mirror/README.md) |
+| `engineering-method-selector` | 按工程阶段、产物、质量属性和风险推荐可验证的方法论组合 | [速查](#engineering-method-selector) · [SKILL](skills/engineering-method-selector/SKILL.md) |
+| `ffmpeg-video-processing` | 用 ffmpeg / ffprobe 压缩、转码、裁剪、抽取音频与检查媒体 | [速查](#ffmpeg-video-processing) · [SKILL](skills/ffmpeg-video-processing/SKILL.md) |
+| `gemin-mirror` | Gemini 兼容镜像站的账号探针、账号切换与安全会话删除 | [速查](#gemin-mirror) · [README](skills/gemin-mirror/README.md) |
+| `git-history-cleaner` | 清理 Git 历史中的特定文件或目录 | [速查](#git-history-cleaner) · [SKILL](skills/git-history-cleaner/SKILL.md) |
+| `git-up` | Git 提交与 `.gitignore` 维护，支持规划、讨论、委派与一步提交 | [速查](#git-up) · [README](skills/git-up/README.md) |
+| `joint-debugging` | 手动协调技术联调、故障诊断、验证与修复 | [速查](#joint-debugging) · [SKILL](skills/joint-debugging/SKILL.md) |
+| `lite-team` | 轻量多 Agent 协作，用协作板在不同 Agent / session 间手动交接 | [速查](#lite-team) · [README](skills/lite-team/README.md) |
+| `nano-prompt` | AI 图像提示词生成，输出分层 YAML 结构 | [速查](#nano-prompt) · [SKILL](skills/nano-prompt/SKILL.md) |
+| `network-debug` | 证据驱动定位 DNS、路由、TCP/UDP、HTTP/TLS、代理与 overlay 故障 | [速查](#network-debug) · [SKILL](skills/network-debug/SKILL.md) |
+| `npm-license-declaration` | 为前端项目生成 npm 第三方依赖许可证声明文档 | [速查](#npm-license-declaration) · [SKILL](skills/npm-license-declaration/SKILL.md) |
+| `ntl-script-descriptions` | 为 package.json 补充 ntl 可读取的 scripts 中文说明 | [速查](#ntl-script-descriptions) · [SKILL](skills/ntl-script-descriptions/SKILL.md) |
+| `pro-grilling` | 手动逐层厘清复杂决策，在共同理解前保持只读 | [速查](#pro-grilling) · [SKILL](skills/pro-grilling/SKILL.md) |
+| `progressive-doc` | 用渐进式披露结构创建、改写或审查中文技术文章 | [速查](#progressive-doc) · [SKILL](skills/progressive-doc/SKILL.md) |
+| `project-self-memory` | 维护项目级结论记忆、评分、分组与 legacy 迁移 | [速查](#project-self-memory) · [README](skills/project-self-memory/README.md) |
+| `rd-mode` | 远程开发模式规则，统一通过 `abc` 命令操作 host 浏览器 | [速查](#rd-mode) · [README](skills/rd-mode/README.md) |
+| `software-license-checker` | 评估软件企业内部使用的许可证合规与付费风险 | [速查](#software-license-checker) · [README](skills/software-license-checker/README.md) |
+| `subagent-router` | 预览并确认后临时创建子 Agent，支持动态模型路由 | [速查](#subagent-router) · [README](skills/subagent-router/README.md) |
+| `tool-evaluator` | 调查、比较并筛选适合当前约束的工具 | [速查](#tool-evaluator) · [SKILL](skills/tool-evaluator/SKILL.md) |
+| `tutor-man` | 用自适应费曼式掌握等级快速学会工具、概念或方法 | [速查](#tutor-man) · [SKILL](skills/tutor-man/SKILL.md) |
+| `website-state-sync-agent` | 在 Chrome 实例之间迁移加密的 Cookie 与 Web Storage | [速查](#website-state-sync-agent) · [SKILL](skills/website-state-sync-agent/SKILL.md) |
+| `wechat-headlines` | 生成与优化微信公众号标题，默认六条不同方向候选 | [速查](#wechat-headlines) · [SKILL](skills/wechat-headlines/SKILL.md) |
 
 > 触发形式：`/skill-name` 偏 slash command 风格，`$skill-name` 偏按 skill 名触发；实际以你的 Claude Code / skills 运行环境为准。
 
 ## 参数速查
 
-只列调用方式与参数。完整流程、注意事项见每个 skill 的「详情」链接。
+### agent-human-debug
 
-### software-license-checker
+Agent 负责诊断，人类负责执行命令。
 
-评估软件在企业内部使用场景下的许可证、授权与潜在付费要求。
-
-```text
-$software-license-checker 检查 FFmpeg 是否可以在企业内部使用
-$software-license-checker TensorFlow 企业内部研发使用是否需要付费
-```
-
-无显式参数，直接描述待评估的软件与使用场景即可。详情见 [README.md](skills/software-license-checker/README.md)。
-
----
-
-### git-history-cleaner
-
-清理 Git 仓库历史中的特定文件或目录以减小仓库体积。
+Agent 先识别环境，再选择最小只读探针（probe）。结果脱敏后生成 `debug_report`，优先复制到剪切板。
 
 ```text
-$git-history-cleaner --repo /path/to/repo --path bin/ --dry-run
-$git-history-cleaner --repo /path/to/repo --path "*.log" --auto
+$agent-human-debug 排查 Windows 本地服务调用接口偶发超时
+$agent-human-debug 联调容器中的前后端问题，要求每轮只执行一段 PowerShell 脚本
 ```
+
+默认只读取证。未经授权，Agent 不执行以下操作：
+
+- 创建文件。
+- 保存日志。
+- 安装工具。
+- 上传完整信息。
+
+修改前，Agent 必须说明影响、风险、回滚与验证方式。每次修改必须取得针对当前操作的授权。
+
+<details>
+<summary>参数</summary>
 
 | 参数 | 说明 | 默认值 |
 |------|------|--------|
-| `--repo` | 仓库路径 | 当前目录 |
-| `--path` | 要删除的路径模式 | 必填 |
-| `--dry-run` | 预览模式，只分析不执行 | false |
-| `--auto` | 自动模式，无需确认 | false |
+| `[待处理事项]` | 联调、诊断、验证或修复目标，可补充环境、约束和期望证据 | 无 |
 
-改写历史会改变提交 ID，执行前会创建 `.git` 备份。详情见 [SKILL.md](skills/git-history-cleaner/SKILL.md)。
+</details>
 
----
-
-### git-up
-
-Git 提交与 `.gitignore` 维护工具，支持规划、讨论、修改、执行提交和完全委派子智能体提交；简单、安全的 `-pc/-pcP` 自动走快车道。
-
-```text
-/git-up --plan, -p      # 分析 diff，在会话中输出 YAML 提交计划
-/git-up --discuss, -d    # 轻量讨论提交计划，最多 1-3 个关键问题
-/git-up --modify <内容>  # 根据反馈调整计划并重新输出
-/git-up --commit, -c    # 优先用 Python fast path 执行会话中的计划
-/git-up --plan --commit, -pc  # 一步规划并提交；简单安全场景返回紧凑摘要
-/git-up --plan --commit --push, -pcP  # 一步规划、提交并 push；同样支持快车道
-/git-up --sub-agent, -s 仅提交 skills/git-up  # 委派一个子智能体执行 git-up -pc
-/git-up -sP 仅提交 skills/git-up  # 委派一个子智能体执行 git-up -pcP
-/git-up --ignore, -i       # 自动识别技术栈，直接创建或增量维护 .gitignore
-/git-up -i node python     # 只维护指定技术栈规则
-/git-up -i --add "tmp/" --reason "本地调试输出"  # 添加有中文说明的自定义规则
-/git-up -i --clean         # 仅预览 Git-up 管理规则的重复项
-/git-up -i --clean --apply # 确认后执行清理
-/git-up -l en --plan     # 使用英文输出计划、讨论问题和 commit message
-/git-up                  # 直接生成 commit message
-```
-
-模式：plan / discuss / modify / commit / plan+commit / commit+push / plan+commit+push / sub-agent / sub-agent+push / ignore / default。`--plan` 可简写为 `-p`，`--discuss` 可简写为 `-d`，`--commit` 可简写为 `-c`，`--push` 可简写为 `-P`，`--sub-agent` 可简写为 `-s`，`--ignore` 可简写为 `-i`。`-pcP` / `--plan --commit --push` 可一步规划、提交并 push；`-s` / `--sub-agent` 会在当前工作目录创建一个子智能体、同步等待它执行 `git-up -pc`，`-sP`、`-s -P`、`--sub-agent --push` 则执行 `git-up -pcP`。`-s` 后的描述性文本是强制提交边界，子智能体不能满足时必须停止，父智能体不会改为自行提交；它不与 `-p`、`-c`、`-d`、`--modify`、`-i` 等主模式混用，但可与 `-l/--lang` 组合。`-i` 自动识别 Node.js/Python 项目，只增量加入带中文用途说明的高置信度规则，默认不处理 `.env`；可用技术栈参数限缩范围，并用 `--add <规则> --reason <说明>` 加入自定义规则。已有等价规则会跳过；`--clean` 只预览 Git-up 管理区块的重复项，须额外传 `--apply` 才会删除。`--push/-P` 只支持绑定 `-c`、`-pc` 或 `-s`，不支持单独 push；push 只在网络/传输类错误失败后最多重试 3 次，认证、权限、无 upstream、non-fast-forward 等非网络错误不重试。`-l/--lang` 控制输出语言，支持 `zh`（默认）和 `en`，影响计划说明、讨论问题、commit subject/body 和最终汇报；type/scope/emoji、文件路径和命令保持原样。`--discuss/-d` 内置轻量讨论流程：只围绕提交计划逐个提出 1-3 个关键问题，每问给推荐答案；按拆分边界、文件归属/排除项、commit 顺序等决策分支推进，事实先查代码或 git 状态，决策再问用户，达成共识前不提交。`-c` 优先用 `scripts/commit_plan.py` 直接执行；解析失败时 LLM 修复 YAML 并重试 1 次，仍失败回退为原有提交路径。计划仍存于对话上下文，故 `-p` 与 `-c` 需在同一会话。详情见 [README.md](skills/git-up/README.md)。
+详情见 [README.md](skills/agent-human-debug/README.md)。
 
 ---
 
-### network-debug
+### aria-filedown
 
-手动触发的跨平台网络故障诊断技能，按分层证据定位首个失败边界。
+只在用户显式调用，或普通下载已发生网络异常且用户同意切换时使用。下载切换授权不等同于 aria2 安装授权。
 
 ```text
-$network-debug 排查当前主机访问目标 API 的 DNS、TCP、TLS 与代理问题
+$aria-filedown 使用代理下载 https://example.com/model.zip 到 ./downloads
+python skills/aria-filedown/scripts/aria2-wrapper.py -p http://localhost:7897 -- https://example.com/file.zip
 ```
 
-无显式参数；直接描述平台、目标、现象和已观察到的错误即可。技能默认不由模型自动调用，默认使用中文回复；命令、错误串、协议名、产品名、代码、配置键和文件路径保留英文原文，用户明确指定其他语言时遵循用户要求。详情见 [SKILL.md](skills/network-debug/SKILL.md)。
+脚本示例按仓库根目录给出；安装后使用时换成实际的 `<skill-dir>/scripts/aria2-wrapper.py`。
+
+<details>
+<summary>参数</summary>
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `--proxy <URL>` / `-p <URL>` | 本次下载或 aria2 安装使用的代理，优先级最高 | 无 |
+| `--install` | 缺少 `aria2c` 时安装；必须先确认安装目录 | `false` |
+| `--install-dir <目录>` | aria2 安装目录 | `ARIA2C` 或无 |
+| `--progress <模式>` | `auto`、`tty`、`jsonl`、`off` | `auto` |
+
+代理优先级为命令行 > 进程环境 > 项目 `.env`；每层内 `ARIA2_PROXY` > `PROXY`。项目 `.env` 位于 Git 根目录，代理凭据不会回显。`--` 之后的参数原样透传给 aria2。
+
+</details>
+
+详情见 [SKILL.md](skills/aria-filedown/SKILL.md)。
 
 ---
 
-### nano-prompt
+### bash-completion
 
-AI 图像提示词生成，基于 Nano Banana Pro 的核心提示技巧，输出 YAML 格式的分层提示词结构。
+配置、安装或排查 Bash 补全体验。适用于「输入命令没提示」「Tab 不补全」「Ctrl-R 失效」；不用于普通 shell 脚本编写，也不默认迁移到 zsh/fish。
 
 ```text
-/nano-prompt 一个赛博朋克女孩在霓虹雨夜中行走
-/nano-prompt 宫崎骏风格的中国古建筑风景
+$bash-completion 输入 git 后没有自动建议，Ctrl-R 和 Tab 都正常，帮我找原因
+$bash-completion 在新机器上配置 Bash 补全，先只做只读检查，不要安装
+$bash-completion 发行版 fzf 不支持 --bash，但有 key-bindings.bash，要不要升级
 ```
 
-无显式参数，直接描述画面即可。输出含创意/光线/氛围/环境/相机/颜色/纹理/风格/细节/负面等分层结构。详情见 [SKILL.md](skills/nano-prompt/SKILL.md)。
+无固定 CLI 参数，用自然语言说明目标环境与现象即可。默认先做只读基线，再按授权分阶段变更并保留回滚。
+
+<details>
+<summary>辅助脚本</summary>
+
+| 脚本 | 说明 | 默认值 |
+|------|------|--------|
+| `scripts/probe-bash.sh` | POSIX sh 静态探针：进程模式、TTY、locale、工具路径、启动文件存在性 | 无参数 |
+| `scripts/verify-pty.py --tests <项> --timeout <秒>` | 实验性 PTY 验证器，按 `readiness`、`tab`、`fzf-history`、`fzf-files`、`fzf-dirs`、`ble` 分项验证 | 干净 Bash + 临时 HOME，`--timeout 15` |
+| `scripts/verify-pty.py --user-config` | 加载真实用户启动文件后才验真实配置，非沙箱 | 关闭 |
+
+探针不执行找到的工具、不 source 配置、不输出配置正文。两者只在已选定的 Unix 环境内运行，不负责连接和提权。未指定远程目标时先问，不从提权后的 HOME 推断配置对象。
+
+</details>
+
+详情见 [SKILL.md](skills/bash-completion/SKILL.md)。
+
+---
+
+### chatgpt-web-skill
+
+在 `agents-op` ChatGPT Project 中生成、编辑或审阅图片。操作依赖 `agent-browser`。
+
+默认不使用 ChatGPT Search 或 Deep Research。使用前，Agent 必须说明理由并取得当次授权。不得把本 Skill 用作通用外站浏览或抓取工具。
+
+```text
+$chatgpt-web-skill 在 agents-op 中生成一张简洁的蓝色立方体图
+$chatgpt-web-skill 审阅当前 chat 附带的商品主图，并给出可执行改图建议
+$chatgpt-web-skill visual-review 上传一张商品主图，按 S1 文字完整、S2 无裁切审查
+$chatgpt-web-skill -t 整理统一经验库
+```
+
+只接入已登录的浏览器。连接失败时提示配置方式，不启动新浏览器。
+
+默认最多生成或编辑 3 轮图片。`visual-review` 每次只上传一张图。审查结果使用中文 YAML。仅当状态为 `VISUAL_PASSED` 时，流程可以继续。
+
+<details>
+<summary>参数</summary>
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `[图片任务]` | 生图、编辑或审阅图片的需求；Research 必须另获当次授权 | 无 |
+| `-t [主题]` / `--trim [主题]` | 本地与实时 UI 核验后逐主题讨论统一经验整理；最终 `ok` 后原子改写、合并或删除全库经验 | 全部经验 |
+| `--cdp` / `-c <port-or-url>` / `AGENT_BROWSER_CDP_PORT` | 只接入已登录浏览器；优先级为参数 > 环境变量 > 用户级 `agent-browser` 配置的 `cdp` > `9222` | `9222` |
+| `--tab <tab-id>` | 每次脚本命令前切换到实时 tab list 返回的稳定任务 tab ID | 不传 |
+| `browser_task.py acquire/status/action/release` | 通过已登录 CDP 浏览器运行；以临时 lease 管理 URL 精确复用或 `--force-new` 专用 tab | 同 CDP 优先级 |
+| `runtime_checks.py project/images/message` | 机械验证 Project 双证据、生成图尺寸或 prompt 渲染；仍需实时 snapshot 复核 | 按当前 session |
+| `project_locator.py --tab <tab-id> --name <project>` / `--new-tab` | 从实时 sidebar 精确匹配 Project 行并点击同行 `Open project home`；返回浏览器实际导航的 `/project` URL 与页面证据 | `agents-op` |
+| `image_exporter.py --selector <css>` / `--url <image-url>` | 在指定登录 Tab 的浏览器上下文中导出图像到 `--output`；多图时选择靠近聊天框的可见图 | 无 |
+| `visual-review` | 上传一张图片，按 `S` 编号标准获得严格中文 YAML 审查 | `VISUAL_PENDING` fail-closed |
+| `experience_memory.py read [--full]/status/append/trim` | 读取、原子追加或按确认计划整理统一的脱敏经验 | `%USERPROFILE%` 或 `~/.config` |
+| `experience_memory.py trim --plan <file> --confirm ok` | 用户回复 `ok` 后整理全库。每项改写、合并或删除必须有非空 `evidence` | 不自动执行 |
+
+</details>
+
+参数中列出三种 CDP 配置方式：
+
+- 脚本参数 `-c <port-or-url>`。
+- 环境变量 `AGENT_BROWSER_CDP_PORT`。
+- 用户级配置 `~/.agent-browser/config.json`，例如 `{ "cdp": 9222 }`。
+
+直接调用示例：
+
+```text
+python skills/chatgpt-web-skill/scripts/run_agent_browser.py -c <port-or-url> --tab <tab-id> <command>
+```
+
+PowerShell 中，元素引用（ref）必须加引号。
+
+详情见 [README.md](skills/chatgpt-web-skill/README.md)。
+
+---
+
+### claude-proj-skill-linker
+
+把项目 `.agents/skills` 下的 skill 通过目录链接接入 `.claude/skills`，并把 `.claude` 中的实体 skill 迁移到 `.agents`。依赖 Node.js ≥ 20。
+
+```bash
+node <skill-dir>/scripts/link-skills.mjs --project-root <root>                    # 只读预览，输出 JSON 与 digest
+node <skill-dir>/scripts/link-skills.mjs --project-root <root> --skill my-skill   # 只预览指定 skill
+node <skill-dir>/scripts/link-skills.mjs --project-root <root> --apply --expect <digest>  # 确认后执行
+```
+
+`--expect` 必须来自紧邻的预览。状态变化时，CLI 返回 `STALE`；必须重新预览确认。
+
+项目根、`.agents` 和 `.claude` 必须是实体目录。CLI 拒绝使用链接目录作为容器。
+
+<details>
+<summary>参数</summary>
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `--project-root <dir>` | 被整理的项目根目录 | 当前工作目录 |
+| `--skill <name>` | 只处理指定 skill，可重复传入 | 两侧全部子项 |
+| `--apply` | 执行变更 | false（只读预览） |
+| `--expect <digest>` | 执行时必填，必须匹配最新预览的摘要 | 无 |
+| `--help` / `-h` | 输出帮助 | - |
+
+</details>
+
+详情见 [SKILL.md](skills/claude-proj-skill-linker/SKILL.md)。
+
+---
+
+### codex-windows-hooks-fix
+
+修复 Windows 上 Codex hooks 的入口、输出和路径问题。
+
+常见症状包括：
+
+- `SessionStart`、`UserPromptSubmit`、`PreToolUse` 或 `Stop` 报 hook failed。
+- 输出出现 `invalid JSON output`。
+- 入口直接使用 `sh`、`python3` 或 `.sh`。
+- `PreToolUse` 输出 `decision=allow`。
+- 配置中的路径展开错误。
+
+```text
+$codex-windows-hooks-fix Windows 上 PreToolUse hook 报 invalid pre-tool-use JSON output，pre-tool-use.ps1 输出了 decision=allow，帮我修
+$codex-windows-hooks-fix codex 在 Windows 启动时报 SessionStart/UserPromptSubmit hook failed，hooks.json 里用了 sh 和 python3
+```
+
+无显式参数。诊断与验证顺序如下：
+
+1. 读取真实 `hooks.json` 和 hook 脚本。
+2. 执行最小修复。
+3. 用 `Test-Json` 检查 JSON。
+4. 直接执行配置中注册的命令。
+5. 用 `codex exec` 验证真实 hook 链路。
+
+详情见 [README.md](skills/codex-windows-hooks-fix/README.md)。
+
+---
+
+### debug-instrumentation
+
+为调试问题生成、采集和分析带统一 token 的临时日志埋点，完成后按确认流程清理。
+
+```text
+$debug-instrumentation 这个异步 bug 偶发，帮我在 submitOrder 和 refreshStatus 加日志追踪
+$debug-instrumentation 我已经加了一些 log，日志在 E:\logs\worker.log，帮我看看 [DBG_worker-retry 前缀的输出
+```
+
+日志统一以 `[DBG_<语义标签>_<4位随机字符>]` 开头。新建前会检索历史 `[DBG_]`，命中后可选择清理后新增、沿用现有或仅新增；多标签在写入前一次确认。分析结束后默认先询问是否清理，展示 diff 后再等待最终确认。
+
+详情见 [SKILL.md](skills/debug-instrumentation/SKILL.md)。
+
+---
+
+### deep-investigation
+
+调查公共事件、组织、人物、政策或商业议题。
+
+报告区分已证实事实、当事方主张、推断和未知。
+
+```text
+$deep-investigation 调查某公司收购案：还原关键时间线、交易关系、争议证据与可能后续
+```
+
+近期或持续演变的事件会主动联网。可用子智能体时按事实、关系、反证分支独立调查后综合。
+
+<details>
+<summary>参数</summary>
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `<调查话题>` | 需要还原的事件、对象或争议；可包含时间、地域、主体和关注问题 | 必填 |
+
+</details>
+
+详情见 [SKILL.md](skills/deep-investigation/SKILL.md)。
+
+---
+
+### dockerhub-mirror
+
+诊断 Docker Hub 拉取卡顿与失败。
+
+检查范围包括网络、TLS、token 和限流错误。
+
+获得授权后，工具可以探测和排序镜像候选。它也可以发现新候选或维护候选缓存。
+
+```text
+$dockerhub-mirror 排查 docker pull nginx:1.27 卡住的问题
+node "skills/dockerhub-mirror/bin/dockerhub-mirror.mjs" --dry-run --image nginx:1.27
+```
+
+工具只输出建议的 `docker pull` 命令。它不修改 Docker daemon 配置，也不执行镜像拉取。
+
+授权分两步：
+
+1. 用户回复 `ok`，确认讨论结论。
+2. Agent 展示计划，等待用户回复 `授权执行`。
+
+两步结束前，只能使用 `--dry-run`。收到执行授权后，才可以运行写入缓存的模式。
+
+<details>
+<summary>参数</summary>
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `--dry-run` | 只读探测，不写入本地候选缓存 | 未授权时使用 |
+| `--image <镜像>` | 为这个镜像引用生成替代 `docker pull` 命令；不参与探测 | 不传 |
+| `--deep` | 额外探测首字节延迟与有限 Blob 吞吐量 | `false` |
+| `--scrape` / `-f` | 发现新候选镜像源并写入缓存。必须先取得执行授权 | `false` |
+| `--add` / `--remove` / `--retry-quarantine` | 维护缓存中的候选记录，同样需要写授权 | 无 |
+| `--list` / `--quarantine` | 不联网列出 active 或隔离记录 | 无 |
+| `--json` / `--verbose` | 输出机器可读 JSON，或附带原始指标 | 无 |
+| `--config <path>` / `--timeout <ms>` / `--concurrency <n>` / `--max-age <days>` | 覆盖缓存路径、超时、并发与过期阈值 | 见 `config/defaults.json` |
+
+内置探测固定使用 `config/defaults.json` 中的 `testImage`，与 `--image` 无关。
+
+</details>
+
+详情见 [README.md](skills/dockerhub-mirror/README.md)。
+
+---
+
+### engineering-method-selector
+
+根据工程问题推荐方法组合，必须手动调用。
+
+推荐依据包括工程活动、目标产物和质量属性。输出包含执行约束和证据验证方式。
+
+```text
+$engineering-method-selector 为订单系统增加退款能力，需求复杂且担心边界遗漏
+$engineering-method-selector 排查线上偶发支付超时，日志不完整，如何选择排障方法
+$engineering-method-selector 比较 CQRS 与 CRUD，重点看扩展性、性能和团队成本
+```
+
+默认只输出工程诊断卡，不主动执行改码、部署或生产变更；建议始终绑定可观察证据。
+
+<details>
+<summary>参数</summary>
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `[工程问题]` | 目标、上下文、约束、风险、阶段或待改进产物；可自然语言描述 | 无 |
+
+</details>
+
+详情见 [SKILL.md](skills/engineering-method-selector/SKILL.md)。
 
 ---
 
@@ -180,33 +399,241 @@ AI 图像提示词生成，基于 Nano Banana Pro 的核心提示技巧，输出
 /ffmpeg-video-processing 检查这个文件的编码、分辨率和时长
 ```
 
-无显式参数，用自然语言描述处理目标。本机缺少 `ffmpeg`/`ffprobe` 时需先提供路径或确认下载。详情见 [SKILL.md](skills/ffmpeg-video-processing/SKILL.md)。
+无显式参数，用自然语言描述处理目标。
+
+本机缺少 `ffmpeg` 或 `ffprobe` 时，必须提供路径或确认下载。Skill 不猜测路径，也不静默换用其他编码器。
+
+详情见 [SKILL.md](skills/ffmpeg-video-processing/SKILL.md)。
 
 ---
 
-### codex-windows-hooks-fix
+### gemin-mirror
 
-修复 Windows 环境中 Codex hooks 报错，尤其是 `SessionStart`、`UserPromptSubmit`、`PreToolUse`、`Stop` 的 hook failed、`invalid JSON output`、裸 `sh/python3/.sh`、`decision=allow` 与路径展开问题。
+操作 Gemini 或兼容镜像站：探查页面、切换账号与管理会话。必须复用已有 CDP 浏览器标签页，并先确认本次授权范围。
 
 ```text
-$codex-windows-hooks-fix Windows 上 PreToolUse hook 报 invalid pre-tool-use JSON output，pre-tool-use.ps1 输出了 decision=allow，帮我修
-$codex-windows-hooks-fix codex 在 Windows 启动时报 SessionStart/UserPromptSubmit hook failed，hooks.json 里用了 sh 和 python3
+$gemin-mirror 调查当前账号和账号面板，不做修改
+$gemin-mirror 切换指定账号并唯一核验活动邮箱，列出当前会话数
+$gemin-mirror 在已授权账号中删除全部会话，并生成审计记录
 ```
 
-无显式参数。默认流程是先调查真实 `hooks.json` 和 hook 脚本，再做最小改动，最后用 `Test-Json`、直接执行注册命令和 `codex exec` 子进程验证真实 hook 链路。详情见 [README.md](skills/codex-windows-hooks-fix/README.md)。
+删除优先 API-first。账号证据、请求模板或刷新复核不通过时停止。
+
+<details>
+<summary>参数（按入口区分）</summary>
+
+**API 入口**：`scripts/delete-sessions-via-api.mjs`
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `--expected-account <账号标识>` | 必填；与页面唯一活动账号证据精确匹配 | 无 |
+| `--confirm-delete` | 实际删除的必填确认标记 | false |
+| `--dry-run` | 核验账号、捕获请求模板并统计候选，不发送删除请求；仍会操作浏览器并写审计 | false |
+| `--origin <URL>` / `GEMINI_MIRROR_ORIGIN` | 允许操作的页面 origin | 默认适配器 |
+| `--at-global-path <路径>` / `GEMINI_MIRROR_AT_GLOBAL_PATH` | 覆盖 API 动态 `at` 的页面全局路径 | 默认适配器 |
+| `--concurrency <数量>` / `--max-retries <次数>` / `--wait-ms <毫秒>` | API 删除的并发、重试与刷新等待 | 4 / 3 / 1200 |
+
+**DOM 入口**（用户明确选择的回退）：`scripts/delete-current-account-sessions.mjs`
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `--delete-text <文本>` / `GEMINI_MIRROR_DELETE_TEXT` | 覆盖 DOM 删除按钮文案 | `删除` |
+| `--chat-selector <CSS>` / `GEMINI_MIRROR_CHAT_SELECTOR` | 覆盖原生会话项选择器 | 默认适配器 |
+| `--active-account-selector <CSS>` / `GEMINI_MIRROR_ACTIVE_ACCOUNT_SELECTOR` | 覆盖活动账号证据选择器 | 默认适配器 |
+| `--login-failure-text <文本>` / `GEMINI_MIRROR_LOGIN_FAILURE_TEXT` | 覆盖登录失效文案 | `登录已失效` |
+
+**通用**
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `--cdp <端口>` / `CDP_PORT` | 覆盖 CDP 端口 | `9696` |
+| `--session <名称>` / `AGENT_BROWSER_SESSION` | 覆盖 browser session | 当前项目路径派生值 |
+| `--audit <路径>` | 覆盖本地 JSONL 审计路径 | 系统临时目录 |
+| `--confirm-delete-all` | 多账号入口 `delete-candidate-accounts.mjs` 的必填确认标记 | false |
+
+运行时认证参数只在内存中使用。审计日志只记录账号短哈希。
+
+</details>
+
+默认适配器的站点契约见 [site-map.md](skills/gemin-mirror/references/site-map.md)，完整流程与审计规则见 [SKILL.md](skills/gemin-mirror/SKILL.md)。
 
 ---
 
-### ntl-script-descriptions
+### git-history-cleaner
 
-为包含 `package.json` 的项目补充 `ntl` 可读取的 scripts 中文说明，写入 `package.json#ntl.descriptions`。
+清理 Git 仓库历史中的特定文件或目录以减小仓库体积。
 
 ```text
-$ntl-script-descriptions 帮这个前端项目补齐 package scripts 的中文说明，给 ntl 用
-$ntl-script-descriptions package.json 里已有 ntl.descriptions，不要覆盖，只补缺失项
+$git-history-cleaner --repo /path/to/repo --path bin/ --dry-run
+$git-history-cleaner --repo /path/to/repo --path "*.log" --auto
 ```
 
-无显式参数。默认保留已有说明，覆盖所有 scripts（包括 `pre*` / `post*`），写入后校验 JSON 并输出新增、保留、冲突和孤儿说明清单。详情见 [SKILL.md](skills/ntl-script-descriptions/SKILL.md)。
+改写历史会改变提交 ID。执行前会创建 `.git` 备份；检测到远程仓库时会提示后续需要手动 `git push --force`。
+
+<details>
+<summary>参数</summary>
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `--repo` | 仓库路径 | 当前目录 |
+| `--path` | 要删除的路径模式；支持目录、精确路径和 glob | 必填 |
+| `--dry-run` | 只分析历史，不创建备份、不改写历史 | false |
+| `--auto` | 自动模式，无需确认 | false |
+
+</details>
+
+详情见 [SKILL.md](skills/git-history-cleaner/SKILL.md)。
+
+---
+
+### git-up
+
+规划和执行 Git 提交，也可以维护 `.gitignore`。
+
+提交计划可以先讨论、再调整。提交任务可以完全委派给一个子智能体。
+
+简单、安全的 `-pc/-pcP` 任务自动采用快车道。
+
+```text
+/git-up --plan, -p      # 分析 diff，在会话中输出 YAML 提交计划
+/git-up --discuss, -d   # 轻量讨论提交计划，最多 1-3 个关键问题
+/git-up --modify <内容>  # 根据反馈调整计划并重新输出
+/git-up --commit, -c    # 优先用 Python fast path 执行会话中的计划
+/git-up --sub-agent, -s 仅提交 skills/git-up  # 委派一个子智能体执行 git-up -pc
+/git-up --ignore, -i       # 自动识别技术栈，直接创建或增量维护 .gitignore
+/git-up -l en --plan     # 使用英文输出计划、讨论问题和 commit message
+/git-up                  # 直接生成 commit message
+```
+
+计划保存在对话上下文中。`-p` 与 `-c` 必须在同一会话。
+
+`--push/-P` 必须与 `-c`、`-pc` 或 `-s` 组合。它不支持单独 push，也不自动创建 upstream。
+
+`-s` 后的文字限定提交范围。子智能体无法满足范围要求时，必须停止。父智能体不得改为自行提交。
+
+<details>
+<summary>参数与模式</summary>
+
+模式：plan / discuss / modify / commit / plan+commit / commit+push / plan+commit+push / sub-agent / sub-agent+push / ignore / default。
+
+| 简写 | 等价 | 作用 |
+|------|------|------|
+| `-p` | `--plan` | 输出 YAML 提交计划 |
+| `-d` | `--discuss` | 围绕计划逐个提出 1-3 个关键问题，每问给推荐答案 |
+| `-c` | `--commit` | 执行会话中的计划 |
+| `-P` | `--push` | 提交成功后 push |
+| `-s` | `--sub-agent` | 创建子智能体同步执行 `git-up -pc` |
+| `-i` | `--ignore` | 维护 `.gitignore` |
+| `-l <zh\|en>` | `--lang` | 控制输出语言，默认 `zh` |
+
+- `-pcP` / `--plan --commit --push` 一步规划、提交并 push。
+- `-sP`、`-s -P`、`--sub-agent --push` 让子智能体执行 `git-up -pcP`。
+- `-s` 不得与其他主模式混用，包括 `-p`、`-c`、`-d`、`--modify` 和 `-i`。它可以与 `-l/--lang` 组合。
+- `-i` 自动识别 Node.js/Python 项目。它只增量加入高置信度规则，并附中文用途说明。
+- `.env` 默认不纳入忽略规则。
+- 指定技术栈参数时，只维护对应技术栈的规则。
+- 自定义规则使用 `--add <规则> --reason <说明>`。
+- `--clean` 只预览重复项。删除时必须同时传入 `--apply`。
+- 网络或传输失败时，push 最多重试 3 次。
+- 认证、权限、无 upstream 或 non-fast-forward 错误不重试。
+- `-l/--lang` 影响计划说明、讨论问题、commit subject/body 和最终汇报；type/scope/emoji、文件路径和命令保持原样。
+
+</details>
+
+详情见 [README.md](skills/git-up/README.md)。
+
+---
+
+### joint-debugging
+
+用于手动协调本地、远程、容器、代码与接口的技术联调、故障诊断、验证和修复。
+
+```text
+$joint-debugging 排查登录接口在容器环境中偶发超时，并按证据链提出最小修复与验证步骤
+```
+
+每次回复以 `主线：第 n/total 轮｜当前阶段` 开始；严格按环境基线、证据分级、授权范围、脱敏和验证标准推进。
+
+<details>
+<summary>参数</summary>
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `[待处理事项]` | 联调、诊断、验证或修复协调目标；不传时仅询问目标 | 无 |
+
+</details>
+
+详情见 [SKILL.md](skills/joint-debugging/SKILL.md)。
+
+---
+
+### lite-team
+
+手动角色协作，按需用 BBS 协作板交接；不自动编排、不自动读取。调用全用自然语言：
+
+```text
+切换到开发角色
+给测试 Agent 留一条交接：登录异常分支已完成，需验证错误凭证、重复提交和超时。
+切换到测试角色（或"假设你是测试"）
+读取协作板
+任务结束，帮我归档
+```
+
+> 嫌长可用极简词：`role <角色名>` / `bbs init|read|write` / `done`，与上述说法等价。它们是对话简写，**不是**注册的 slash 命令或 skill 参数。
+
+不得在 BBS 写入密钥或 Token。协作板会纳入 Git 版本管理。
+
+- `message` 最多 7 条。
+- `history` 最多 9 条。
+- 每条历史摘要不超过 120 字。
+
+<details>
+<summary>脚本命令（Python 3 ≥ 3.8，统一用 <code>python3</code>）</summary>
+
+| 命令 | 说明 |
+|------|------|
+| `init` | 初始化协作板 |
+| `add` | 写入一条交接（自动生成 id，守 7 条上限与 500 字软约束） |
+| `status` | 查看消息数量 |
+| `clear --yes` | 清空当前消息，保留历史 |
+| `archive --summary` | 确认归档后写入历史 |
+
+</details>
+
+详情见 [README.md](skills/lite-team/README.md)。
+
+---
+
+### nano-prompt
+
+AI 图像提示词生成，基于 Nano Banana Pro 的核心提示技巧，输出 YAML 格式的分层提示词结构。
+
+```text
+/nano-prompt 一个赛博朋克女孩在霓虹雨夜中行走
+/nano-prompt 宫崎骏风格的中国古建筑风景
+```
+
+无显式参数，直接描述画面。
+
+输出使用分层 YAML。字段包括创意、光线、氛围、环境、相机、颜色、纹理、风格、细节和负面提示。
+
+详情见 [SKILL.md](skills/nano-prompt/SKILL.md)。
+
+---
+
+### network-debug
+
+手动触发的跨平台网络故障诊断技能，按分层证据定位首个失败边界。
+
+```text
+$network-debug 排查当前主机访问目标 API 的 DNS、TCP、TLS 与代理问题
+```
+
+无显式参数。调用时描述平台、目标、现象和错误信息。
+
+Skill 必须手动调用，默认用中文回复。命令和技术标识保留英文原文。技术标识包括错误串、协议名、产品名、配置键和路径。
+
+详情见 [SKILL.md](skills/network-debug/SKILL.md)。
 
 ---
 
@@ -219,39 +646,194 @@ $npm-license-declaration 为当前项目生成 npm 第三方依赖许可证声�
 $npm-license-declaration 检查 E:\project\portal，并输出 docs/npm-license-declaration.md
 ```
 
-无显式参数。读取 `dependencies` 与 `devDependencies` 后去重排序，统一查询 npm Registry 的 latest 元数据；npm 查询失败时仅用 `package-lock.json` 或 `yarn.lock` 的 `resolved` URL 兜底。许可证未知或不在内置分级中的包会列为“⚪ 不可用”，需手动核实。详情见 [SKILL.md](skills/npm-license-declaration/SKILL.md)。
+无显式参数。依赖范围是 `dependencies` 与 `devDependencies`。Skill 对依赖去重排序后，查询 npm Registry 的 latest 元数据。
+
+查询失败时，只使用 lock 文件中的原始 `resolved` URL 兜底。
+
+许可证未知或未纳入内置分级时，包被标为「⚪ 不可用」。这些包必须手动核实。
+
+详情见 [SKILL.md](skills/npm-license-declaration/SKILL.md)。
 
 ---
 
-### joint-debugging
+### ntl-script-descriptions
 
-用于手动协调本地、远程、容器、代码与接口的技术联调、故障诊断、验证和修复。
+为包含 `package.json` 的项目补充 `ntl` 可读取的 scripts 中文说明，写入 `package.json#ntl.descriptions`。
 
 ```text
-$joint-debugging 排查登录接口在容器环境中偶发超时，并按证据链提出最小修复与验证步骤
+$ntl-script-descriptions 帮这个前端项目补齐 package scripts 的中文说明，给 ntl 用
+$ntl-script-descriptions package.json 里已有 ntl.descriptions，不要覆盖，只补缺失项
 ```
 
-| 参数 | 说明 | 默认值 |
-|------|------|--------|
-| `[待处理事项]` | 联调、诊断、验证或修复协调目标；不传时仅询问目标 | 无 |
+无显式参数。默认保留已有说明，覆盖所有 scripts（包括 `pre*` / `post*`），写入后校验 JSON 并输出新增、保留、冲突和孤儿说明清单。
 
-无额外命令参数。每次回复以 `主线：第 n/total 轮｜当前阶段` 开始；严格按环境基线、证据分级、授权范围、脱敏和验证标准推进。详情见 [SKILL.md](skills/joint-debugging/SKILL.md)。
+详情见 [SKILL.md](skills/ntl-script-descriptions/SKILL.md)。
 
 ---
 
-### deep-investigation
+### pro-grilling
 
-对公共事件、组织、人物、政策或商业议题做证据优先的深度调查复盘，区分已证实事实、主张、推断与未知。
+手动讨论复杂目标、依赖、风险和取舍。
+
+每轮只问一个最影响后续判断的问题。Agent 可以执行低成本的只读核验。用户决定目标、偏好、优先级和关键取舍。
+
+用户确认 `ok` 前，不得执行实际操作或输出最终方案。
 
 ```text
-$deep-investigation 调查某公司收购案：还原关键时间线、交易关系、争议证据与可能后续
+$pro-grilling 评估是否把现有单体前端拆成微前端，并厘清迁移边界
+$pro-grilling 我们要重做登录态方案，但先把安全、兼容和上线风险讨论清楚
 ```
+
+Codex 使用 `$pro-grilling` 显式调用。调查档位为「直接继续 / 快速核验 / 充分调查」，只有结论或后续路径可能改变时才会询问选择。
+
+<details>
+<summary>参数</summary>
 
 | 参数 | 说明 | 默认值 |
 |------|------|--------|
-| `<调查话题>` | 需要还原的事件、对象或争议；可包含时间、地域、主体和关注问题 | 必填 |
+| `[待讨论事项]` | 需要逐层澄清的计划、决策或复杂任务；不传时会先询问事项 | 无 |
 
-无额外命令参数。近期或持续演变事件会主动联网；可用子智能体时按事实、关系、反证分支独立调查后综合。详情见 [SKILL.md](skills/deep-investigation/SKILL.md)。
+</details>
+
+详情见 [SKILL.md](skills/pro-grilling/SKILL.md)。
+
+---
+
+### progressive-doc
+
+创建、改写或审查中文技术文章。
+
+文章分两层：速览提供行动依据，正文展开证据、机制和适用边界。
+
+```text
+$progressive-doc 写一篇面向后端工程师的 Redis 缓存一致性教程
+$progressive-doc 审查这篇事故复盘，标出证据缺口和未核验论断
+```
+
+事实不足时会标注未知、推断与建议，不补造证据。
+
+<details>
+<summary>参数</summary>
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `[文章任务]` | 科普、教程、调查、对比、架构分析、事故复盘或观点文章的创建、改写与审查需求 | 必填 |
+| `[目标读者]` | 读者角色与技术水平；会影响文章结构和技术深度 | 根据上下文推断 |
+| `[交付范围]` | 大纲、初稿、改写、审查或发布后复盘 | 根据请求判断 |
+
+</details>
+
+详情见 [SKILL.md](skills/progressive-doc/SKILL.md)。
+
+---
+
+### project-self-memory
+
+非简单项目任务开始时，读取相关项目记忆。
+
+任务结束后，只保存经过验证且可以复用的结论。记录范围包括事实、长期决策和避坑经验。
+
+```text
+node skills/project-self-memory/scripts/memory.mjs init
+node skills/project-self-memory/scripts/memory.mjs read --type pitfall
+node skills/project-self-memory/scripts/memory.mjs add --type fact --content-file conclusion.txt
+node skills/project-self-memory/scripts/memory.mjs --project-root E:\repo diagnose
+```
+
+活动目录固定为 `.project-self-memory/`；`self-memory/` 仅能通过 `legacy` 命令只读迁移。所有命令均可附 `--project-root <path>`。不记录凭据、个人数据、易失机器状态或未经验证推断。
+
+<details>
+<summary>命令族</summary>
+
+| 命令 | 说明 | 默认值 |
+|------|------|--------|
+| `init` / `validate` / `diagnose` | 初始化、严格校验、输出库健康摘要 | 当前项目根目录 |
+| `read` / `catalog` / `inspect` | 人读的 active 经验、分组目录、维护 JSON | `read` 仅 active |
+| `add` / `update` / `status` / `delete` | 用文件或 stdin 传正文维护记录 | ID 永不复用 |
+| `score` / `merge` / `groups` / `legacy` / `config` | 评分、合并、计划式分组与迁移、自动行为配置 | 标准库 Node CLI |
+| `migrate-schema` | v1 明确报告无可迁移前版；未知版本拒绝 | 当前格式为 v1 |
+
+命令语法、JSON 输出和退出语义见 [cli-contract.md](skills/project-self-memory/references/cli-contract.md)。
+
+</details>
+
+详情见 [README.md](skills/project-self-memory/README.md)。
+
+---
+
+### rd-mode
+
+远程开发模式规则，约束 host/server 协作并统一通过 `abc` 命令操作 host 浏览器（CDP）。
+
+```text
+rd-mode --init   # 首次使用，问答补全 RHost / CDP_PORT，写入 ~/.config/rd-mode/.env
+```
+
+<details>
+<summary>参数</summary>
+
+| 参数 | 说明 |
+|------|------|
+| `--init` | 生成本地配置（`RHost`、`CDP_PORT`） |
+
+</details>
+
+host/server 架构、`abc` 用法与故障排查见 [README.md](skills/rd-mode/README.md)。
+
+---
+
+### software-license-checker
+
+评估软件在企业内部使用场景下的许可证、授权与潜在付费要求。结论是公开信息基础上的合规预警，不构成正式法律意见。
+
+```text
+$software-license-checker 检查 FFmpeg 是否可以在企业内部使用
+$software-license-checker TensorFlow 企业内部研发使用是否需要付费
+```
+
+无显式参数，直接描述待评估的软件与使用场景即可。只覆盖公司内部安装与使用；SaaS 对外服务、嵌入产品分发、OEM 与转售不在范围内。
+
+详情见 [README.md](skills/software-license-checker/README.md)。
+
+---
+
+### subagent-router
+
+为并行任务、上下文隔离、模型路由或独立复核创建临时子 Agent。
+
+工具仅通过原生 `native_spawn` 创建子 Agent。默认先展示预览，再等待用户准确回复 `okok`。它不要求创建 `.codex/agents/*.toml`。
+
+```text
+$subagent-router -t 调查登录失败的前后端原因，并独立复核修复方案
+$subagent-router -gs 讨论支付模块迁移的边界、风险和验收方式
+$subagent-router -l 并行梳理项目结构、检查缺陷并分析测试覆盖
+$subagent-router -f -t 直接实施已明确的多 Agent 修复任务，跳过 okok 确认
+```
+
+- Luna 只能作为不派生子 Agent 的末级子 Agent。
+- Terra、Sol 可以在预览中的额度内继续派生。
+- 所有策略默认最多创建 5 个临时子 Agent。
+
+模型、范围、权限、验证或额度发生实质变化时，必须重新展示预览。用户必须再次单独回复 `okok`。
+
+<details>
+<summary>参数</summary>
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `[任务]` | 待评估、调度或讨论的工作事项 | 无 |
+| `-l` / `--luna` | 成本优先；优先窄范围 Luna 叶节点工作 | 默认策略 |
+| `-t` / `--terra` | 平衡策略；适合普通实现、测试和需要嵌套的任务 | 无 |
+| `-s` / `--sol` | 质量优先策略；提高 Sol 与复核倾向，而非强制全部使用 Sol | 无 |
+| `-g` / `--grilling` | 先进入单问题、只读调查讨论门禁 | 关闭 |
+| `-f` / `--fast` | 跳过用户 `okok` 确认；不绕过范围、权限、验证或 delegation envelope 校验 | 关闭 |
+| `-gl` / `-gt` / `-gs` | 同时记录讨论完成后的路由策略 | 无 |
+
+辅助脚本：`node skills/subagent-router/scripts/route-decision.mjs --help`（预览派生决策）、`validate-worker-contract.mjs --help`（校验 Worker 契约）、`verify-router-skill.mjs --help`（静态检查）。
+
+</details>
+
+详情见 [README.md](skills/subagent-router/README.md)。
 
 ---
 
@@ -264,252 +846,45 @@ $tool-evaluator 比较 uv、Poetry 与 PDM：Windows 开发、团队锁定依赖
 $tool-evaluator 推荐可自托管的 API 文档平台：开源、Docker 部署、支持 OpenAPI，维护成本要低
 ```
 
+支持指定候选比较和探索筛选两种模式。
+
+先检查硬性门槛（Gate），淘汰不合格方案。通过者按证据等级（L1/L2/L3）和场景权重比较。敏感性分析检查权重变化是否改变结论。
+
+未经明确授权，只提供概念验证（POC）方案。不得安装或运行候选工具。
+
+<details>
+<summary>参数</summary>
+
 | 参数 | 说明 | 默认值 |
 |------|------|--------|
 | `<候选工具或需求>` | 已指定的候选列表，或用于探索筛选的目标、环境与约束 | 必填 |
 
-无额外命令参数。默认按候选比较或探索筛选模式工作，先以 Gate 淘汰不合格方案，再以 L1/L2/L3 证据、动态权重和敏感性分析给出可追溯结论；未经明确授权只提供 POC 方案，不安装或运行候选工具。详情见 [SKILL.md](skills/tool-evaluator/SKILL.md)。
+</details>
 
----
-
-### debug-instrumentation
-
-为调试问题生成、采集和分析带统一 token 的临时日志埋点，完成后按确认流程清理。
-
-```text
-$debug-instrumentation 这个异步 bug 偶发，帮我在 submitOrder 和 refreshStatus 加日志追踪
-$debug-instrumentation 我已经加了一些 log，日志在 E:\logs\worker.log，帮我看看 [DBG_worker-retry 前缀的输出
-```
-
-无显式参数。日志统一以 `[DBG_<语义标签>_<4位随机字符>]` 开头；新建前会检索历史 `[DBG_]`，命中后可选择清理后新增、沿用现有或仅新增，多标签在写入前一次确认。分析结束后默认先询问是否清理，展示 diff 后再等待最终删除确认。详情见 [SKILL.md](skills/debug-instrumentation/SKILL.md)。
-
----
-
-### agent-human-debug
-
-由 Agent 作为唯一接待者、人类作为执行端的跨平台故障诊断框架。先识别环境，再选择最小只读 probe；结果统一脱敏为 `debug_report`，优先复制剪切板，失败后回退到终端和临时文件。
-
-```text
-$agent-human-debug 排查 Windows 本地服务调用接口偶发超时
-$agent-human-debug 联调容器中的前后端问题，要求每轮只执行一段 PowerShell 脚本
-```
-
-| 参数 | 说明 | 默认值 |
-|------|------|--------|
-| `[待处理事项]` | 联调、诊断、验证或修复目标，可补充环境、约束和期望证据 | 无 |
-
-无额外命令参数。默认只读、证据优先；不默认创建文件、保存日志、安装工具或上传完整信息。任何修改都必须单独说明影响、风险、回滚与验证方式，并取得针对当前操作的明确授权。详情见 [README.md](skills/agent-human-debug/README.md)。
-
----
-
-### rd-mode
-
-远程开发模式规则，约束 host/server 协作并统一通过 `abc` 命令操作 host 浏览器（CDP）。
-
-```text
-rd-mode --init   # 首次使用，问答补全 RHost / CDP_PORT，写入 ~/.config/rd-mode/.env
-```
-
-| 参数 | 说明 |
-|------|------|
-| `--init` | 生成本地配置（`RHost`、`CDP_PORT`） |
-
-详情、host/server 架构、`abc` 用法与故障排查见 [README.md](skills/rd-mode/README.md)。
-
----
-
-### lite-team
-
-手动角色协作，按需用 BBS 协作板交接；不自动编排、不自动读取。调用全用自然语言（说人话）：
-
-```text
-切换到开发角色
-给测试 Agent 留一条交接：登录异常分支已完成，需验证错误凭证、重复提交和超时。
-切换到测试角色（或“假设你是测试”）
-读取协作板
-任务结束，帮我归档
-```
-
-> 嫌长可用极简词：`role <角色名>` / `bbs init|read|write` / `done`，与上述说法等价。它们是对话简写，**不是**注册的 slash 命令或 skill 参数。
-
-脚本命令（Python 3，≥3.8，统一用 `python3`）：
-
-| 命令 | 说明 |
-|------|------|
-| `init` | 初始化协作板 |
-| `add` | 写入一条交接（自动生成 id，守 7 条上限与 500 字软约束） |
-| `status` | 查看消息数量 |
-| `clear --yes` | 清空当前消息，保留历史 |
-| `archive --summary` | 确认归档后写入历史 |
-
-BBS 会提交 Git，勿写密钥/Token；message 最多 7 条，history 最多 9 条。详情见 [README.md](skills/lite-team/README.md)。
-
----
-
-### gemin-mirror
-
-操作 Gemini 或兼容镜像站：探查页面、切换账号与管理会话。必须复用已有 CDP 浏览器标签页，并先确认本次授权范围；删除优先 API-first，账号证据、请求模板或刷新复核不通过时会停止。
-
-```text
-$gemin-mirror 调查当前账号和账号面板，不做修改
-$gemin-mirror 切换指定账号并唯一核验活动邮箱，列出当前会话数
-$gemin-mirror 在已授权账号中删除全部会话，并生成审计记录
-```
-
-脚本调用示例（先使用 `--dry-run` 验证，不会点击确认删除）：
-
-```powershell
-node skills/gemin-mirror/scripts/delete-sessions-via-api.mjs --expected-account "name@example.com" --dry-run
-node skills/gemin-mirror/scripts/delete-sessions-via-api.mjs --expected-account "name@example.com" --confirm-delete
-# 仅默认适配器：依次切换并删除运行时发现的候选账号
-node skills/gemin-mirror/scripts/delete-candidate-accounts.mjs --confirm-delete-all --session my-project-session
-```
-
-| 参数 | 说明 | 默认值 |
-|------|------|--------|
-| `--expected-account <账号标识>` | 必填；与页面唯一活动账号证据精确匹配 | 无 |
-| `--confirm-delete` | 实际删除的必填确认标记；`--dry-run` 不需要 | false |
-| `--dry-run` | 只验证删除交互，不点击最终确认按钮 | false |
-| `--origin <URL>` / `GEMINI_MIRROR_ORIGIN` | 允许操作的页面 origin | 默认适配器 |
-| `--cdp <端口>` / `CDP_PORT` | 覆盖 CDP 端口 | `9696` |
-| `--session <名称>` / `AGENT_BROWSER_SESSION` | 覆盖 browser session | 当前项目路径派生值 |
-| `--chat-selector <CSS>` / `GEMINI_MIRROR_CHAT_SELECTOR` | 覆盖原生会话项选择器 | 默认适配器 |
-| `--active-account-selector <CSS>` / `GEMINI_MIRROR_ACTIVE_ACCOUNT_SELECTOR` | 覆盖活动账号证据选择器 | 默认适配器 |
-| `--login-failure-text <文本>` / `GEMINI_MIRROR_LOGIN_FAILURE_TEXT` | 覆盖登录失效文案 | `登录已失效` |
-| `--delete-text <文本>` / `GEMINI_MIRROR_DELETE_TEXT` | 覆盖 DOM 删除按钮文案 | `删除` |
-| `--at-global-path <路径>` / `GEMINI_MIRROR_AT_GLOBAL_PATH` | 覆盖 API 动态 `at` 的页面全局路径 | 默认适配器 |
-| `--concurrency <数量>` / `--max-retries <次数>` / `--wait-ms <毫秒>` | API 删除的并发、重试与刷新等待 | 4 / 3 / 1200 |
-| `--audit <路径>` | 覆盖本地 JSONL 审计路径 | 系统临时目录 |
-| `--confirm-delete-all` | 多账号入口的必填确认标记 | false |
-
-运行时认证参数只在内存中使用。无固定自然语言参数；按任务描述声明操作类别、目标账号和是否允许破坏性操作。审计日志只记录账号短哈希。默认适配器的站点契约见 [site-map.md](skills/gemin-mirror/references/site-map.md)，完整流程见 [SKILL.md](skills/gemin-mirror/SKILL.md)。
-
----
-
-### project-self-memory
-
-在非简单项目任务开始时读取项目记忆，并在完成后仅沉淀已验证、可复用的事实、长期决策和避坑结论。
-
-```text
-node skills/project-self-memory/scripts/memory.mjs init
-node skills/project-self-memory/scripts/memory.mjs read --type pitfall
-node skills/project-self-memory/scripts/memory.mjs add --type fact --content-file conclusion.txt
-node skills/project-self-memory/scripts/memory.mjs --project-root E:\repo diagnose
-```
-
-| 参数 | 说明 | 默认值 |
-|------|------|--------|
-| `init` / `validate` / `diagnose` | 初始化、严格校验、输出库健康摘要 | 当前项目根目录 |
-| `read` / `catalog` / `inspect` | 人读的 active 经验、分组目录、维护 JSON | `read` 仅 active |
-| `add` / `update` / `status` / `delete` | 用文件或 stdin 传正文维护记录 | ID 永不复用 |
-| `score` / `merge` / `groups` / `legacy` / `config` | 评分、合并、计划式分组与迁移、自动行为配置 | 标准库 Node CLI |
-| `migrate-schema` | v1 明确报告无可迁移前版；未知版本拒绝 | 当前格式为 v1 |
-
-活动目录固定为 `.project-self-memory/`；`self-memory/` 仅能通过 `legacy` 命令只读迁移。所有命令均可附 `--project-root <path>`。不记录凭据、个人数据、易失机器状态或未经验证推断。详情、计划 JSON 和完整参数见 [README.md](skills/project-self-memory/README.md)。
-
----
-
-### pro-grilling
-
-在需要逐层厘清复杂目标、依赖、风险和取舍时手动调用。每轮只问一个高信息增益问题；可自行核验低成本的只读事实，但目标、偏好、优先级和关键取舍始终由用户决定。未确认“ok”前，不会执行实际操作或输出最终方案。
-
-```text
-$pro-grilling 评估是否把现有单体前端拆成微前端，并厘清迁移边界
-$pro-grilling 我们要重做登录态方案，但先把安全、兼容和上线风险讨论清楚
-```
-
-| 参数 | 说明 | 默认值 |
-|------|------|--------|
-| `[待讨论事项]` | 需要逐层澄清的计划、决策或复杂任务；不传时会先询问事项 | 无 |
-
-Codex 使用 `$pro-grilling` 显式调用。调查档位为“直接继续 / 快速核验 / 充分调查”，只有结论或后续路径可能改变时才会询问选择。详情见 [SKILL.md](skills/pro-grilling/SKILL.md)。
-
----
-
-### engineering-method-selector
-
-显式调用的工程方法论选择器：把用户上下文路由到问题分类、工程活动、产物、质量属性和方法组合，并输出约束与证据验证。
-
-```text
-$engineering-method-selector 为订单系统增加退款能力，需求复杂且担心边界遗漏
-$engineering-method-selector 排查线上偶发支付超时，日志不完整，如何选择排障方法
-$engineering-method-selector 比较 CQRS 与 CRUD，重点看扩展性、性能和团队成本
-```
-
-| 参数 | 说明 | 默认值 |
-|------|------|--------|
-| `[工程问题]` | 目标、上下文、约束、风险、阶段或待改进产物；可自然语言描述 | 无 |
-
-默认只输出工程诊断卡，不主动执行改码、部署或生产变更；建议始终绑定可观察证据。详情见 [SKILL.md](skills/engineering-method-selector/SKILL.md)。
-
----
-
-### subagent-router
-
-在任务可并行、需要隔离上下文、模型路由或独立复核时调用：只使用原生 native_spawn，通过精简预览和一次精确 okok 授权临时 Worker；它不要求创建 .codex/agents/*.toml。
-
-Luna 可作为叶节点 Worker，但 Luna 主线程或 Luna Worker 都不能派生子智能体；Terra、Sol 可在预先展示的派生额度内继续嵌套。预览只列角色目标、模型/reasoning、权限范围、验证方式和派生额度；模型、范围、权限、验证或额度实质变化后，必须展示新预览并重新收到独立 okok。
-
-```text
-$subagent-router -t 调查登录失败的前后端原因，并独立复核修复方案
-$subagent-router -gs 讨论支付模块迁移的边界、风险和验收方式
-$subagent-router -l 并行梳理项目结构、检查缺陷并分析测试覆盖
-$subagent-router -f -t 直接实施已明确的多 Agent 修复任务，跳过 okok 确认
-```
-
-| 参数 | 说明 | 默认值 |
-|------|------|--------|
-| `[任务]` | 待评估、调度或讨论的工作事项 | 无 |
-| `-l` / `--luna` | 成本优先；优先窄范围 Luna 叶节点工作 | 默认策略 |
-| `-t` / `--terra` | 平衡策略；适合普通实现、测试和需要嵌套的任务 | 无 |
-| `-s` / `--sol` | 质量优先的完整路由策略；提高 Sol/复核倾向而非强制全部使用 Sol | 无 |
-| `-g` / `--grilling` | 先进入单问题、只读调查讨论门禁 | 关闭 |
-| `-f` / `--fast` | 跳过用户 `okok` 确认，条件完整后直接开始实施；不绕过范围、权限、验证或 delegation envelope 校验 | 关闭 |
-| `-gl` / `-gt` / `-gs` | 同时记录讨论完成后的路由策略 | 无 |
-
-所有策略默认最多 5 个临时子 Agent；更高总量须写入预览的派生额度。策略不是模型锁。默认上下文为 minimal，任何模型、推理强度、权限、上下文、工作区或派生额度变化均不得静默替换。可用确定性辅助脚本预览派生决策、校验 Worker 契约和静态检查 Skill：node skills/subagent-router/scripts/route-decision.mjs --help、node skills/subagent-router/scripts/validate-worker-contract.mjs --help、node skills/subagent-router/scripts/verify-router-skill.mjs --help。详情见 [README.md](skills/subagent-router/README.md)。
-
----
-
-### chatgpt-web-skill
-
-依赖 `agent-browser` skill 与 CLI，在指定的 `agents-op` ChatGPT Project 中生成、编辑或审阅图片时使用。ChatGPT Search / Deep Research 不是默认行为，发送前必须说明理由并取得当次明确授权；不得将其用作通用外站浏览或抓取工具。
-
-```text
-$chatgpt-web-skill 在 agents-op 中生成一张简洁的蓝色立方体图
-$chatgpt-web-skill 审阅当前 chat 附带的商品主图，并给出可执行改图建议
-$chatgpt-web-skill visual-review 上传一张商品主图，按 S1 文字完整、S2 无裁切审查
-$chatgpt-web-skill -t 整理统一经验库
-```
-
-| 参数 | 说明 | 默认值 |
-|------|------|--------|
-| `[图片任务]` | 生图、编辑或审阅图片的需求；Research 必须另获当次授权 | 无 |
-| `-t [主题]` / `--trim [主题]` | 本地与实时 UI 核验后逐主题讨论统一经验整理；最终 `ok` 后原子改写、合并或删除全库经验 | 全部经验 |
-| `--cdp/-c <port-or-url>` / `AGENT_BROWSER_CDP_PORT` | 只接入已登录浏览器；优先级为参数 > 环境变量 > 用户级 `agent-browser` 配置的 `cdp` > `9222`。端口和 URL 都先经 `agent-browser connect` 绑定当前 session | `9222` |
-| `--tab <tab-id>` | 每次脚本命令前切换到实时 tab list 返回的稳定任务 tab ID，避免读取其他 CDP tab | 不传 |
-| `browser_task.py acquire/status/action/release` | 必须通过已登录 CDP 浏览器运行；以临时 lease 管理 URL 精确复用或 `--force-new` 专用 tab，动作前后保存 snapshot，release 只关闭本次创建的 tab | 同 CDP 优先级 |
-| `runtime_checks.py project/images/message` | 机械验证 Project 双证据、生成图尺寸或 prompt 渲染；仍需实时 snapshot/截图复核 | 按当前 session |
-| `project_locator.py --tab <tab-id> --name <project>` / `--new-tab` | 从当前 sidebar 精确匹配 Project 行并点击同一行的 `Open project home`；`--new-tab` 通过 agent-browser 创建任务页并返回 lease，终态需 release；均返回浏览器实际导航的 `/project` URL 与页面证据 | `agents-op` |
-| `image_exporter.py --selector <css>` / `--url <image-url>` | 在指定登录 Tab 的浏览器上下文中读取并自动导出图像到 `--output`；多图选择靠近聊天框的可见图，校验 MIME/非空 | 无 |
-| `visual-review` | 上传一张图片，按 `S` 编号标准获得严格中文 YAML 审查并本地计算视觉状态 | `VISUAL_PENDING` fail-closed |
-| `experience_memory.py read [--full]/status/append/trim` | 读取、原子追加或按确认计划整理统一的脱敏经验；warning 由 Agent 立即中文提醒 | `%USERPROFILE%` 或 `~/.config` |
-| `experience_memory.py append --group <group> ...` | 向预置或已有分组追加已验证经验；自定义分组需逐步加 `--create-group` | `--group` 必填 |
-| `experience_memory.py trim --plan <file> --confirm ok` | 仅在用户明确回复 `ok` 后整理全库；改写、合并、删除动作均须有非空 `evidence` | 不自动执行 |
-
-可通过 `python skills/chatgpt-web-skill/scripts/run_agent_browser.py -c <port-or-url> --tab <tab-id> <command>` 直接指定 CDP；也可设置 `AGENT_BROWSER_CDP_PORT`，或在 Windows `%USERPROFILE%\.agent-browser\config.json`、macOS/Linux `~/.agent-browser/config.json` 写入 `{ "cdp": 9222 }`。若均未设置，脚本尝试 `9222`；连接失败会提示这些配置方式且不启动新浏览器。当前 tab 不在 Project 首页时先用 `project_locator.py` 从实时 sidebar 取得浏览器实际导航 URL，跨命令任务可通过 `browser_task.py` 获取 lease 并在动作前后保存 snapshot，`runtime_checks.py` 将 Project 双证据、提交状态和图片可见/尺寸检查下沉为结构化结果，图片已出现在 snapshot 时会立刻截图返回，避免无效等待。`visual-review` 由调用方决定触发：仅上传一张图片，固定提示词要求模型只返回一个中文 YAML 代码块；其中逐项列出 `S` 标准检查、缺陷和改进建议。本地按 `critical`、`major`、`minor` 严格计算 `VISUAL_*`，仅 `VISUAL_PASSED` 可继续流程；它不删除或修改 chat。`experience_memory.py` 独占维护统一经验库；trim 计划须覆盖每条原始经验一次，改写、合并和删除须附非空 `evidence`，并仅接受 `--confirm ok`。全库 trim 成功后才更新文件记录版本与计数。DOM selector/ref、视觉质量和授权判断仍须实时验证。PowerShell 中 ref 必须加引号，且 Enter 后须确认用户消息已渲染。详情见 [README.md](skills/chatgpt-web-skill/README.md)。
+详情见 [SKILL.md](skills/tool-evaluator/SKILL.md)。
 
 ---
 
 ### tutor-man
 
-用自适应的费曼式掌握等级，快速掌握工具、概念、方法或混合主题；默认从 `L4` 开始，并通过最小成功、扩展、轻量验证和针对性修复形成闭环。
+用自适应的费曼式掌握等级，快速掌握工具、概念、方法或混合主题；默认从 `L4` 开始。
 
 ```text
 $tutor-man L4 Docker
 $tutor-man L3+L5 Git rebase
 $tutor-man L2 一步一步讲清 HTTP 缓存
 ```
+
+默认用中文回复。`L3`–`L5` 默认包含一次轻量掌握检查。
+
+涉及以下知识时，Skill 先核验当前资料：
+
+- 版本快速变化的知识。
+- 当前实现。
+- 存在争议的知识。
+
+<details>
+<summary>参数</summary>
 
 | 参数 | 说明 | 默认值 |
 |------|------|--------|
@@ -518,18 +893,25 @@ $tutor-man L2 一步一步讲清 HTTP 缓存
 | `[主题]` | 要学习的工具、概念、方法或混合主题 | 必填 |
 | `一步一步` / `全部讲完` / `只讲原理` / `跳过验证` | 调整教学节奏、范围或验证方式的自然语言要求 | 按默认流程 |
 
-注意：默认使用中文回复；涉及版本快速变化、当前实现或存在争议的知识时，Skill 会先核验当前资料；`L3`–`L5` 默认包含一次轻量掌握检查。详情见 [SKILL.md](skills/tutor-man/SKILL.md)。
+</details>
+
+详情见 [SKILL.md](skills/tutor-man/SKILL.md)。
 
 ---
 
 ### website-state-sync-agent
 
-用于在已打开或临时隔离的 Chrome 实例之间迁移加密网站 Cookie、`localStorage` 和 `sessionStorage`；任务方法包括 `export`、`import`、`sync` 和 `validate`。
+用于在已打开或临时隔离的 Chrome 实例之间迁移加密网站 Cookie、`localStorage` 和 `sessionStorage`。
 
 ```text
 $website-state-sync-agent 导出当前页面状态
 $website-state-sync-agent 将来源 CDP 的登录态同步到目标页面
 ```
+
+运行配置只从环境变量读取。默认密码 `1599` 只适合本地快速验证，共享或生产环境必须显式设置 `WEBSET_STATE_SYNC_PASSWORD`。
+
+<details>
+<summary>参数</summary>
 
 | 参数 | 说明 | 默认值 |
 |------|------|--------|
@@ -539,116 +921,17 @@ $website-state-sync-agent 将来源 CDP 的登录态同步到目标页面
 | `WEBSET_STATE_SYNC_PASSWORD` | 状态包加密与解密密码 | `1599`（建议显式设置） |
 | `WEBSET_STATE_SYNC_CDP_URLS` / `WEBSET_STATE_SYNC_CDP_URL` | CDP HTTP 服务地址 | 无 |
 
-运行配置只从环境变量读取；默认密码 `1599` 适合本地快速验证，共享或生产环境请显式设置 `WEBSET_STATE_SYNC_PASSWORD`。来源/主开发仓库：[ccwq/website-state-sync-tools-cat](https://github.com/ccwq/website-state-sync-tools-cat)；集中管理与安装入口：[ccwq/ccwq-skill-list](https://github.com/ccwq/ccwq-skill-list)。详情见 [SKILL.md](skills/website-state-sync-agent/SKILL.md)。
+</details>
 
----
-
-### aria-filedown
-
-只在用户显式调用，或普通下载已发生网络异常且用户同意切换时使用；不会自动接管下载。当前目标的下载切换授权不等同于 aria2 安装授权。
-
-```text
-$aria-filedown 使用代理下载 https://example.com/model.zip 到 ./downloads
-python scripts/aria2-wrapper.py -p http://localhost:7897 -- https://example.com/file.zip
-```
-
-| 参数 | 说明 | 默认值 |
-|------|------|--------|
-| `--proxy <URL>` / `-p <URL>` | 本次下载或 aria2 安装使用的代理，优先级最高 | 无 |
-| `--install` | 缺少 aria2c 时安装；仍需先获得安装目录确认 | `false` |
-| `--install-dir <目录>` | aria2 安装目录 | `ARIA2C` 或无 |
-| `--progress <模式>` | `auto`、`tty`、`jsonl`、`off` | `auto` |
-
-代理优先级为命令行 > 进程环境 > 项目 `.env`，每层内 `ARIA2_PROXY` > `PROXY`。项目 `.env` 位于 Git 根目录；代理凭据不会回显。详情见 [SKILL.md](skills/aria-filedown/SKILL.md)。
-
----
-
-### dockerhub-mirror
-
-诊断 Docker Hub 拉取卡顿、网络/TLS/token/限流错误；可在授权后探测、排序、发现或维护镜像候选。默认只输出建议的 `docker pull` 命令，不会修改 Docker daemon 配置或执行镜像拉取。
-
-```text
-$dockerhub-mirror 排查 docker pull nginx:1.27 卡住的问题
-node "skills/dockerhub-mirror/bin/dockerhub-mirror.mjs" --dry-run --image nginx:1.27
-```
-
-| 参数 | 说明 | 默认值 |
-|------|------|--------|
-| `--dry-run` | 只读探测，不写入本地候选缓存 | 建议在未授权时使用 |
-| `--image <镜像>` | 指定待诊断的 Docker Hub 镜像引用 | `library/busybox:1.36.1` |
-| `--deep` | 额外探测首字节延迟与有限 Blob 吞吐量 | `false` |
-| `--scrape` / `-f` | 发现新的候选镜像源；会写入缓存，需先完成 Skill 约定的授权门禁 | `false` |
-
-未达成 `ok` 共识前仅允许 `--dry-run`；收到 `ok` 后仍须展示范围明确的计划，并等到 `授权执行` 才能运行任何可写分支。详情见 [README.md](skills/dockerhub-mirror/README.md)。
-
----
-
-### progressive-doc
-
-使用渐进式披露结构创建、改写或审查中文技术文章，先交付可行动的速览，再用证据、机制和边界展开深度正文。
-
-```text
-$progressive-doc 写一篇面向后端工程师的 Redis 缓存一致性教程
-$progressive-doc 审查这篇事故复盘，标出证据缺口和未核验论断
-```
-
-| 参数 | 说明 | 默认值 |
-|------|------|--------|
-| `[文章任务]` | 科普、教程、调查、对比、架构分析、事故复盘或观点文章的创建、改写与审查需求 | 必填 |
-| `[目标读者]` | 读者角色与技术水平；会影响文章结构和技术深度 | 根据上下文推断 |
-| `[交付范围]` | 大纲、初稿、改写、审查或发布后复盘 | 根据请求判断 |
-
-事实不足时会标注未知、推断与建议，不补造证据；完整流程见 [SKILL.md](skills/progressive-doc/SKILL.md)。
-
----
-
-### bash-completion
-
-配置、安装或排查 Bash 补全体验：普通 Tab 候选、fzf 模糊选择与快捷键、ble.sh 实时建议/语法高亮、zoxide 跳转，以及各组件的启动顺序与冲突。适用于“输入命令没提示”“Tab 不补全”“Ctrl-R 失效”；不用于普通 shell 脚本编写，也不默认迁移到 zsh/fish。
-
-```text
-$bash-completion 输入 git 后没有自动建议，Ctrl-R 和 Tab 都正常，帮我找原因
-$bash-completion 在新机器上配置 Bash 补全，先只做只读检查，不要安装
-$bash-completion 发行版 fzf 不支持 --bash，但有 key-bindings.bash，要不要升级
-```
-
-辅助脚本（按需调用，脚本本身不连接主机、不提权）：
-
-| 脚本 | 说明 | 默认值 |
-|------|------|--------|
-| `scripts/probe-bash.sh` | POSIX sh 静态探针：进程模式、TTY、locale、工具路径、启动文件存在性；不执行找到的工具、不 source 配置、不输出配置正文 | 无参数 |
-| `scripts/verify-pty.py --tests <项> --timeout <秒>` | 实验性 PTY 验证器，按 `readiness`、`tab`、`fzf-history`、`fzf-files`、`fzf-dirs`、`ble` 分项验证 | 干净 Bash + 临时 HOME，`--timeout 15` |
-| `scripts/verify-pty.py --user-config` | 加载真实用户启动文件后才验真实配置，非沙箱 | 关闭 |
-
-无固定 CLI 参数，用自然语言说明目标环境与现象即可。默认先做只读基线，再按授权分阶段变更并保留回滚；未指定远程目标时先问，不从提权后的 HOME 推断配置对象。探针与验证器只在已选定的 Unix 环境内运行，不负责连接和提权。详情见 [SKILL.md](skills/bash-completion/SKILL.md)。
-
----
-
-### claude-proj-skill-linker
-
-把项目 `.agents/skills` 下的 skill 通过目录链接接入项目 `.claude/skills`，并把 `.claude` 中的实体 skill 迁移到 `.agents`。依赖 Node.js ≥ 20。
-
-```bash
-node <skill-dir>/scripts/link-skills.mjs --project-root <root>                    # 只读预览，输出 JSON 与 digest
-node <skill-dir>/scripts/link-skills.mjs --project-root <root> --skill my-skill   # 只预览指定 skill
-node <skill-dir>/scripts/link-skills.mjs --project-root <root> --apply --expect <digest>  # 确认后执行
-```
-
-| 参数 | 说明 | 默认值 |
-|------|------|--------|
-| `--project-root <dir>` | 被整理的项目根目录 | 当前工作目录 |
-| `--skill <name>` | 只处理指定 skill，可重复传入 | 两侧全部子项 |
-| `--apply` | 执行变更 | false（只读预览） |
-| `--expect <digest>` | 执行必填，须匹配最新预览的摘要 | 无 |
-| `--help` / `-h` | 输出帮助 | - |
-
-`--expect` 必须来自紧邻的预览，参数范围与预览一致，状态变化时报 `STALE` 需重新预览确认；成功需通过 CLI 输出与入口状态核对。项目根及 `.agents`/`.claude` 容器必须是实体目录，链接容器被拒绝。详情见 [SKILL.md](skills/claude-proj-skill-linker/SKILL.md)。
+来源仓库：[ccwq/website-state-sync-tools-cat](https://github.com/ccwq/website-state-sync-tools-cat)。详情见 [SKILL.md](skills/website-state-sync-agent/SKILL.md)。
 
 ---
 
 ### wechat-headlines
 
-根据文章正文、简短要点、链接或文件生成与优化微信公众号标题，默认给出六条不同方向的候选并首推一条。
+根据正文、要点、链接或文件生成与优化微信公众号标题。
+
+默认提供六条不同方向的候选，并推荐其中一条。
 
 ```text
 $wechat-headlines 根据这篇正文生成标题：<粘贴正文或要点>
@@ -656,9 +939,30 @@ $wechat-headlines https://example.com/post/123  （按链接正文起标题）
 $wechat-headlines 更短、更尖锐一些，换三个方向  （按反馈迭代）
 ```
 
-无显式参数，直接提供正文、要点、链接或文件等本次材料与要求即可。默认先给初稿再按反馈调整；链接只读取目标内容，不扩展外部资料。标题承诺必须能在正文兑现，不虚构实测与效果。详情见 [SKILL.md](skills/wechat-headlines/SKILL.md)。
+无显式参数，直接提供本次材料与要求。材料可以是正文、要点、链接或文件。
+
+默认先给初稿，再按反馈调整。输入为链接时，只读取目标内容，不扩展外部资料。
+
+标题承诺必须在正文中兑现。不得虚构实测与效果。
+
+详情见 [SKILL.md](skills/wechat-headlines/SKILL.md)。
 
 ---
+
+## 维护主分组
+
+`npx skills add ccwq/ccwq-skill-list` 的交互选择器会把 `.env` 中 `MAIN_LIST` 列出的 Skill 放在 `ccwq-skill-list` 主分组；其余已发现的 `skills/*/SKILL.md` 自动归入 `Other`。
+
+链路是 `MAIN_LIST` → 同步脚本 → `.claude-plugin/plugin.json` → 外部 `skills` CLI。安装端消费的是生成的 `plugin.json`，不是 `.env`。
+
+修改清单后执行：
+
+```bash
+npm run sync:main-skills
+npm run check:main-skills
+```
+
+`MAIN_LIST` 是逗号分隔的 Skill 名列表，必须指向存在的 `skills/<name>/SKILL.md`。生成文件 `.claude-plugin/plugin.json` 不手工编辑。
 
 ## 目录结构
 
