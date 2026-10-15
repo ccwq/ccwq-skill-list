@@ -19,7 +19,7 @@ disable-model-invocation: true
 
 输出完整的 YAML 格式提示词，结构如下：
 
-`yaml
+```yaml
 创意: 核心主题/主体描述
 光线: 光线类型、色温、方向
 氛围: 情感氛围关键词
@@ -30,7 +30,7 @@ disable-model-invocation: true
 风格: 风格锚点（1-2个）
 细节: 微细节关键词（1-3词触发）
 负面: 需要避免的元素
-`
+```
 
 ## 使用流程
 
@@ -79,7 +79,7 @@ disable-model-invocation: true
 **用户输入**："一个赛博朋克女孩在霓虹雨夜中行走"
 
 **输出**：
-`yaml
+```yaml
 创意: 赛博朋克风格女孩肖像，霓虹雨夜
 光线: 
   类型: 霓虹边缘光
@@ -108,12 +108,11 @@ disable-model-invocation: true
   - 无卡通感
   - 无过饱和
   - 无多余肢体
-`
+```
 
 ## 技巧速查
 
-详细技巧请参考 
-eferences/技巧指南.md，包含：
+详细技巧见 [references/技巧指南.md](references/技巧指南.md)，包含：
 - 七大细节桶详解
 - 相机参数对照表
 - 微细节关键词库
