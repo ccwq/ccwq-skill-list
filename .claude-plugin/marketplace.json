@@ -123,7 +123,7 @@
     {
       "name": "project-self-memory",
       "source": "./skills/project-self-memory",
-      "description": "项目级结论记忆 Node CLI：在 .project-self-memory 中严格维护经验、评分、分组、配置和 legacy 迁移；Skill 负责策展与证据边界",
+      "description": "项目级结论记忆 Node CLI：维护经验、评分、分组、配置和 legacy 迁移；人工策展与评分共享自适应逐问进度，按具体操作授权写入",
       "version": "2.0.0",
       "category": "devtools"
     },

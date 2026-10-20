@@ -60,7 +60,7 @@ npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code --
 | `ntl-script-descriptions` | 为 package.json 补充 ntl 可读取的 scripts 中文说明 | [速查](#ntl-script-descriptions) · [SKILL](skills/ntl-script-descriptions/SKILL.md) |
 | `pro-grilling` | 手动逐层厘清复杂决策，在共同理解前保持只读 | [速查](#pro-grilling) · [SKILL](skills/pro-grilling/SKILL.md) |
 | `progressive-doc` | 用渐进式披露结构创建、改写或审查中文技术文章 | [速查](#progressive-doc) · [SKILL](skills/progressive-doc/SKILL.md) |
-| `project-self-memory` | 维护项目级结论记忆、评分、分组与 legacy 迁移 | [速查](#project-self-memory) · [README](skills/project-self-memory/README.md) |
+| `project-self-memory` | 维护项目级结论记忆，支持自适应逐问策展、评分、分组与 legacy 迁移 | [速查](#project-self-memory) · [README](skills/project-self-memory/README.md) |
 | `rd-mode` | 远程开发模式规则，统一通过 `abc` 命令操作 host 浏览器 | [速查](#rd-mode) · [README](skills/rd-mode/README.md) |
 | `software-license-checker` | 评估软件企业内部使用的许可证合规与付费风险 | [速查](#software-license-checker) · [README](skills/software-license-checker/README.md) |
 | `subagent-router` | 预览并确认后临时创建子 Agent，支持动态模型路由 | [速查](#subagent-router) · [README](skills/subagent-router/README.md) |
@@ -732,6 +732,20 @@ $progressive-doc 审查这篇事故复盘，标出证据缺口和未核验论断
 非简单项目任务开始时，读取相关项目记忆。
 
 任务结束后，只保存经过验证且可以复用的结论。记录范围包括事实、长期决策和避坑经验。
+
+```text
+/project-self-memory -g
+/project-self-memory -r
+/project-self-memory -g -r
+```
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `-g` / `--grilling` | 逐问盘点新增、修订、合并、冲突和迁移候选 | 显式调用或自然语言要求盘点时进入 |
+| `-r` / `--rate` | 讨论本会话实际使用、有结果且尚未评分的记录 | 每条每会话最多评分一次 |
+| `-g -r` / `-r -g` | 组合策展与评分，共享讨论进度 | 参数顺序不影响进度 |
+
+讨论量默认预计约 3 轮、复杂时可展开；以结论和具体操作授权为准，详见 [讨论轮次与结束条件](skills/project-self-memory/SKILL.md#讨论轮次与结束条件)。
 
 ```text
 node skills/project-self-memory/scripts/memory.mjs init
