@@ -766,10 +766,19 @@ node skills/project-self-memory/scripts/memory.mjs --project-root E:\repo diagno
 | `add` / `update` / `status` / `delete` | 用文件或 stdin 传正文维护记录 | ID 永不复用 |
 | `score` / `merge` / `groups` / `legacy` / `config` | 评分、合并、计划式分组与迁移、自动行为配置 | 标准库 Node CLI |
 | `migrate-schema` | v1 明确报告无可迁移前版；未知版本拒绝 | 当前格式为 v1 |
+| `viewer install` / `viewer update` / `viewer status` | 部署、按官方哈希升级、检查紧凑查看器 | 随 `init` 自动安装 |
 
 命令语法、JSON 输出和退出语义见 [cli-contract.md](skills/project-self-memory/references/cli-contract.md)。
 
 </details>
+
+紧凑查看器（本机只读为主、可编辑正文/类型/状态）：
+
+```text
+node .project-self-memory/view-memoery.js
+```
+
+输出带 `#token=` 的本机地址；只监听 127.0.0.1；令牌只在进程与页面内存中。写入带备份、原子替换与乐观并发。详见 [viewer.md](skills/project-self-memory/references/viewer.md)。
 
 详情见 [README.md](skills/project-self-memory/README.md)。
 

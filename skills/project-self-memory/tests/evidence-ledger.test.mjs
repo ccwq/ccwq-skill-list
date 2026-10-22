@@ -155,3 +155,38 @@ test('legacy score migration is idempotent', () => {
   assert.equal(inspect(root).positive, 2); assert.equal(inspect(root).negative, 1);
   assert.equal(validateLedger(root).valid, true);
 });
+
+/**
+ * Given：活进程持有的 evidence.lock（当前进程 pid，文件时间被人为改旧）
+ * When：appendEvent 以短超时尝试获取账本锁
+ * Then：拒绝且不得凭锁文件年龄删除活进程的锁
+ * 防回归：凭 mtime 年龄强删活锁，造成账本并发交错写
+ */
+test('live ledger lock is never reclaimed by file age', () => {
+  const root = temp(); init(root); add(root);
+  const lockFile = path.join(root, '.project-self-memory', 'evidence.lock');
+  fs.writeFileSync(lockFile, JSON.stringify({ pid: process.pid, created_at: new Date(Date.now() - 3600e3).toISOString() }));
+  const old = new Date(Date.now() - 3600e3);
+  fs.utimesSync(lockFile, old, old);
+  assert.throws(
+    () => appendEvent(root, { record_id: '0001', record_version: '0000000000000000000000000000000000000000000000000000000000000000', kind: 'human_positive', source: 'manual' }, { timeoutMs: 200 }),
+    (error) => error instanceof Error && /锁超时/.test(error.message),
+  );
+  assert.ok(fs.existsSync(lockFile));
+  fs.unlinkSync(lockFile);
+});
+
+/**
+ * Given：pid 已不存在的陈旧 evidence.lock
+ * When：appendEvent
+ * Then：回收死锁并完成追加
+ * 防回归：崩溃残留锁永久阻断评分
+ */
+test('dead-owner ledger lock is reclaimed', () => {
+  const root = temp(); init(root); add(root);
+  const lockFile = path.join(root, '.project-self-memory', 'evidence.lock');
+  fs.writeFileSync(lockFile, JSON.stringify({ pid: 424242, created_at: new Date().toISOString() }));
+  const result = appendEvent(root, { record_id: '0001', record_version: '0000000000000000000000000000000000000000000000000000000000000000', kind: 'human_positive', source: 'manual' });
+  assert.equal(result.applied, true);
+  assert.ok(!fs.existsSync(lockFile));
+});

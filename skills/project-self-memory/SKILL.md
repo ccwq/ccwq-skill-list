@@ -25,6 +25,16 @@ node scripts/memory.mjs <command> [options]
 
 需要把生命周期接入宿主时，可先使用 [Reference host adapter](references/reference-host.md)。`scripts/reference-host.mjs` 真实调用 `MemorySession` 并返回最终 payload、capabilities、audit 和 end result；它是可运行的参考 seam，不代表生产系统已经接入。安装与验证应遵循 [Disposable-copy 安装卫生](references/install-hygiene.md)。
 
+## 紧凑查看器
+
+`init` 会把自包含单文件查看器部署到 `.project-self-memory/view-memoery.js`。人工浏览或改正文/类型/状态时，优先用它，而不是直接编辑 `memory.md`：
+
+```text
+node .project-self-memory/view-memoery.js
+```
+
+它只监听 127.0.0.1，输出带 `#token=` 的地址；写入走与 CLI 相同的锁、备份、原子替换和乐观并发。部署与升级契约、HTTP 接口和安全模型见 [viewer.md](references/viewer.md)。
+
 正文使用 `--content-file <path>` 或标准输入，避免 shell 转义。常用命令：
 
 ```bash

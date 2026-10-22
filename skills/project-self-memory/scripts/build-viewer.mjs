@@ -1,0 +1,186 @@
+#!/usr/bin/env node
+/**
+ * Builder for the single-file viewer `view-memoery.js`.
+ *
+ * This is deliberately NOT a bundler: it reads the factory modules in a fixed
+ * order, strips their (static, same-directory) imports, rewrites `export`
+ * forms into plain declarations, embeds each transformed source as a factory
+ * expression and emits a deterministic entry that wires the factories
+ * together. No dependency graph scanning, no import rewriting beyond the
+ * known module set, no runtime eval — the emitted factories are plain source.
+ *
+ * Modes:
+ *   node scripts/build-viewer.mjs            write viewer-dist/view-memoery.js + manifest
+ *   node scripts/build-viewer.mjs --check    verify the dist matches sources, write nothing
+ */
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const distDir = path.join(here, '..', 'viewer-dist');
+const distFile = path.join(distDir, 'view-memoery.js');
+const manifestFile = path.join(distDir, 'manifest.json');
+
+/** Fixed build order; every entry is (exported name, source file). */
+const MODULES = [
+  ['store', 'memory-store.mjs'],
+  ['lock', 'memory-lock.mjs'],
+  ['ledger', 'evidence-ledger.mjs'],
+  ['server', 'viewer-server.mjs'],
+  ['page', 'viewer-page.mjs'],
+];
+
+/** Known static imports each module may declare (name → imported bindings). */
+const IMPORTS = {
+  'memory-store.mjs': [],
+  'memory-lock.mjs': ['fs', 'path'],
+  'evidence-ledger.mjs': ['crypto', 'fs', 'path'],
+  'viewer-server.mjs': [],
+  'viewer-page.mjs': [],
+};
+
+function stripImports(source, file) {
+  // Remove lines like: import fs from 'node:fs';  /  import crypto from 'node:crypto';
+  // and multi-line `import { ... } from './x.mjs';` blocks.
+  let out = source.replace(/^import\s+[\w]+\s+from\s+'node:[^']+';\s*$/gm, '');
+  out = out.replace(/^import\s*\{[^}]*\}\s*from\s*'[^']+';\s*$/gms, '');
+  return out;
+}
+
+function rewriteExports(source, file) {
+  let out = source;
+  // `export const NAME =` → `const NAME =`
+  out = out.replace(/^export const /gm, 'const ');
+  // `export function NAME` → `function NAME`
+  out = out.replace(/^export function /gm, 'function ');
+  // Collect exported names for the factory return.
+  const names = new Set();
+  for (const m of source.matchAll(/^export (?:const|function) ([A-Za-z_$][\w$]*)/gm)) names.add(m[1]);
+  // `export { a, b as c };` — not used by our modules; fail loudly if present.
+  if (/^export\s*\{/m.test(source)) throw Error(`构建器不支持 export 列表: ${file}`);
+  if (/^export default/m.test(source)) throw Error(`构建器不支持 export default: ${file}`);
+  return { source: out, names: [...names] };
+}
+
+function safeEmbed(source) {
+  // JSON string, then guard the only HTML-relevant escape: "</script" inside a
+  // <script> block would terminate the element early.
+  return JSON.stringify(source).replace(/<\/script/gi, '<\\/script');
+}
+
+function moduleFactory(name, file) {
+  const raw = fs.readFileSync(path.join(here, file), 'utf8').replace(/^#!.*\n/, '');
+  const stripped = stripImports(raw, file);
+  const { source, names } = rewriteExports(stripped, file);
+  const nodeImports = IMPORTS[file] || [];
+  const params = ['deps', ...nodeImports];
+  const destructure = names.length ? `  return { ${names.join(', ')} };` : '  return {};';
+  const body = [
+    `const ${name}Factory = (${params.join(', ')}) => {`,
+    source,
+    destructure,
+    '};',
+  ].join('\n');
+  return { body, nodeImports };
+}
+
+function build() {
+  const factories = MODULES.map(([name, file]) => moduleFactory(name, file));
+  const nodeModules = [...new Set(factories.flatMap((f) => f.nodeImports).concat(['http']))];
+  const entry = `#!/usr/bin/env node
+/*
+ * view-memoery.js — project-self-memory 紧凑查看器（自包含单文件产物）。
+ *
+ * 由 skills/project-self-memory/scripts/build-viewer.mjs 生成。
+ * 重新生成：node scripts/build-viewer.mjs
+ * 一致性校验（不写文件）：node scripts/build-viewer.mjs --check
+ *
+ * 运行要求：Node 22+（以 Node 24 验证）。无第三方依赖；不访问网络；
+ * 只监听 127.0.0.1；记忆目录固定为脚本旁的 .project-self-memory/。
+ *
+ * 用法：
+ *   node view-memoery.js [--port N]
+ * 输出：带 #token= 的访问地址。令牌只在进程与页面内存中，不写入磁盘。
+ */
+'use strict';
+
+(async () => {
+const [${nodeModules.map((m) => `${m.replace(/^node:/, '')}`).join(', ')}] = await Promise.all([
+${nodeModules.map((m) => `  import('node:${m.replace(/^node:/, '')}').then((m) => m.default || m),`).join('\n')}
+]);
+
+${factories.map((f) => f.body).join('\n\n')}
+
+const store = storeFactory({});
+const lock = lockFactory({}, ${['fs', 'path'].join(', ')});
+const ledger = ledgerFactory({}, ${['crypto', 'fs', 'path'].join(', ')});
+const server = serverFactory({});
+const page = pageFactory({});
+
+const argv = process.argv.slice(2);
+const portFlag = argv.indexOf('--port');
+const port = portFlag >= 0 ? Number(argv[portFlag + 1]) : 0;
+if (!Number.isInteger(port) || port < 0 || port > 65535) {
+  console.error('PSM_VIEWER_ERROR: --port 必须是 0..65535 的整数');
+  process.exit(1);
+}
+
+// Memory directory is pinned next to THIS script; arbitrary paths are refused.
+// 不用 require.resolve：ESM 宿主没有 require。
+const scriptDir = path.dirname(path.resolve(process.argv[1] || '.'));
+const projectRoot = scriptDir;
+const token = crypto.randomBytes(32).toString('hex');
+const { server: httpServer } = server.createViewerServer({
+  fs, path, crypto, http, store, lock, ledger,
+  projectRoot, token, pageHtml: page.VIEWER_PAGE_HTML,
+});
+httpServer.listen(port, '127.0.0.1', () => {
+  const address = httpServer.address();
+  const url = 'http://127.0.0.1:' + address.port + '/#token=' + token;
+  console.log('PSM_VIEWER_URL: ' + url);
+  console.log('记忆目录: ' + path.join(scriptDir, '.project-self-memory'));
+  console.log('只监听本机回环；停止服务请按 Ctrl+C。');
+});
+})().catch((error) => {
+  console.error('PSM_VIEWER_ERROR: ' + error.message);
+  process.exit(1);
+});
+`;
+
+  // 入口不依赖 require（ESM 宿主没有 require），脚本目录用 process.argv[1] 解析。
+  return entry;
+}
+
+function sha(text) { return crypto.createHash('sha256').update(text, 'utf8').digest('hex'); }
+
+function main() {
+  const check = process.argv.includes('--check');
+  const output = build();
+  if (check) {
+    if (!fs.existsSync(distFile)) { console.error('PSM_VIEWER_DRIFT: 产物缺失'); process.exit(1); }
+    const current = fs.readFileSync(distFile, 'utf8');
+    if (current !== output) {
+      console.error('PSM_VIEWER_DRIFT: 产物与源码不一致；运行 node scripts/build-viewer.mjs 重新生成');
+      process.exit(1);
+    }
+    console.log('PSM_VIEWER_CONSISTENT');
+    return;
+  }
+  fs.mkdirSync(distDir, { recursive: true });
+  fs.writeFileSync(distFile, output);
+  const manifest = {
+    name: 'view-memoery.js',
+    hashes: { [sha(output)]: { built_from: MODULES.map(([, f]) => f) } },
+  };
+  let existing = { hashes: {} };
+  if (fs.existsSync(manifestFile)) {
+    try { existing = JSON.parse(fs.readFileSync(manifestFile, 'utf8')); } catch { existing = { hashes: {} }; }
+  }
+  existing.name = manifest.name;
+  existing.hashes = { ...(existing.hashes || {}), ...manifest.hashes };
+  fs.writeFileSync(manifestFile, `${JSON.stringify(existing, null, 2)}\n`);
+  console.log(`PSM_VIEWER_BUILT: ${distFile} (${sha(output).slice(0, 12)})`);
+}
+main();

@@ -25,7 +25,15 @@ node <skill-path>/scripts/memory.mjs evidence inspect --record-id 0001
 
 [查看调用与参数](../../README.md#project-self-memory)。JSON 输出和退出语义见 [CLI contract](references/cli-contract.md)。
 
-必须通过 CLI 读写活动文件。不得直接编辑 `.project-self-memory/` 内的文件。
+必须通过 CLI 或查看器读写活动文件。不得直接编辑 `.project-self-memory/` 内的文件。
+
+人工浏览或修改正文/类型/状态时，可以启动随 `init` 部署的紧凑查看器：
+
+```bash
+node <project-root>/.project-self-memory/view-memoery.js
+```
+
+它只监听 127.0.0.1 并输出带 `#token=` 的地址；写入与 CLI 共用锁、备份与乐观并发。部署、HTTP 契约与安全模型见 [viewer.md](references/viewer.md)。
 
 `self-memory/` 是只读 legacy 来源，只能通过 `legacy` 命令迁移，不能直接编辑。
 

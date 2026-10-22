@@ -184,10 +184,17 @@ function withLock(projectRoot, action, { timeoutMs = 15000 } = {}) {
       acquired = true;
     } catch (error) {
       if (error.code !== 'EEXIST') throw error;
+      // 死锁回收：仅当锁内 pid 已死才删除；读不出 pid 或判活失败一律保留等待，
+      // 不得仅凭锁文件年龄删除可能仍被活进程持有的锁（规格）。
       try {
-        const stat = fs.statSync(lock);
-        if (Date.now() - stat.mtimeMs > timeoutMs * 2) fs.unlinkSync(lock);
-      } catch { /* another writer may have released it */ }
+        const pid = JSON.parse(fs.readFileSync(lock, 'utf8')).pid;
+        if (Number.isSafeInteger(pid) && pid > 0) {
+          try { process.kill(pid, 0); } catch (killError) {
+            if (killError.code === 'ESRCH') fs.unlinkSync(lock); // 进程已死：回收
+            // EPERM 或其他：视为存活，继续等待
+          }
+        }
+      } catch { /* 锁刚好被释放或内容不可读：本轮不删，继续等待 */ }
       if (Date.now() - started >= timeoutMs) throw Error('evidence ledger 锁超时，拒绝写入');
       sleep(15);
     }
