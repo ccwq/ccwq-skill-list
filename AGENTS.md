@@ -1,19 +1,19 @@
-# CLAUDE.md
+# AGENTS.md
 
 ## 项目概述
 
-本项目是 Claude Code 的 Skill 仓库，用于存放和管理各类自定义 Skill。
+本项目是 AGENT 的 Skill 仓库，用于存放和管理各类自定义 Skill。
 
 ## 目录结构
 
 - `skills/` - Skill 存放目录
-- `CLAUDE.md` - 项目配置文档
+- `AGENTS.md` - 项目配置文档
 - `README.md` - 项目说明文档
 
 ## Skill 开发规范
 
 ### 文件结构
-每个 Skill 必须包含 `SKILL.md`（大写）定义文件，可按需附带 `CHANGELOG.md` 及 `agents/`、`references/`、`scripts/` 等辅助目录。`SKILL.md` 是面向 Claude 自动加载的文档；如需面向人类的安装/配置说明，可额外提供 `README.md`（参考 `skills/rd-mode/`）。
+每个 Skill 必须包含 `SKILL.md`（大写）定义文件，可按需附带 `CHANGELOG.md` 及 `agents/`、`references/`、`scripts/` 等辅助目录。`SKILL.md` 是面向 AGENT 自动加载的文档；如需面向人类的安装/配置说明，可额外提供 `README.md`（参考 `skills/rd-mode/`）。
 
 ### 命名规范
 - 使用小写字母和连字符
@@ -34,10 +34,24 @@
 
 ### 新增 / 修改 / 删除 skill 的同步清单
 
-新增、修改、删除或重命名 skill 时，必须同步维护根 README 与 plugin marketplace，避免安装索引和 Claude Code 插件入口不一致：
+新增、修改、删除或重命名 skill 时，必须同步维护根 README 与 plugin marketplace，避免安装索引和 AGENT  插件入口不一致：
 
 1. 「可用 Skill」索引表新增/修改/删除对应行（名称、一句说明、详情链接）。
 2. 「参数速查」新增/修改/删除对应小节（调用示例 + 参数表 + 注意事项 + 详情链接）。
 3. `.claude-plugin/marketplace.json` 的 `plugins` 数组同步新增/修改/删除对应条目，字段至少包含 `name`、`source`、`description`、`version`、`category`；`source` 使用与仓库 skill/plugin 目录匹配的相对路径（如 `./lite-team`）。
 4. 确认 README 详情链接路径真实存在，无断链。
 5. 修改后校验 `.claude-plugin/marketplace.json` 是合法 JSON。
+
+## Agent skills
+
+### Issue tracker
+
+工单与规格使用 Local Markdown，保存在 `.scratch/<feature>/`。详见 `docs/agents/issue-tracker.md`。
+
+### Triage labels
+
+沿用五个默认 triage 角色名称，在本地工单中记录状态。详见 `docs/agents/triage-labels.md`。
+
+### Domain docs
+
+采用 single-context：根目录 `CONTEXT.md` 与 `docs/adr/`。详见 `docs/agents/domain.md`。

@@ -1,4 +1,4 @@
-<!-- <psm-store version="1" next_id="0016" group_dimension="" /> -->
+<!-- <psm-store version="1" next_id="0020" group_dimension="" /> -->
 <!-- <psm id="0001" type="pitfall" status="active" positive="0" negative="0" created_at="2026-08-11T15:41:36Z" last_scored_at="" /> -->
 `.env` 的反斜杠续行必须在执行 `KEY=value` 校验前合并物理行。对逗号分隔的清单，续行处仍需保留分隔符，例如 `aria-filedown,\` 后接下一行；否则会拼成错误的单个名称（如 `aria-filedowndeep-investigation`）。
 
@@ -43,4 +43,16 @@ Windows PowerShell 5.1 将含中文或 emoji 的 YAML 通过 here-string 管道�
 
 <!-- <psm id="0015" type="fact" status="active" positive="0" negative="0" created_at="2026-09-30T08:33:04Z" last_scored_at="" /> -->
 已验证：2026-09-30 补齐 rd-mode 的索引断档。rd-mode 此前已存在于磁盘 `skills/rd-mode`（`.env.example`、`CHANGELOG.md`、`README.md`、`SKILL.md` 四个文件均入库，`skill-zips/rd-mode.zip` 也含全部四个文件）、根 README 的「可用 Skill」索引与「参数速查」，唯一缺口是 `.claude-plugin/marketplace.json` 没有对应条目，且 `.env` 的 `MAIN_LIST` 未包含它。已按 CHANGELOG 最新版本 `1.1.0` 与 `category: devtools` 补入 marketplace（plugins 27→28），并把 `rd-mode` 追加进 `MAIN_LIST`（16→17），`plugin.json` 由 `node scripts/sync-main-skill-manifest.mjs` 重新生成而非手工编辑。可复用的索引一致性核对口径：磁盘 `skills/<name>/SKILL.md` 数量、`marketplace.json` 的 plugins 数量、`skill-zips/*.zip` 数量三者必须相等，README 索引不得缺行；`MAIN_LIST` 只决定 `plugin.json` 的主分组，与 marketplace 条目相互独立，容易只补一处。提交 d09191f，`sync-main-skill-manifest.mjs --check` 输出 `MAIN_SKILL_MANIFEST_VALID`。
+
+<!-- <psm id="0016" type="experience" status="active" positive="0" negative="0" created_at="2026-10-22T03:18:55Z" last_scored_at="" /> -->
+维护带模板的 Skill CLI 时，将 assets 中的模板文件作为唯一来源，按脚本安装位置解析路径，缺失时显式报错，避免内联模板与资源文件双份维护。修改输出路径后，同时核对实际路径、README 和 CLI help；argparse 的子命令摘要在父命令 --help 中，应检查正确层级，不能仅检查子命令 --help。来源：findings.md 的 lite-team 改进记录；静态核验 skills/lite-team/scripts/bbs.py 已采用外置模板，实际 BBS 路径与父级 help 已一致。旧 help 与双模板属于已解决的历史问题，不是待修缺陷。
+
+<!-- <psm id="0017" type="experience" status="active" positive="0" negative="0" created_at="2026-10-22T03:18:55Z" last_scored_at="" /> -->
+Windows 下若初始化契约要求生成文件与模板字节完全一致，优先用 Path.read_bytes()/write_bytes() 复制；默认文本写入可能把 LF 转成 CRLF。字节比较应在 init 完成后、add/archive 等业务修改前进行，否则内容变化会干扰换行问题判断。普通文本编辑并非一律要求 bytes。来源：findings.md 与 progress.md 的历史换行故障记录；静态核验 skills/lite-team/scripts/bbs.py 的模板加载与初始化已使用 bytes。此次未重跑初始化测试，不将历史通过记录当作当前运行证据。
+
+<!-- <psm id="0018" type="experience" status="active" positive="0" negative="0" created_at="2026-10-22T03:18:55Z" last_scored_at="" /> -->
+评估 Skill 时区分管线接通、评分器有效和 Agent 语义能力：mock 成功或满分不能证明 Skill 能指导真实 Agent。SkillOpt-Sleep 的历史 lite-team tasks 未提供结构化 judge，当前本地 mock 实现可按 outcome 标签回退计分；真实评分路径解析失败也可能返回零分。因此总分为零时，应先核对任务/评分契约、原始 response、解析错误与评分理由，再归因于 Skill；摘要不暴露这些信息时，可用同类 Skill+Task 的直接调用辅助诊断，但不能替代正式评估通过。来源：findings.md；静态核验 skill-opt/lite-team-tasks.json、skill-opt/SkillOpt/skillopt_sleep/backend.py 与 __main__.py。历史直接调用成功只说明该次调用有效，不证明正式评分失败的根因；工具升级后需重新核对这些实现，不固化 backend 支持列表。
+
+<!-- <psm id="0019" type="experience" status="active" positive="0" negative="0" created_at="2026-10-22T03:18:56Z" last_scored_at="" /> -->
+设计破坏性浏览器操作时，先在浏览器 runner 初始化前验证必要参数和执行授权，再对页面提取的账号进行规范化、去重及唯一精确匹配；缺失、歧义或不匹配均应拒绝继续，审计中避免保留原始账号标识。用纯函数离线测试覆盖这些拒绝分支及脱敏，但不要把 mock 通过当作真实 DOM、账号提取或删除闭环已验证。尤其不能将 dry-run 等同于离线或无副作用：必须核对它跳过的是哪一步。来源：findings.md；静态核验 skills/gemin-mirror/scripts/session-safety.mjs、delete-current-account-sessions.mjs 及 test-space/gemin-mirror/delete-current-account-sessions.test.mjs；当前 dry-run 仍操作浏览器、进入删除菜单并写审计，仅跳过最终确认。此次未运行浏览器或测试。
 
