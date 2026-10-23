@@ -44,6 +44,7 @@ import {
 import { loadTagTaxonomy, normaliseTaxonomy, tagRecords, suggestTaxonomy } from './memory-tags.mjs';
 
 import {
+  AUTOMATIC_EVIDENCE_KINDS,
   CACHE_OPS,
   CACHE_VERSION,
   PENDING_WARNING_THRESHOLD,
@@ -147,6 +148,19 @@ function save(model) {
 
 /** Stamp the baseline digest on a freshly loaded model (see save). */
 function withBaseline(model) { model.__baseline = shaBytes(fs.readFileSync(paths().memory)); return model; }
+
+/**
+ * 乐观并发预检：模型基线必须仍与磁盘一致。
+ * 用于「先写账本、后写记忆库」这类顺序：先在这里挡住并发改动，
+ * 避免校验失败时账本已被改写。
+ */
+function assertBaselineFresh(model) {
+  const file = paths().memory;
+  if (!fs.existsSync(file)) throw Error('PSM_CONFLICT: memory.md 已不存在；重读后重试');
+  if (model.__baseline !== shaBytes(fs.readFileSync(file))) {
+    throw Error('PSM_CONFLICT: memory.md 已被外部修改；重读后重试');
+  }
+}
 function shaBytes(bytes) { return crypto.createHash('sha256').update(bytes).digest('hex'); }
 function find(model, id) { const record = model.records.find((x) => x.id === id); if (!record) throw Error(`不存在记录: ${id}`); return record; }
 function newId(model) { const id = model.store.next_id; model.store.next_id = (BigInt(id) + 1n).toString().padStart(id.length, '0'); return id; }
@@ -538,7 +552,8 @@ const CACHE_IGNORE_END = '# <<< project-self-memory cache <<<';
 
 function ensureCacheIgnored(root) {
   const file = path.join(root, '.gitignore');
-  const block = `${CACHE_IGNORE_START}\n# 自动暂存区：跨会话持久，但不入版本库\n/.project-self-memory/cache.jsonl\n/.project-self-memory/cache.lock\n${CACHE_IGNORE_END}\n`;
+  // 运行时产物一律不入库：暂存区、锁文件与备份目录。
+  const block = `${CACHE_IGNORE_START}\n# 运行时产物：跨会话暂存与并发锁，不入版本库\n/.project-self-memory/cache.jsonl\n/.project-self-memory/cache.lock\n/.project-self-memory/memory.lock\n/.project-self-memory/evidence.lock\n/.project-self-memory/backups\n${CACHE_IGNORE_END}\n`;
   const current = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
   const from = current.indexOf(CACHE_IGNORE_START);
   const to = current.indexOf(CACHE_IGNORE_END);
@@ -579,37 +594,38 @@ function cacheAdd() {
   const source = String(opt('--source') || 'manual');
   const target = opt('--target') || null;
   const model = loadStore();
-  let recordType = null;
-  let group = null;
   let payload = null;
   let targetVersion = null;
+  let baseContent = null;
   if (op === 'add' || op === 'update') {
-    payload = contentInput(); // 单行契约：改写失败的候选不入 cache
-    if (op === 'add') {
-      recordType = opt('--record-type');
-      if (!TYPES.has(recordType)) throw Error('--record-type 必须是合法类型');
-      group = opt('--group') || null;
-      if (group && !model.groups.some((item) => item.id === group)) throw Error(`未知分组: ${group}`);
-    }
+    const content = contentInput(); // 单行契约：改写失败的候选不入 cache
+    const recordType = op === 'add' ? opt('--record-type') : null;
+    if (op === 'add' && !TYPES.has(recordType)) throw Error('--record-type 必须是合法类型');
+    const group = op === 'add' ? (opt('--group') || null) : null;
+    if (group && !model.groups.some((item) => item.id === group)) throw Error(`未知分组: ${group}`);
+    payload = { content, record_type: recordType, group };
   }
   if (op !== 'add') {
     if (!target) throw Error(`${op} 必须提供 --target`);
     const record = model.records.find((item) => item.id === target);
     if (!record) throw Error(`不存在记录: ${target}`);
     targetVersion = recordVersion(record);
+    // 原基准正文：暂存时的目标正文，供 -c 展示「原正文 vs 新正文」与失效对照。
+    baseContent = String(record.content || '');
   }
   const evidenceJson = opt('--evidence-json');
   const evidenceFile = opt('--evidence-file');
   const evidence = evidenceJson
     ? normaliseEvidence(JSON.parse(evidenceJson))
     : (evidenceFile ? normaliseEvidence(JSON.parse(fs.readFileSync(path.resolve(evidenceFile), 'utf8'))) : normaliseEvidence(null));
-  const fingerprint = op === 'add'
-    ? payloadFingerprint({ content: payload, record_type: recordType, group })
-    : (op === 'update' ? payloadFingerprint({ content: payload }) : '');
+  const fingerprint = op === 'add' || op === 'update'
+    ? payloadFingerprint(payload)
+    : '';
   const eventId = cacheEventId({ type: op, target_refid: target || '', fingerprint, source });
   const entry = normaliseEntry({
     event_id: eventId, type: op, target_refid: target, target_record_version: targetVersion,
-    record_type: recordType, group, payload, evidence, source, created_at: timestamp(), status: 'pending',
+    base_content: baseContent, payload, evidence, source, created_at: timestamp(),
+    processed_at: null, status: 'pending',
   });
   const lease = acquireLockSync(cachePaths(paths().root).lock);
   try {
@@ -624,8 +640,7 @@ function cacheAdd() {
 
 function cacheList() {
   const entries = readCache(paths().root);
-  const includeAll = has('--all');
-  const scoped = includeAll ? entries : entries.filter((entry) => entry.status === 'pending');
+  const scoped = entries.filter((entry) => entry.status === 'pending');
   const { model, versions } = cacheStoreSnapshot();
   const derived = deriveStale(scoped, versions);
   const groups = groupEntries(derived).map((group) => ({
@@ -645,7 +660,10 @@ function cacheShow() {
   const entry = entries[index];
   const { model, versions } = cacheStoreSnapshot();
   const [derived] = deriveStale([entry], versions);
-  return json({ ...derived, current: derived.target_refid ? cacheTargetSnapshot(model, derived.target_refid) : null });
+  return json({
+    ...derived,
+    current: derived.target_refid ? cacheTargetSnapshot(model, derived.target_refid) : null,
+  });
 }
 
 /**
@@ -660,7 +678,7 @@ function cacheMarkDiscarded(id) {
     const entry = entries[index];
     if (entry.status === 'applied') throw Error(`cache 条目已落库，不能再丢弃: ${id}`);
     if (entry.status !== 'discarded') {
-      entries[index] = { ...entry, status: 'discarded' };
+      entries[index] = { ...entry, status: 'discarded', processed_at: timestamp() };
       writeCache(paths().root, entries);
     }
     return json({ event_id: id, status: 'discarded' });
@@ -672,7 +690,7 @@ function cacheMarkDiscarded(id) {
  * 否则用条目里暂存的正文。两条路径都在落库这一刻再过一次单行契约校验。
  */
 function cacheLandingContent(entry) {
-  const content = opt('--content-file') === null ? entry.payload : contentInput();
+  const content = opt('--content-file') === null ? entry.payload.content : contentInput();
   assertContentContract(content);
   return content;
 }
@@ -699,7 +717,7 @@ function cacheApply() {
     }
     const result = cacheWriteThrough(entry, model);
     const next = entries.slice();
-    next[index] = { ...entry, status: 'applied' };
+    next[index] = { ...entry, status: 'applied', processed_at: timestamp() };
     writeCache(paths().root, next);
     return json({ event_id: id, status: 'applied', ...result });
   } finally { lease.release(); }
@@ -711,8 +729,8 @@ function cacheWriteThrough(entry, model) {
     const content = cacheLandingContent(entry);
     const id = newId(model);
     model.records.push({
-      id, type: entry.record_type, status: 'active', positive: 0, negative: 0,
-      created_at: timestamp(), last_scored_at: '', content, group: entry.group,
+      id, type: entry.payload.record_type, status: 'active', positive: 0, negative: 0,
+      created_at: timestamp(), last_scored_at: '', content, group: entry.payload.group,
     });
     save(model);
     return { record_id: id, record_version: recordVersion(model.records[model.records.length - 1]) };
@@ -740,13 +758,17 @@ function cacheWriteThrough(entry, model) {
     ? entry.evidence.kind
     : (positive ? 'human_positive' : 'human_negative');
   const taskId = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/.test(entry.source) ? entry.source : 'cache';
+  // 账本事件在记忆库写入之前落盘，因此先做乐观并发预检：
+  // 基线已被外部改动时直接拒绝，不留下半条账本事件。
+  assertBaselineFresh(model);
   appendEvent(paths().root, {
     event_id: `cache-apply-${entry.event_id}`,
     record_id: record.id,
     record_version: version,
     task_id: taskId,
     kind,
-    source: 'manual',
+    // source 沿用账本既有约定：自动来源的 kind 记 automatic，人工的记 manual。
+    source: AUTOMATIC_EVIDENCE_KINDS.has(kind) ? 'automatic' : 'manual',
     observed_at: entry.evidence.observed_at || undefined,
   });
   save(model);
@@ -760,9 +782,7 @@ function cachePrune() {
   const lease = acquireLockSync(cachePaths(paths().root).lock);
   try {
     const entries = readCache(paths().root);
-    let model = null;
-    try { model = loadStore(); } catch { model = null; }
-    const versions = model ? new Map(model.records.map((record) => [record.id, recordVersion(record)])) : null;
+    const { model, versions } = cacheStoreSnapshot();
     const derived = deriveStale(entries, versions);
     const cutoff = days === null ? null : Date.now() - days * 86400000;
     const kept = [];
@@ -770,7 +790,9 @@ function cachePrune() {
     for (const [index, entry] of entries.entries()) {
       // stale 是读时派生态，不写回磁盘；判定只用于决定是否清理。
       const processed = entry.status === 'applied' || entry.status === 'discarded' || derived[index].stale === true;
-      const oldEnough = cutoff === null || Date.parse(entry.created_at) <= cutoff;
+      // 阈值从「已处理时刻」起算（卡 03「超 N 天已处理」）；未处理的条目按暂存时刻起算。
+      const since = entry.processed_at || entry.created_at;
+      const oldEnough = cutoff === null || Date.parse(since) <= cutoff;
       if (processed && oldEnough) removed.push(entry.event_id);
       else kept.push(entry);
     }

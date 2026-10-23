@@ -27,12 +27,14 @@ export const CACHE_OPS = new Set(['add', 'update', 'delete', '+1', '-1']);
 /** Persistent entry states. `stale` is derived at read time, never stored. */
 const CACHE_STATUSES = new Set(['pending', 'applied', 'discarded']);
 const ENTRY_KEYS = new Set([
-  'event_id', 'type', 'target_refid', 'target_record_version', 'record_type',
-  'group', 'payload', 'evidence', 'source', 'created_at', 'status',
+  'event_id', 'type', 'target_refid', 'target_record_version', 'base_content',
+  'payload', 'evidence', 'source', 'created_at', 'processed_at', 'status',
 ]);
-const EVIDENCE_KEYS = new Set(['reason', 'observation', 'kind', 'observed_at']);
+const EVIDENCE_KEYS = new Set(['reason', 'observation', 'event_id', 'kind', 'observed_at']);
 /** Pending backlog above this count produces a non-blocking warning. */
 export const PENDING_WARNING_THRESHOLD = 20;
+/** Ledger kinds an automatic flow can originate; they keep source=automatic. */
+export const AUTOMATIC_EVIDENCE_KINDS = new Set(['applied_success', 'applied_failure', 'still_valid']);
 
 export function cachePaths(projectRoot) {
   const root = path.resolve(projectRoot || process.cwd());
@@ -46,9 +48,12 @@ function isPlainObject(value) {
 
 /**
  * Stable idempotency key: hash(operation + target + payload fingerprint +
- * source). The source is the session that produced the candidate, so the same
- * operation repeated inside one session collapses to one entry while a later
- * session may legitimately propose it again.
+ * session source).
+ *
+ * The session dimension is what makes 「同一操作在同一会话内重复触发不重复堆条目」
+ * and 「每条每会话一次投票」两件事同时成立：同一会话内的同一操作得同一个 id
+ * 并被去重；换一个会话再提一次则是新候选，按卡 01「重复新增原样留存」留在
+ * cache 里交给 `-c` 取舍，而不是被静默合并。
  */
 export function cacheEventId({ type, target_refid = '', fingerprint = '', source = '' }) {
   const canonical = JSON.stringify([String(type), String(target_refid), String(fingerprint), String(source)]);
@@ -64,7 +69,9 @@ export function payloadFingerprint({ content = null, record_type = null, group =
 }
 
 export function normaliseEvidence(evidence) {
-  if (evidence === undefined || evidence === null) return { reason: '', observation: '', kind: null, observed_at: null };
+  if (evidence === undefined || evidence === null) {
+    return { reason: '', observation: '', event_id: null, kind: null, observed_at: null };
+  }
   if (!isPlainObject(evidence)) throw Error('evidence 必须是对象');
   for (const key of Object.keys(evidence)) if (!EVIDENCE_KEYS.has(key)) throw Error(`evidence 含未知字段: ${key}`);
   const text = (value) => (value === undefined || value === null ? '' : String(value));
@@ -77,9 +84,23 @@ export function normaliseEvidence(evidence) {
   return {
     reason: text(evidence.reason),
     observation: text(evidence.observation),
+    event_id: nullable(evidence.event_id),
     kind: nullable(evidence.kind),
     observed_at: observedAt,
   };
+}
+
+/** 载荷：新增或修改的正文、记录类型与分组；无正文的操作为 null。 */
+export function normalisePayload(payload) {
+  if (payload === undefined || payload === null) return null;
+  if (!isPlainObject(payload)) throw Error('payload 必须是对象');
+  for (const key of Object.keys(payload)) {
+    if (!['content', 'record_type', 'group'].includes(key)) throw Error(`payload 含未知字段: ${key}`);
+  }
+  const content = payload.content === undefined || payload.content === null ? null : String(payload.content);
+  const recordType = payload.record_type === undefined || payload.record_type === null ? null : String(payload.record_type);
+  const group = payload.group === undefined || payload.group === null ? null : String(payload.group);
+  return { content, record_type: recordType, group };
 }
 
 export function normaliseEntry(entry) {
@@ -97,25 +118,29 @@ export function normaliseEntry(entry) {
   if ((type === 'add') !== (target === null)) throw Error('cache 条目 target_refid 与 type 不匹配');
   if (target !== null && !/^(?:\d{4}|[1-9]\d{4,})$/.test(target)) throw Error(`cache 条目 target_refid 非法: ${target}`);
   if (targetVersion !== null && !/^[a-f0-9]{64}$/.test(targetVersion)) throw Error('cache 条目 target_record_version 非法');
-  const payload = entry.payload === undefined || entry.payload === null ? null : String(entry.payload);
+  const payload = normalisePayload(entry.payload);
   if ((type === 'add' || type === 'update') !== (payload !== null)) throw Error('cache 条目 payload 与 type 不匹配');
-  const recordType = entry.record_type === undefined || entry.record_type === null ? null : String(entry.record_type);
-  if (type === 'add' && !TYPES.has(recordType)) throw Error(`cache 条目 record_type 非法: ${recordType}`);
-  if (type !== 'add' && recordType !== null) throw Error('cache 条目 record_type 只适用于 add');
-  const group = entry.group === undefined || entry.group === null ? null : String(entry.group);
-  const createdAt = String(entry.created_at || '');
-  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(createdAt)) throw Error(`cache 条目 created_at 非法: ${createdAt}`);
+  if (payload && payload.record_type !== null && !TYPES.has(payload.record_type)) {
+    throw Error(`cache 条目 payload.record_type 非法: ${payload.record_type}`);
+  }
+  const baseContent = entry.base_content === undefined || entry.base_content === null ? null : String(entry.base_content);
+  if (baseContent !== null && target === null) throw Error('cache 条目 base_content 只适用于有目标记录的条目');
+  const processedAt = entry.processed_at === undefined || entry.processed_at === null ? null : String(entry.processed_at);
+  if (processedAt !== null && !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(processedAt)) {
+    throw Error(`cache 条目 processed_at 非法: ${processedAt}`);
+  }
+  if (processedAt !== null && status === 'pending') throw Error('cache 条目 processed_at 只适用于已处理条目');
   return {
     event_id: eventId,
     type,
     target_refid: target,
     target_record_version: targetVersion,
-    record_type: recordType,
-    group,
+    base_content: baseContent,
     payload,
     evidence: normaliseEvidence(entry.evidence),
     source: String(entry.source || ''),
-    created_at: createdAt,
+    created_at: String(entry.created_at || ''),
+    processed_at: processedAt,
     status,
   };
 }
@@ -153,6 +178,7 @@ export function readCache(projectRoot) {
 function serialiseCache(entries) {
   return entries.map((entry) => `${JSON.stringify(entry)}\n`).join('');
 }
+
 /** Rewrite the cache file atomically. The caller holds cache.lock. */
 export function writeCache(projectRoot, entries) {
   const { file, base } = cachePaths(projectRoot);

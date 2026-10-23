@@ -340,7 +340,11 @@ export class MemorySession {
           const result = this.runCli({ node: this.node, cliPath: this.cliPath, projectRoot: this.projectRoot,
             args: ['cache', 'add', '--op', 'add', '--record-type', candidate.type,
               ...(candidate.group ? ['--group', candidate.group] : []),
-              '--source', this.taskId], input: candidate.content.trim() });
+              '--source', this.taskId,
+              '--evidence-json', JSON.stringify({
+                reason: candidate.reason || '宿主确认的全新结论',
+                observation: candidate.content.trim(),
+              })], input: candidate.content.trim() });
           const staged = JSON.parse(result.stdout || '{}');
           if (staged.event_id) added.push(staged.event_id);
         } catch {
@@ -360,9 +364,16 @@ export class MemorySession {
         const op = VOTE_OPS.get(event.kind);
         if (!op) continue;
         try {
+          // 证据原文内联进 cache 条目：`-c` 展示自包含，不回查 evidence.jsonl。
           const result = this.runCli({ node: this.node, cliPath: this.cliPath, projectRoot: this.projectRoot,
             args: ['cache', 'add', '--op', op, '--target', event.record_id, '--source', this.taskId,
-              '--evidence-json', JSON.stringify({ kind: event.kind, observed_at: event.observed_at || null })] });
+              '--evidence-json', JSON.stringify({
+                reason: `自动结果：${event.kind}`,
+                observation: event.observed_at || '',
+                event_id: event.event_id,
+                kind: event.kind,
+                observed_at: event.observed_at || null,
+              })] });
           const staged = JSON.parse(result.stdout || '{}');
           if (staged.event_id) rated.push(staged.event_id);
         } catch {

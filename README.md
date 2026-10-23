@@ -784,7 +784,7 @@ node skills/project-self-memory/scripts/memory.mjs tags set 0001 --add component
 | `add` / `update` / `status` / `delete` | 用文件或 stdin 传正文维护记录 | ID 永不复用 |
 | `score` / `merge` / `groups` / `legacy` / `config` | 评分、合并、兼容旧分组与迁移、自动行为配置 | 新分类推荐标签，不自动迁移 group |
 | `cache add --op <op> [--target <id>] [--content-file <f>] [--record-type <t>] [--group <g>] [--source <s>] [--evidence-json <json>]` | 追加待处理候选；`op` 为 `add`/`update`/`delete`/`+1`/`-1` | 自动流程只暂存不落库；同会话同操作幂等 |
-| `cache list [--all]` / `cache show <id>` | 列出分组候选（含失效标记）/ 查看单条与目标正文快照 | 默认只列 `pending` |
+| `cache list` / `cache show <id>` | 列出待处理分组候选（含失效标记）/ 查看单条与目标正文快照 | 只列 `pending` |
 | `cache discard <id>` / `cache apply --id <id> --decision write\|discard [--content-file <f>]` | 丢弃单条 / 落库或丢弃单条；`--content-file` 是「改写后写入」的正文 | 候选入库的唯一入口 |
 | `cache prune [--older-than <N>d]` | 清理已处理与已失效条目 | `pending` 候选无 TTL，不自动过期 |
 | `migrate-schema` | v1 明确报告无可迁移前版；未知版本拒绝 | 当前格式为 v1 |

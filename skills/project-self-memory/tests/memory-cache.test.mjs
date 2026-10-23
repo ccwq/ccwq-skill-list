@@ -49,7 +49,8 @@ test('cache add makes the candidate visible to list and show', () => {
   assert.equal(listed.groups.length, 1);
   assert.equal(listed.groups[0].kind, 'new');
   assert.equal(listed.groups[0].entries[0].event_id, added.event_id);
-  assert.equal(listed.groups[0].entries[0].payload, 'CACHE_LIST_SENTINEL_1a2b');
+  assert.equal(listed.groups[0].entries[0].payload.content, 'CACHE_LIST_SENTINEL_1a2b');
+  assert.equal(listed.groups[0].entries[0].payload.record_type, 'fact');
 
   const shown = JSON.parse(run(root, 'cache', 'show', added.event_id));
   assert.equal(shown.event_id, added.event_id);
@@ -265,18 +266,22 @@ test('cache apply rejects rewritten content that violates the single-line contra
   const proposed = write(root, 'proposed.txt', 'CACHE_CONTRACT_PROPOSED_b3c4');
   const added = JSON.parse(run(root, 'cache', 'add', '--op', 'update', '--target', id, '--content-file', proposed));
   const before = fs.readFileSync(memoryFile(root), 'utf8');
+  const backups = path.join(root, '.project-self-memory', 'backups');
+  const backupsBefore = fs.existsSync(backups) ? fs.readdirSync(backups).length : 0;
   const rewritten = write(root, 'rewritten.txt', '第一行\n第二行');
   const failure = runFail(root, 'cache', 'apply', '--id', added.event_id, '--decision', 'write', '--content-file', rewritten);
   assert.match(failure, /PSM_CONTRACT/);
   assert.equal(fs.readFileSync(memoryFile(root), 'utf8'), before);
+  const backupsAfter = fs.existsSync(backups) ? fs.readdirSync(backups).length : 0;
+  assert.equal(backupsAfter, backupsBefore, '契约失败不得产生备份');
   assert.equal(JSON.parse(run(root, 'cache', 'show', added.event_id)).status, 'pending');
 });
 
 /**
- * Given：一条暂存的修改候选
- * When：查看 cache show
- * Then：条目带目标记录当前正文，供 -c 展示「原正文 vs 新正文」diff
- * 防回归：修改类候选缺少对照正文，用户无法审阅改动
+ * Given：cache show 展示的候选
+ * When：查看带目标记录的候选
+ * Then：条目带暂存时的原基准正文（base_content）与目标记录现状，供展示 diff
+ * 防回归：修改类候选缺少原正文，用户无法审阅将要覆盖的内容
  */
 test('cache show exposes the current target body for diffing', () => {
   const root = temp();
@@ -287,7 +292,31 @@ test('cache show exposes the current target body for diffing', () => {
   const shown = JSON.parse(run(root, 'cache', 'show', added.event_id));
   assert.equal(shown.current.exists, true);
   assert.equal(shown.current.content, 'CACHE_DIFF_CURRENT_c4d5');
-  assert.equal(shown.payload, 'CACHE_DIFF_PROPOSED_c4d5');
+  assert.equal(shown.payload.content, 'CACHE_DIFF_PROPOSED_c4d5');
+  assert.equal(shown.base_content, 'CACHE_DIFF_CURRENT_c4d5');
+});
+
+/**
+ * Given：同一记录被暂存多条修改候选
+ * When：执行 cache list
+ * Then：多条修改归入同一分组并标记为冲突
+ * 防回归：多条修改散在不同组，用户无法一次看清取舍
+ */
+test('cache list groups multiple updates on one record as a conflict', () => {
+  const root = temp();
+  run(root, 'init');
+  const id = addRecord(root, 'CACHE_MULTI_UPDATE_TARGET_d6e7');
+  const first = write(root, 'first.txt', 'CACHE_MULTI_UPDATE_FIRST_d6e7');
+  const second = write(root, 'second.txt', 'CACHE_MULTI_UPDATE_SECOND_d6e7');
+  run(root, 'cache', 'add', '--op', 'update', '--target', id, '--content-file', first);
+  run(root, 'cache', 'add', '--op', 'update', '--target', id, '--content-file', second);
+
+  const listed = JSON.parse(run(root, 'cache', 'list'));
+  assert.equal(listed.count, 2);
+  assert.equal(listed.groups.length, 1);
+  assert.equal(listed.groups[0].refid, id);
+  assert.equal(listed.groups[0].conflict, true);
+  assert.equal(listed.groups[0].entries.length, 2);
 });
 
 /**
@@ -324,6 +353,21 @@ test('cache add rejects an entry that does not match its own type', () => {
   const failure = runFail(root, 'cache', 'add', '--op', 'add', '--target', '0001', '--record-type', 'fact', '--content-file', body);
   assert.match(failure, /PSM_ERROR/);
   assert.equal(JSON.parse(run(root, 'cache', 'list')).count, 0);
+});
+
+/**
+ * Given：两个会话各自暂存同一条新增候选
+ * When：分别以不同 --source 追加
+ * Then：两条都留在 cache 里（重复新增原样留存，交由 -c 取舍），不被静默合并
+ * 防回归：跨会话的同内容候选被去重掉一条，用户少看到一条待办
+ */
+test('the same candidate from two sessions stays as two entries', () => {
+  const root = temp();
+  run(root, 'init');
+  const body = write(root, 'body.txt', 'CACHE_CROSS_SESSION_f0a1');
+  run(root, 'cache', 'add', '--op', 'add', '--record-type', 'fact', '--content-file', body, '--source', 'task-a');
+  run(root, 'cache', 'add', '--op', 'add', '--record-type', 'fact', '--content-file', body, '--source', 'task-b');
+  assert.equal(JSON.parse(run(root, 'cache', 'list')).count, 2);
 });
 
 /**

@@ -18,11 +18,11 @@
 
 自动保存与自动评分只写 `.project-self-memory/cache.jsonl`（跨会话暂存区），不直接写 `memory.md` 或 `evidence.jsonl`。候选进入记忆库的唯一入口是 `cache apply`（skill 层 `-c/--cache-write`）。cache 文件由 Git 忽略（`init` 写入项目根 `.gitignore`）。
 
-条目模型：`event_id`（内容哈希幂等键）、`type`（`add`/`update`/`delete`/`+1`/`-1`）、`target_refid`、`target_record_version`、`record_type`、`group`、`payload`（STE 改写后正文）、`evidence`（内联理由与观察）、`source`（任务或会话标识）、`created_at`、`status`。持久 `status` 只有 `pending`/`applied`/`discarded` 三态；`stale` 是读时派生态，不落盘。
+条目模型：`event_id`（内容哈希幂等键，含会话维度）、`type`（`add`/`update`/`delete`/`+1`/`-1`）、`target_refid`、`target_record_version`（失效判定基线）、`base_content`（暂存时的目标正文，供展示 diff）、`payload`（`{content, record_type, group}`，新增或修改的正文与记录类型）、`evidence`（`{reason, observation, event_id, kind, observed_at}`，内联证据原文）、`source`（任务或会话标识）、`created_at`、`processed_at`（处理时刻）、`status`。持久 `status` 只有 `pending`/`applied`/`discarded` 三态；`stale` 是读时派生态，不落盘。
 
 - `cache add`：追加候选。`--op` 必须是 `add`/`update`/`delete`/`+1`/`-1`；`add` 需要正文与记录类型，其余需要目标记录。同一会话重复提交同一操作得到同一 `event_id`，返回 `{"duplicate": true}` 且不重复追加。返回 `{"event_id", "status", "duplicate"}`。
-- `cache list`：列出候选，按目标 refid 分组；返回 `{version, count, warning, groups}`，每组含 `key`、`kind`（`new`/`target`/`stale`）、`refid`、`stale`、`conflict`、`entries` 与目标记录的 `current` 快照。`conflict` 表示该组存在互相矛盾的候选。默认只列 `pending`；pending 超过 20 条时给出非阻断 warning（同时写入 stderr）。
-- `cache show`：返回单条候选及其 `current` 快照（目标记录当前正文与版本），供展示「原正文 vs 新正文」diff。
+- `cache list`：列出待处理候选，按目标 refid 分组；返回 `{version, count, warning, groups}`，每组含 `key`、`kind`（`new`/`target`/`stale`）、`refid`、`stale`、`conflict`、`entries` 与目标记录的 `current` 快照。`conflict` 表示该组存在互相矛盾的候选。pending 超过 20 条时给出非阻断 warning（同时写入 stderr）。
+- `cache show`：返回单条候选，附带 `current` 快照（目标记录当前正文与版本）与 `base_content`（暂存时的目标正文），供展示「原正文 vs 新正文」diff 与失效对照。
 - `cache discard`：标记为 `discarded`；已落库条目拒绝丢弃。
 - `cache apply`：落库或丢弃单条候选。`write` 复用既有写入栈（`memory.lock` + 备份 + baseline sha256 乐观并发 + 单行契约校验），并可用 `--content-file` 提供「改写后写入」的正文（优先于条目暂存的正文）。成功返回 `{event_id, status, record_id, ...}`。
 - `cache prune`：清理已处理（`applied`/`discarded`）与已失效条目。`pending` 候选没有 TTL，不会自动过期，只在手动 prune 时按失效判定清理。返回 `{removed, kept, removed_ids}`。
