@@ -254,6 +254,9 @@ export class MemorySession {
         });
       }
     }
+    // 结构化计量结果随 payload 冻结交付：未检查时表达 checked:false，
+    // 不伪装为执行后测得零；宿主从 payload.recallUsage 读取，无需解析 audit。
+    payload.recallUsage = Object.freeze(this.recallUsage);
     const tools = Object.freeze({ capabilities, invokeMemory: undefined });
     if (this.agent?.run) this.agentResult = await this.agent.run(Object.freeze(payload), tools);
     return Object.freeze(payload);

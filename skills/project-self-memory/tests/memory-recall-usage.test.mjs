@@ -68,15 +68,17 @@ test('first successful delivery measures the final memoryContext once', async ()
   const payload = await session.beginTask({ query: 'RECALL_ALPHA RECALL_BETA smoke 回滚' });
   await session.endTask();
 
-  const result = session.recallUsage;
-  assert.equal(typeof result, 'object');
-  assert.equal(result.checked, true);
-  assert.equal(result.exceeded, false);
-  assert.equal(result.threshold, 37000);
-  assert.equal(result.algorithm, 'utf16-length-div-3-ceil');
-  const expected = Math.ceil(payload.memoryContext.length / 3);
-  assert.equal(result.estimated_tokens, expected);
-  assert.ok(result.estimated_tokens > 0);
+  // 结构化结果必须随 payload 交付（agent 与宿主都能读到），不是只有实例属性。
+  for (const usage of [payload.recallUsage, session.agent.calls[0].context.recallUsage, session.recallUsage]) {
+    assert.equal(typeof usage, 'object');
+    assert.equal(usage.checked, true);
+    assert.equal(usage.exceeded, false);
+    assert.equal(usage.threshold, 37000);
+    assert.equal(usage.algorithm, 'utf16-length-div-3-ceil');
+    assert.equal(usage.estimated_tokens, Math.ceil(payload.memoryContext.length / 3));
+    assert.ok(usage.estimated_tokens > 0);
+    assert.equal(usage.warning, null);
+  }
   const warningEvents = session.auditEvents.filter((event) => event.action === 'recall-usage');
   assert.equal(warningEvents.length, 0);
 });
@@ -123,6 +125,9 @@ test('empty recall does not consume the first-use check', async () => {
   const payload = await first.beginTask({ query: 'EMPTY_SENTINEL' });
   await first.endTask();
   assert.equal(payload.memoryContext, '');
+  // 未检查必须表达为 checked:false，不伪装为执行后测得零。
+  assert.equal(payload.recallUsage.checked, false);
+  assert.equal(payload.recallUsage.estimated_tokens, null);
   assert.equal(first.recallUsage.checked, false);
 
   fs.writeFileSync(memory(root), store('0002') + record('0001', 'LATE_RECORD 后来放入的结论'));
@@ -201,6 +206,9 @@ test('threshold boundary: 37000 estimated tokens stays silent, 37001 warns', asy
   const overEstimate = Math.ceil(overPayload.memoryContext.length / 3);
   assert.equal(overEstimate, 37001);
   assert.equal(overSession.recallUsage.exceeded, true);
+  // 提醒必须同时通过 audit 通道与 payload.recallUsage 交付。
+  assert.equal(overPayload.recallUsage.exceeded, true);
+  assert.equal(overPayload.recallUsage.warning.message, overSession.auditEvents.find((event) => event.action === 'recall-usage').message);
   const warnings = overSession.auditEvents.filter((event) => event.action === 'recall-usage' && event.outcome === 'warning');
   assert.equal(warnings.length, 1);
   assert.equal(warnings[0].estimated_tokens, 37001);

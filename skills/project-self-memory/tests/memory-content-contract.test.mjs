@@ -91,15 +91,19 @@ test('update rejects new multiline content before any ledger side effect', () =>
   fs.writeFileSync(memory(root), store('0002') + record('0001', '历史第一行\n历史第二行'));
   const beforeMemory = fs.readFileSync(memory(root));
   const beforeLedger = fs.readFileSync(ledger(root));
+  // 拒绝发生在任何持久化副作用之前：memory.md 与 evidence.jsonl 逐字节不变。
   assert.throws(() => run(root, 'update', '0001', '--content-file', body(root, '新一行\n又一行')), /单行契约/);
-  const withScore = run(root, 'score', '0001', '+1');
-  assert.match(withScore, /"positive": 1/);
+  assert.deepEqual(fs.readFileSync(memory(root)), beforeMemory);
+  assert.deepEqual(fs.readFileSync(ledger(root)), beforeLedger);
+  // 用一次 score 建立非空账本基线，再验证带账本副作用的 --keep-score 拒绝后两者都不变。
+  run(root, 'score', '0001', '+1');
+  const memoryAtScore = fs.readFileSync(memory(root));
+  const ledgerAtScore = fs.readFileSync(ledger(root));
   const eventsBefore = JSON.parse(run(root, 'evidence', 'inspect')).events.length;
   assert.throws(() => run(root, 'update', '0001', '--keep-score', '--content-file', body(root, '新一行\n又一行')), /单行契约/);
   assert.equal(JSON.parse(run(root, 'evidence', 'inspect')).events.length, eventsBefore);
-  assert.deepEqual(fs.readFileSync(memory(root)), fs.readFileSync(memory(root)));
-  assert.deepEqual(fs.readFileSync(ledger(root)), fs.readFileSync(ledger(root)));
-  assert.ok(beforeMemory.length > 0 && beforeLedger.length === 0);
+  assert.deepEqual(fs.readFileSync(memory(root)), memoryAtScore);
+  assert.deepEqual(fs.readFileSync(ledger(root)), ledgerAtScore);
 });
 
 /**
