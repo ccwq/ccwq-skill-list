@@ -115,6 +115,8 @@ function freshness(record, nowMs) {
 }
 
 // Metadata is optional and never contributes to the base eligibility score.
+// 规格 L138 冻结：标签不参与 rank 排序；boost 字段只读观测，恒为 0。
+// tag_matches 仍保留为宿主可读的命中归因，但不影响排序、预算或门槛。
 function tags(value) {
   const values = Array.isArray(value) ? value : typeof value === 'string' ? value.split(/[\s,]+/) : [];
   return [...new Set(values.filter((tag) => typeof tag === 'string'
@@ -130,14 +132,10 @@ function tagSignals(record, task, base) {
   const recordTags = tags(record.tags);
   const matched = recordTags.filter((tag) => requested.includes(tag)).length;
   const queryMatched = recordTags.filter((tag) => queryTags.has(tag)).length;
-  // Conservative metadata tie-break: explicit coverage gets three rank points,
-  // a complete query pair 1.5; total capped at four. Bare keys/values get no
-  // bonus, avoiding ambiguous matches and double-counting generic body words.
-  const boost = base.hasTask && base.score > 0
-    ? Math.min(0.04, (requested.length ? 0.03 * matched / requested.length : 0)
-      + (queryMatched ? 0.015 : 0)) : 0;
+  // 只读观测：命中计数保留给 audit，不改变排序。boost 恒为 0，
+  // 避免任何「标签加权改变 rank」的回归路径。
   return { matched, queryMatched,
-    totalMatched: recordTags.filter((tag) => requested.includes(tag) || queryTags.has(tag)).length, boost };
+    totalMatched: recordTags.filter((tag) => requested.includes(tag) || queryTags.has(tag)).length, boost: 0 };
 }
 
 function metrics(record, task, nowMs) {
@@ -152,7 +150,8 @@ function metrics(record, task, nowMs) {
   // Relevance is intentionally the dominant term; it cannot be rescued by a
   // high historical score because zero-relevance candidates are filtered.
   const tag = tagSignals(record, task, rel);
-  const rank = rel.score * 0.55 + confidence * 0.2 + utility * 0.15 + fresh * 0.1 + tag.boost;
+  // 规格 L138：tag.boost 不参与 rank，保留 rel/confidence/utility/freshness 的既有权重。
+  const rank = rel.score * 0.55 + confidence * 0.2 + utility * 0.15 + fresh * 0.1;
   return { ...rel, confidence, utility, freshness: fresh, rank, tag };
 }
 

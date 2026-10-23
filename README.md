@@ -783,7 +783,7 @@ node skills/project-self-memory/scripts/memory.mjs tags set 0001 --add component
 
 命令的 JSON 输出和退出语义见 [cli-contract.md](skills/project-self-memory/references/cli-contract.md)。新写入正文必须单行（宿主按内置 STE 表达契约改写，CLI 校验；历史多行记录保持可读），错误带 `PSM_CONTRACT` 前缀；`MemorySession` 首次召回超过 37,000 估算 token 时发非阻断提醒。规则见 [expression-contract.md](skills/project-self-memory/references/expression-contract.md) 与 [memory-format.md](skills/project-self-memory/references/memory-format.md)。
 
-标签按项目自身的分类标准读取时派生，每条最多 8 个；缺少或空白 `tags.json` 仍识别正文行首 `[key=value]` / `[key=v1,v2]`，损坏则全部标签关闭并报告 warning，不阻断其他功能。自动检索仅增加已有相关记录的标签匹配权重；显式标签筛选会排除未匹配记录。格式与规则见 [memory-format.md](skills/project-self-memory/references/memory-format.md)。
+标签按项目自身的分类标准读取时派生，每条最多 8 个；缺少或空白 `tags.json` 仍识别正文行首 `[key=value]` / `[key=v1,v2]`，损坏则全部标签关闭并报告 warning，不阻断其他功能。标签参与显式筛选（`read --tag`）与只读归因观测，**不参与检索 rank 排序**；显式标签筛选会排除未匹配记录。格式与规则见 [memory-format.md](skills/project-self-memory/references/memory-format.md)。
 
 </details>
 

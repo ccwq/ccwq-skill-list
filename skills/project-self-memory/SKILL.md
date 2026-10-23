@@ -83,7 +83,7 @@ node scripts/memory.mjs inspect --trim-candidates
 
 ## 主题标签、旧分组与降级
 
-新分类推荐可选的派生多标签：读取时依据项目 `tags.json`、正文行首前缀与人工 override 计算，不写入 `memory.md`，不改变 `record_version` 或评分投影。缺少或空白 taxonomy 仍识别 `[key=value]` 与 `[key=v1,v2]`；taxonomy 损坏时关闭全部标签并报告 warning，其他功能不受此错误阻断。自动检索仅为已有相关记录提供精确标签加权，不因无标签过滤记录。
+新分类推荐可选的派生多标签：读取时依据项目 `tags.json`、正文行首前缀与人工 override 计算，不写入 `memory.md`，不改变 `record_version` 或评分投影。缺少或空白 taxonomy 仍识别 `[key=value]` 与 `[key=v1,v2]`；taxonomy 损坏时关闭全部标签并报告 warning，其他功能不受此错误阻断。标签参与显式筛选与只读归因观测，**不参与检索 rank 排序**，不因无标签过滤记录。
 
 需要维护分类标准时，先用只读的 `tags show`、`tags suggest`、`tags stats` 核验。建议仅来自前缀与词频，不是 AI、不联网、不自动采纳；人工审阅计划后，再在具体操作授权范围内执行 `tags apply` 或 `tags set`。自动保存/评分不写 taxonomy。格式、字面量匹配、排序与备份边界见 [memory-format.md](references/memory-format.md)；查看器标签只读，支持多选筛选与首标签分组。
 
