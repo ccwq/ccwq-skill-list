@@ -33,7 +33,7 @@ node <skill-path>/scripts/memory.mjs evidence inspect --record-id 0001
 node <project-root>/.project-self-memory/view-memoery.js
 ```
 
-它只监听 127.0.0.1 并输出带 `#token=` 的地址；写入与 CLI 共用锁、备份与乐观并发。部署、HTTP 契约与安全模型见 [viewer.md](references/viewer.md)。
+它只监听 127.0.0.1 并输出带 `#token=` 的地址，并自动用系统默认浏览器打开（`--no-open` 可禁止）。写入与 CLI 共用锁、备份与乐观并发。部署、HTTP 契约与安全模型见 [viewer.md](references/viewer.md)。
 
 `self-memory/` 是只读 legacy 来源，只能通过 `legacy` 命令迁移，不能直接编辑。
 

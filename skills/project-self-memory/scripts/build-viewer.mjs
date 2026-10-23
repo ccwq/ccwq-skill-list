@@ -98,11 +98,15 @@ function build() {
  * 一致性校验（不写文件）：node scripts/build-viewer.mjs --check
  *
  * 运行要求：Node 22+（以 Node 24 验证）。无第三方依赖；不访问网络；
- * 只监听 127.0.0.1；记忆目录固定为脚本旁的 .project-self-memory/。
+ * 只监听 127.0.0.1；记忆目录固定为脚本所在目录内最近一层的
+ * .project-self-memory/（项目根与 .project-self-memory/ 内启动均可）。
  *
  * 用法：
- *   node view-memoery.js [--port N]
+ *   node view-memoery.js [--port N] [--no-open]
+ *   node .project-self-memory/view-memoery.js [--port N] [--no-open]
  * 输出：带 #token= 的访问地址。令牌只在进程与页面内存中，不写入磁盘。
+ * 默认用系统默认浏览器打开该地址；--no-open 或 PSM_VIEWER_OPEN=0 禁止，
+ * PSM_VIEWER_OPEN=echo 只打印打开地址（无头环境与测试诊断用）。
  */
 'use strict';
 
@@ -126,11 +130,33 @@ if (!Number.isInteger(port) || port < 0 || port > 65535) {
   console.error('PSM_VIEWER_ERROR: --port 必须是 0..65535 的整数');
   process.exit(1);
 }
+// 默认用系统默认浏览器打开带令牌的地址；--no-open 或 PSM_VIEWER_OPEN=0 禁止，
+// 打开失败不致命。PSM_VIEWER_OPEN=echo 只打印地址不执行，供无头环境与测试
+// 诊断（优先级最高）。--open 保留为兼容写法，与默认行为相同。
+const openMode = process.env.PSM_VIEWER_OPEN === 'echo'
+  ? 'echo'
+  : (argv.includes('--no-open') || process.env.PSM_VIEWER_OPEN === '0' ? '' : 'open');
+function launchBrowser(url) {
+  if (openMode === 'echo') { console.log('PSM_VIEWER_OPEN_URL: ' + url); return; }
+  const childProcess = process.platform === 'win32'
+    ? ['cmd', ['/c', 'start', '""', url]]
+    : process.platform === 'darwin'
+      ? ['open', [url]]
+      : ['xdg-open', [url]];
+  import('node:child_process').then(({ spawn }) => {
+    const child = spawn(childProcess[0], childProcess[1], { detached: true, stdio: 'ignore', shell: false });
+    child.on('error', () => console.log('PSM_VIEWER_OPEN_FAILED: 请手动复制上方地址到浏览器'));
+    child.unref();
+  }).catch(() => console.log('PSM_VIEWER_OPEN_FAILED: 请手动复制上方地址到浏览器'));
+}
 
-// Memory directory is pinned next to THIS script; arbitrary paths are refused.
+// Memory directory is pinned to the nearest '.project-self-memory/' inside the
+// script's own directory; arbitrary paths are refused.
+// 部署契约：脚本随 init 放在 '.project-self-memory/' 内（basename 为
+// '.project-self-memory' 时取父目录）；复制到项目根手动启动也受支持。
 // 不用 require.resolve：ESM 宿主没有 require。
 const scriptDir = path.dirname(path.resolve(process.argv[1] || '.'));
-const projectRoot = scriptDir;
+const projectRoot = path.basename(scriptDir) === '.project-self-memory' ? path.dirname(scriptDir) : scriptDir;
 const token = crypto.randomBytes(32).toString('hex');
 const { server: httpServer } = server.createViewerServer({
   fs, path, crypto, http, store, lock, ledger,
@@ -140,8 +166,9 @@ httpServer.listen(port, '127.0.0.1', () => {
   const address = httpServer.address();
   const url = 'http://127.0.0.1:' + address.port + '/#token=' + token;
   console.log('PSM_VIEWER_URL: ' + url);
-  console.log('记忆目录: ' + path.join(scriptDir, '.project-self-memory'));
+  console.log('记忆目录: ' + path.join(projectRoot, '.project-self-memory'));
   console.log('只监听本机回环；停止服务请按 Ctrl+C。');
+  if (openMode === 'open' || openMode === 'echo' || openMode === '1') launchBrowser(url);
 });
 })().catch((error) => {
   console.error('PSM_VIEWER_ERROR: ' + error.message);

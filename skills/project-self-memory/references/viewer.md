@@ -5,14 +5,15 @@
 ## 启动与令牌
 
 ```text
-node .project-self-memory/view-memoery.js [--port N]
+node .project-self-memory/view-memoery.js [--port N] [--no-open]
 ```
 
 - 启动后输出 `PSM_VIEWER_URL: http://127.0.0.1:<port>/#token=<hex>`。
+- 默认用系统默认浏览器打开带令牌的地址，打开失败不致命；加 `--no-open` 或设 `PSM_VIEWER_OPEN=0` 禁止（无头环境、远程终端使用）。
 - 令牌是 ≥256-bit 随机 hex，经 URL fragment 交接；页面把它暂存进 `sessionStorage`（标签页级，关闭即清）并立刻从地址栏移除。
 - 令牌只存在于进程内存与页面会话中，不写入磁盘，不进入请求 URL、Referer 或历史记录。
 - 刷新同一标签页不需要重新复制令牌；新标签页必须重新带 `#token=` 打开。
-- 记忆目录固定为脚本旁的 `.project-self-memory/`，与启动时的工作目录无关。复制脚本到别处即查看别处的库。
+- 记忆目录固定为脚本所在目录内最近一层的 `.project-self-memory/`，与启动时的工作目录无关。脚本在 `.project-self-memory/` 内（部署位置）或项目根（手动复制）启动均可；复制到别处即查看别处的库。
 
 ## HTTP 契约
 

@@ -778,7 +778,7 @@ node skills/project-self-memory/scripts/memory.mjs --project-root E:\repo diagno
 node .project-self-memory/view-memoery.js
 ```
 
-输出带 `#token=` 的本机地址；只监听 127.0.0.1；令牌只在进程与页面内存中。写入带备份、原子替换与乐观并发。详见 [viewer.md](skills/project-self-memory/references/viewer.md)。
+输出带 `#token=` 的本机地址；只监听 127.0.0.1；令牌只在进程与页面内存中；默认自动用系统默认浏览器打开（`--no-open` 可禁止）。写入带备份、原子替换与乐观并发。详见 [viewer.md](skills/project-self-memory/references/viewer.md)。
 
 详情见 [README.md](skills/project-self-memory/README.md)。
 

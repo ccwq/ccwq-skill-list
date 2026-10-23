@@ -22,7 +22,8 @@ function runCli(root, ...argv) {
 
 /** Start the real delivered script; returns handle with base URL + token. */
 async function startViewer(root, extraArgs = []) {
-  const child = spawn(process.execPath, [path.join(root, 'view-memoery.js'), ...extraArgs], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] });
+  // 测试默认禁止自动打开浏览器，用例需要时再显式覆盖。
+  const child = spawn(process.execPath, [path.join(root, '.project-self-memory', 'view-memoery.js'), '--no-open', ...extraArgs], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] });
   const url = await new Promise((resolve, reject) => {
     let out = '';
     const timer = setTimeout(() => reject(Error(`启动超时: ${out}`)), 15000);
@@ -62,11 +63,10 @@ async function snapshot(viewer) {
   return r.body;
 }
 
-/** Prepare a project dir with the delivered single-file script copied in. */
+/** Prepare a project dir with the delivered single-file script deployed by init. */
 function project(files) {
   const root = temp();
   runCli(root, 'init');
-  fs.copyFileSync(dist, path.join(root, 'view-memoery.js'));
   if (files) fs.writeFileSync(memory(root), files);
   return root;
 }
@@ -304,9 +304,9 @@ test('build is reproducible and drift-checkable', () => {
 });
 
 /**
- * Given：交付脚本复制到带空格目录，从另一 cwd 启动
+ * Given：交付脚本复制到带空格的项目根，从另一 cwd 启动
  * When：读取快照
- * Then：读取脚本旁的记忆而非 cwd 的记忆
+ * Then：读取项目根内的记忆而非 cwd 的记忆
  * 防回归：误操作其他项目的记忆
  */
 test('script beside the store wins over the launch cwd, even with spaces', async () => {
@@ -315,7 +315,7 @@ test('script beside the store wins over the launch cwd, even with spaces', async
   fs.writeFileSync(memory(spaced), store('0002') + record('0001', '带空格路径'));
   fs.copyFileSync(dist, path.join(spaced, 'view-memoery.js'));
   const elsewhere = temp();
-  const child = spawn(process.execPath, [path.join(spaced, 'view-memoery.js')], { cwd: elsewhere, stdio: ['ignore', 'pipe', 'pipe'] });
+  const child = spawn(process.execPath, [path.join(spaced, 'view-memoery.js'), '--no-open'], { cwd: elsewhere, stdio: ['ignore', 'pipe', 'pipe'] });
   const url = await new Promise((resolve, reject) => {
     let out = '';
     child.stdout.on('data', (c) => { out += c; const m = out.match(/PSM_VIEWER_URL: (\S+)/); if (m) resolve(m[1]); });
@@ -327,5 +327,80 @@ test('script beside the store wins over the launch cwd, even with spaces', async
     const res = await fetch(`http://127.0.0.1:${parsed.port}/api/snapshot`, { headers: { Authorization: `Bearer ${parsed.hash.replace('#token=', '')}` } });
     const snap = await res.json();
     assert.equal(snap.records[0].content, '带空格路径');
+  } finally { child.kill(); }
+});
+
+/**
+ * Given：init 部署的查看器位于 .project-self-memory/ 内
+ * When：按部署位置启动（用户标准用法）
+ * Then：记忆目录解析为项目根的 .project-self-memory/，快照正常返回
+ * 防回归：脚本在记忆目录内启动时误推导出双层嵌套目录
+ */
+test('deployed script inside the store directory resolves the store beside it', async () => {
+  const root = temp();
+  runCli(root, 'init');
+  fs.writeFileSync(memory(root), store('0002') + record('0001', '部署位置启动'));
+  const viewer = await startViewer(root);
+  try {
+    const snap = await snapshot(viewer);
+    assert.equal(snap.records[0].content, '部署位置启动');
+  } finally { await viewer.stop(); }
+});
+
+/**
+ * Given：查看器默认启动（echo 诊断模式隔离真实浏览器）
+ * When：读取启动日志
+ * Then：输出 PSM_VIEWER_OPEN_URL 且服务正常应答快照
+ * 防回归：默认自动打开行为丢失或破坏令牌交接
+ */
+test('default startup opens the browser automatically', async () => {
+  const root = temp();
+  runCli(root, 'init');
+  const script = path.join(root, '.project-self-memory', 'view-memoery.js');
+  const child = spawn(process.execPath, [script], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, PSM_VIEWER_OPEN: 'echo' } });
+  let out = '';
+  child.stdout.on('data', (chunk) => { out += chunk; });
+  const url = await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(Error(`启动超时: ${out}`)), 15000);
+    const onData = (chunk) => {
+      const match = out.match(/PSM_VIEWER_URL: (\S+)/);
+      if (match) { clearTimeout(timer); child.stdout.off('data', onData); resolve(match[1]); }
+    };
+    child.stdout.on('data', onData);
+    child.on('exit', () => reject(Error(`提前退出: ${out}`)));
+  });
+  try {
+    const parsed = new URL(url);
+    const res = await fetch(`http://127.0.0.1:${parsed.port}/api/snapshot`, { headers: { Authorization: `Bearer ${parsed.hash.replace('#token=', '')}` } });
+    assert.equal(res.status, 200);
+    await new Promise((resolve) => setTimeout(resolve, 300)); // 等打开钩子输出
+    assert.match(out, /PSM_VIEWER_OPEN_URL: http:\/\/127\.0\.0\.1:\d+\/#token=[0-9a-f]{64}/);
+  } finally { child.kill(); }
+});
+
+/**
+ * Given：查看器以 --no-open 启动
+ * When：读取启动日志
+ * Then：不出现 PSM_VIEWER_OPEN_URL，打开被禁止
+ * 防回归：--no-open 失效导致无头环境弹浏览器
+ * 注：诊断模式 PSM_VIEWER_OPEN=echo 优先级最高，会压过 --no-open，
+ * 故本用例不设该变量；实现回归时检出方式是断言失败。
+ */
+test('--no-open disables the automatic browser launch', async () => {
+  const root = temp();
+  runCli(root, 'init');
+  const script = path.join(root, '.project-self-memory', 'view-memoery.js');
+  const child = spawn(process.execPath, [script, '--no-open'], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, PSM_VIEWER_OPEN: '' } });
+  let out = '';
+  child.stdout.on('data', (chunk) => { out += chunk; });
+  await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(Error(`启动超时: ${out}`)), 15000);
+    const onData = () => { if (/PSM_VIEWER_URL:/.test(out)) { clearTimeout(timer); child.stdout.off('data', onData); resolve(); } };
+    child.stdout.on('data', onData);
+    child.on('exit', () => reject(Error(`提前退出: ${out}`)));
+  });
+  try {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    assert.doesNotMatch(out, /PSM_VIEWER_OPEN_URL/);
   } finally { child.kill(); }
 });

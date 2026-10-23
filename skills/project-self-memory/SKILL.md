@@ -33,7 +33,7 @@ node scripts/memory.mjs <command> [options]
 node .project-self-memory/view-memoery.js
 ```
 
-它只监听 127.0.0.1，输出带 `#token=` 的地址；写入走与 CLI 相同的锁、备份、原子替换和乐观并发。部署与升级契约、HTTP 接口和安全模型见 [viewer.md](references/viewer.md)。
+它只监听 127.0.0.1，输出带 `#token=` 的地址，并自动用系统默认浏览器打开（`--no-open` 可禁止）。写入走与 CLI 相同的锁、备份、原子替换和乐观并发。部署与升级契约、HTTP 接口和安全模型见 [viewer.md](references/viewer.md)。
 
 正文使用 `--content-file <path>` 或标准输入，避免 shell 转义。常用命令：
 
