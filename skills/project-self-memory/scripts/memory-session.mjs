@@ -29,6 +29,14 @@ const now = () => new Date().toISOString();
 const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 const stableId = (value) => crypto.createHash('sha256').update(JSON.stringify(value), 'utf8').digest('hex').slice(0, 48);
 
+// 自动评分改为写 cache：只有带明确方向的证据才产生投票候选。
+// review_candidate 表示「无法直接归因」，既不加分也不扣分，因此不投票。
+const VOTE_OPS = new Map([
+  ['applied_success', '+1'],
+  ['still_valid', '+1'],
+  ['applied_failure', '-1'],
+]);
+
 function hasDirectHostOutcome(evidence) {
   // These fields are structured observations emitted by the host adapter. A
   // free-form Agent claim is never enough to earn an automatic positive score.
@@ -311,6 +319,7 @@ export class MemorySession {
     if (!this.started || this.ended) throw new Error('MemorySession 当前不在可结束状态');
     if (!isObject(input)) throw new TypeError('endTask 输入必须是对象');
     const added = [];
+    const rated = [];
     // Automatic saves are host-owned: never promote an Agent return value into
     // a durable candidate unless the host explicitly passes it to endTask.
     const candidates = Array.isArray(input.candidates) ? input.candidates
@@ -327,42 +336,53 @@ export class MemorySession {
       for (const candidate of candidates) {
         if (!this.qualify(candidate)) continue;
         try {
+          // 自动保存只写 cache：记忆库的写入口唯一是 `-c`（CLI cache apply）。
           const result = this.runCli({ node: this.node, cliPath: this.cliPath, projectRoot: this.projectRoot,
-            args: ['add', '--type', candidate.type, ...(candidate.group ? ['--group', candidate.group] : [])], input: candidate.content.trim() });
-          const id = result.stdout.trim().split(/\s+/).pop();
-          if (/^\d+$/.test(id)) added.push(id);
+            args: ['cache', 'add', '--op', 'add', '--record-type', candidate.type,
+              ...(candidate.group ? ['--group', candidate.group] : []),
+              '--source', this.taskId], input: candidate.content.trim() });
+          const staged = JSON.parse(result.stdout || '{}');
+          if (staged.event_id) added.push(staged.event_id);
         } catch {
           saveFailures++;
-          this.emit('save', false, 'store-write-failure');
+          this.emit('save', false, 'cache-write-failure');
         }
       }
-      this.emit('save', saveFailures === 0, saveFailures ? 'partial-failure' : 'policy-enabled', { count: added.length, outcome: saveFailures ? 'partial' : 'allowed' });
+      this.emit('save', saveFailures === 0, saveFailures ? 'partial-failure' : 'policy-enabled',
+        { count: added.length, outcome: saveFailures ? 'partial' : 'allowed', target: 'cache' });
     }
-    const rated = [];
     if (!this.policy.auto_rate) {
       this.emit('rate', false, this.policy.failClosed ? 'fail-closed' : 'policy-disabled');
     } else {
       let rateFailures = 0;
+      // 自动评分只写 cache：投票方向由证据类型决定，无法归因的结果不投票。
       for (const event of this.structuredEvidence.values()) {
+        const op = VOTE_OPS.get(event.kind);
+        if (!op) continue;
         try {
           const result = this.runCli({ node: this.node, cliPath: this.cliPath, projectRoot: this.projectRoot,
-            args: ['evidence', 'append', '--event-json', JSON.stringify(event)] });
-          const parsed = JSON.parse(result.stdout || '{}');
-          if (parsed.applied || parsed.duplicate) rated.push(event.event_id);
+            args: ['cache', 'add', '--op', op, '--target', event.record_id, '--source', this.taskId,
+              '--evidence-json', JSON.stringify({ kind: event.kind, observed_at: event.observed_at || null })] });
+          const staged = JSON.parse(result.stdout || '{}');
+          if (staged.event_id) rated.push(staged.event_id);
         } catch {
           rateFailures++;
-          this.emit('rate', false, 'store-score-failure', { event_id: event.event_id });
+          this.emit('rate', false, 'cache-write-failure', { refid: event.record_id });
         }
       }
       // Compatibility for callers that still submit { positive: true }.
       for (const id of this.legacyPositiveEvidence) {
         if (this.ratedRecords.has(id)) continue;
         try {
-          this.runCli({ node: this.node, cliPath: this.cliPath, projectRoot: this.projectRoot, args: ['score', id, '+1'] });
-          this.ratedRecords.add(id); rated.push(id);
-        } catch { rateFailures++; this.emit('rate', false, 'store-score-failure', { refid: id }); }
+          const result = this.runCli({ node: this.node, cliPath: this.cliPath, projectRoot: this.projectRoot,
+            args: ['cache', 'add', '--op', '+1', '--target', id, '--source', this.taskId] });
+          const staged = JSON.parse(result.stdout || '{}');
+          this.ratedRecords.add(id);
+          if (staged.event_id) rated.push(staged.event_id);
+        } catch { rateFailures++; this.emit('rate', false, 'cache-write-failure', { refid: id }); }
       }
-      this.emit('rate', rateFailures === 0, rateFailures ? 'partial-failure' : 'policy-enabled', { count: rated.length, outcome: rateFailures ? 'partial' : 'allowed' });
+      this.emit('rate', rateFailures === 0, rateFailures ? 'partial-failure' : 'policy-enabled',
+        { count: rated.length, outcome: rateFailures ? 'partial' : 'allowed', target: 'cache' });
     }
     return Object.freeze({ added, rated, audit: this.auditEvents.slice() });
   }

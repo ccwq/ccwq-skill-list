@@ -60,7 +60,7 @@ npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code --
 | `ntl-script-descriptions` | 为 package.json 补充 ntl 可读取的 scripts 中文说明 | [速查](#ntl-script-descriptions) · [SKILL](skills/ntl-script-descriptions/SKILL.md) |
 | `pro-grilling` | 手动逐层厘清复杂决策，在共同理解前保持只读 | [速查](#pro-grilling) · [SKILL](skills/pro-grilling/SKILL.md) |
 | `progressive-doc` | 用渐进式披露结构创建、改写或审查中文技术文章 | [速查](#progressive-doc) · [SKILL](skills/progressive-doc/SKILL.md) |
-| `project-self-memory` | 维护项目级结论记忆，支持逐问策展、评分、可选派生多标签与 legacy 迁移 | [速查](#project-self-memory) · [README](skills/project-self-memory/README.md) |
+| `project-self-memory` | 维护项目级结论记忆，支持逐问策展、评分、候选逐条入库、可选派生多标签与 legacy 迁移 | [速查](#project-self-memory) · [README](skills/project-self-memory/README.md) |
 | `rd-mode` | 远程开发模式规则，统一通过 `abc` 命令操作 host 浏览器 | [速查](#rd-mode) · [README](skills/rd-mode/README.md) |
 | `software-license-checker` | 评估软件企业内部使用的许可证合规与付费风险 | [速查](#software-license-checker) · [README](skills/software-license-checker/README.md) |
 | `subagent-router` | 预览并确认后临时创建子 Agent，支持动态模型路由 | [速查](#subagent-router) · [README](skills/subagent-router/README.md) |
@@ -736,6 +736,7 @@ $progressive-doc 审查这篇事故复盘，标出证据缺口和未核验论断
 ```text
 /project-self-memory -g
 /project-self-memory -r
+/project-self-memory -c
 /project-self-memory -g -r
 ```
 
@@ -743,6 +744,7 @@ $progressive-doc 审查这篇事故复盘，标出证据缺口和未核验论断
 |------|------|--------|
 | `-g` / `--grilling` | 逐问盘点新增、修订、合并、冲突和迁移候选 | 显式调用或自然语言要求盘点时进入 |
 | `-r` / `--rate` | 讨论本会话实际使用、有结果且尚未评分的记录 | 每条每会话最多评分一次 |
+| `-c` / `--cache-write` | 处理自动暂存区（cache）里的待处理候选，逐条决定入库或丢弃 | 显式调用时进入；候选入库的唯一入口 |
 | `-g -r` / `-r -g` | 组合策展与评分，共享讨论进度 | 参数顺序不影响进度 |
 
 讨论量默认预计约 3 轮、复杂时可展开；以结论和具体操作授权为准，详见 [讨论轮次与结束条件](skills/project-self-memory/SKILL.md#讨论轮次与结束条件)。
@@ -757,7 +759,10 @@ node skills/project-self-memory/scripts/memory.mjs tags suggest
 node skills/project-self-memory/scripts/memory.mjs tags stats
 node skills/project-self-memory/scripts/memory.mjs read --tag host_scope:tenc,component:api
 node skills/project-self-memory/scripts/memory.mjs catalog --by tag
+node skills/project-self-memory/scripts/memory.mjs cache list
+node skills/project-self-memory/scripts/memory.mjs cache show <id>
 # 以下为显式写入，先确认具体分类标准或修正内容
+node skills/project-self-memory/scripts/memory.mjs cache apply --id <id> --decision write
 node skills/project-self-memory/scripts/memory.mjs tags apply --plan-file taxonomy.json
 node skills/project-self-memory/scripts/memory.mjs tags set 0001 --add component:api --remove host_scope:tenc
 ```
@@ -778,6 +783,10 @@ node skills/project-self-memory/scripts/memory.mjs tags set 0001 --add component
 | `catalog --by tag` | 标签目录 `{name, count}[]`，只统计有效 active 记录 | 不传时保持旧分组目录 |
 | `add` / `update` / `status` / `delete` | 用文件或 stdin 传正文维护记录 | ID 永不复用 |
 | `score` / `merge` / `groups` / `legacy` / `config` | 评分、合并、兼容旧分组与迁移、自动行为配置 | 新分类推荐标签，不自动迁移 group |
+| `cache add --op <op> [--target <id>] [--content-file <f>] [--record-type <t>] [--group <g>] [--source <s>] [--evidence-json <json>]` | 追加待处理候选；`op` 为 `add`/`update`/`delete`/`+1`/`-1` | 自动流程只暂存不落库；同会话同操作幂等 |
+| `cache list [--all]` / `cache show <id>` | 列出分组候选（含失效标记）/ 查看单条与目标正文快照 | 默认只列 `pending` |
+| `cache discard <id>` / `cache apply --id <id> --decision write\|discard [--content-file <f>]` | 丢弃单条 / 落库或丢弃单条；`--content-file` 是「改写后写入」的正文 | 候选入库的唯一入口 |
+| `cache prune [--older-than <N>d]` | 清理已处理与已失效条目 | `pending` 候选无 TTL，不自动过期 |
 | `migrate-schema` | v1 明确报告无可迁移前版；未知版本拒绝 | 当前格式为 v1 |
 | `viewer install` / `viewer update` / `viewer status` | 部署、按官方哈希升级、检查紧凑查看器 | 随 `init` 自动安装 |
 

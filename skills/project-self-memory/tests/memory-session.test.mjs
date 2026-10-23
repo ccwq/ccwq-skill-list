@@ -74,8 +74,8 @@ function spyRunner(root, calls, { fail } = {}) {
 /**
  * Given：同一 active 记录与稳定 task_id，两个独立 MemorySession 提交同一结构化结果
  * When：分别重放相同 record_version/kind/source 的自动证据
- * Then：ledger 只保留一个稳定事件，派生 positive 只增加一次
- * 防回归：宿主重启或任务重试造成自动评分重复累加
+ * Then：cache 只有一条 +1 候选，记忆库与证据账本都不变
+ * 防回归：宿主重启或任务重试造成自动评分重复累加，或自动评分直接落库
  */
 test('structured automatic evidence is idempotent across sessions', async () => {
   const root = temp();
@@ -93,8 +93,11 @@ test('structured automatic evidence is idempotent across sessions', async () => 
   }
   const record = JSON.parse(run(root, 'inspect', '0001'));
   const events = JSON.parse(run(root, 'evidence', 'inspect')).events;
-  assert.equal(record.positive, 1);
-  assert.equal(events.filter((event) => event.event_id === 'stable-event-71a2').length, 1);
+  const cached = JSON.parse(run(root, 'cache', 'list'));
+  assert.equal(record.positive, 0);
+  assert.deepEqual(events, []);
+  assert.equal(cached.count, 1);
+  assert.equal(cached.groups[0].entries[0].type, '+1');
 });
 
 /**
@@ -122,7 +125,7 @@ test('evidence must use the current session task id', async () => {
 /**
  * Given：自动 evidence 只有 applied_success/still_valid 声明，没有 host 直接结果
  * When：提交该 evidence 并结束任务
- * Then：事件最多降级为 review_candidate，不产生 positive 派生分
+ * Then：不产生任何投票候选，账本不变且不产生 positive 派生分
  * 防回归：Agent 自述“已成功/仍有效”绕过 host-confirmed 结果门槛
  */
 test('automatic positive evidence without direct host outcome cannot score', async () => {
@@ -138,15 +141,17 @@ test('automatic positive evidence without direct host outcome cannot score', asy
   }), true);
   await session.endTask();
   const record = JSON.parse(run(root, 'inspect', '0001'));
-  const event = JSON.parse(run(root, 'evidence', 'inspect')).events[0];
+  const events = JSON.parse(run(root, 'evidence', 'inspect')).events;
+  const cached = JSON.parse(run(root, 'cache', 'list'));
   assert.equal(record.positive, 0);
-  assert.equal(event.kind, 'review_candidate');
+  assert.deepEqual(events, []);
+  assert.equal(cached.count, 0);
 });
 
 /**
  * Given：Agent 返回 evidence 自述 applied_success，但 host 没有显式确认结果
  * When：仅用 Agent 的 endTask 结果结束任务
- * Then：Agent 自述不会进入 ledger 或增加 positive
+ * Then：Agent 自述不会进入 cache、ledger 或增加 positive
  * 防回归：模型输出的 host_confirmed/直接结果字段被错误信任
  */
 test('agent self-reported evidence cannot auto-rate', async () => {
@@ -165,15 +170,16 @@ test('agent self-reported evidence cannot auto-rate', async () => {
   await session.beginTask({ task_id: 'agent-self-report-5d44', query: 'AGENT_SELF_REPORT_SENTINEL' });
   await session.endTask();
   assert.deepEqual(JSON.parse(run(root, 'evidence', 'inspect')).events, []);
+  assert.equal(JSON.parse(run(root, 'cache', 'list')).count, 0);
 });
 
 /**
  * Given：自动结果声明 applied_failure，但没有直接因果证明
  * When：MemorySession 记录该结构化证据
- * Then：事件降级为 review_candidate，不产生 negative 派生分
+ * Then：证据没有投票方向，不产生投票候选也不自动扣分
  * 防回归：无法归因的失败被自动扣分，造成长期悲观偏差
  */
-test('unattributed automatic failures become review candidates', async () => {
+test('unattributable automatic failures produce no vote candidate', async () => {
   const root = temp();
   init(root, { auto_load: 'true', auto_save: 'false', auto_rate: 'true' });
   addRecord(root, 'UNATTRIBUTED_FAILURE_SENTINEL_2d8c');
@@ -184,9 +190,11 @@ test('unattributed automatic failures become review candidates', async () => {
     task_id: 'failure-task-2d8c', kind: 'applied_failure', source: 'automatic' }), true);
   await session.endTask();
   const record = JSON.parse(run(root, 'inspect', '0001'));
-  const event = JSON.parse(run(root, 'evidence', 'inspect')).events[0];
+  const events = JSON.parse(run(root, 'evidence', 'inspect')).events;
+  const cached = JSON.parse(run(root, 'cache', 'list'));
   assert.equal(record.negative, 0);
-  assert.equal(event.kind, 'review_candidate');
+  assert.deepEqual(events, []);
+  assert.equal(cached.count, 0);
 });
 
 /**
@@ -247,13 +255,14 @@ test('auto_load=false is fail-closed and keeps sentinel out of context', async (
 /**
  * Given：auto_load/save/rate 全部开启，且 active 库含有唯一 sentinel
  * When：完成一次合格结论并重复提交同一 positive evidence
- * Then：Agent 能看到 sentinel，新增结论只写入一次，既有记录最多正向评分一次
- * 防回归：重复 endTask 或重复证据导致分数膨胀或重复 durable add
+ * Then：Agent 能看到 sentinel；新结论只进 cache 一条、既有记录只产生一条投票候选，记忆库与账本都不变
+ * 防回归：重复 endTask 或重复证据导致分数膨胀、重复 durable add，或自动流程直接写库
  */
-test('enabled lifecycle loads, saves once, and deduplicates positive rating', async () => {
+test('enabled lifecycle loads, stages once, and deduplicates positive rating', async () => {
   const root = temp();
   init(root, { auto_load: 'true', auto_save: 'true', auto_rate: 'true' });
   addRecord(root, 'ENABLED_LOAD_SENTINEL_7b31');
+  const before = snapshot(root).toString();
   const agent = fakeAgent();
   const audit = auditLog();
   const session = new MemorySession({ projectRoot: root, agent, audit });
@@ -268,10 +277,16 @@ test('enabled lifecycle loads, saves once, and deduplicates positive rating', as
     direct_result: { adopted: true }, event_id: 'enabled-event-7b31' });
   await session.endTask({ conclusions: [{ type: 'fact', content: 'runtime 新结论', verified: true, isNew: true, conflictFree: true }] });
   const after = snapshot(root).toString();
+  const cached = JSON.parse(run(root, 'cache', 'list'));
 
   assert.match(JSON.stringify(agent.calls[0].context), /ENABLED_LOAD_SENTINEL_7b31/);
-  assert.equal((after.match(/runtime 新结论/g) || []).length, 1);
-  assert.equal((after.match(/id="0001"[^>]*positive="1"/g) || []).length, 1);
+  assert.equal(after, before);
+  assert.deepEqual(JSON.parse(run(root, 'evidence', 'inspect')).events, []);
+  assert.equal(cached.count, 2);
+  assert.equal(cached.groups.filter((group) => group.kind === 'new').length, 1);
+  assert.equal(cached.groups.find((group) => group.kind === 'new').entries.length, 1);
+  assert.equal(cached.groups.filter((group) => group.refid === '0001').length, 1);
+  assert.equal(cached.groups.find((group) => group.refid === '0001').entries.length, 1);
   assert.equal(audit.events.filter((event) => event.action === 'rate' && event.outcome === 'allowed').length, 1);
 });
 
@@ -465,7 +480,7 @@ test('agent self-supplied conclusion cannot trigger automatic save', async () =>
 
 /**
  * Given：save 或 rate 的 CLI 在实际动作中失败
- * When：结束任务并触发自动保存/评分
+ * When：结束任务并触发自动暂存/评分投票
  * Then：对应审计不会误报为完整 allowed；失败原因和部分结果可区分
  * 防回归：失败动作先记录 blocked，随后无条件追加 allowed 掩盖真实失败
  */
@@ -479,7 +494,7 @@ test('partial save and rate failures are not reported as fully allowed', async (
     projectRoot: root,
     agent: fakeAgent(),
     audit,
-    runCli: spyRunner(root, calls, { fail: (args) => args[0] === 'add' || args[0] === 'score' || args[0] === 'evidence' }),
+    runCli: spyRunner(root, calls, { fail: (args) => args[0] === 'cache' }),
   });
   await session.beginTask();
   const loaded = session.loadedRecords.get('0001');
@@ -490,8 +505,8 @@ test('partial save and rate failures are not reported as fully allowed', async (
 
   const saveEvents = audit.events.filter((event) => event.action === 'save');
   const rateEvents = audit.events.filter((event) => event.action === 'rate');
-  assert.ok(saveEvents.some((event) => event.outcome === 'blocked' && event.reason === 'store-write-failure'));
-  assert.ok(rateEvents.some((event) => event.outcome === 'blocked' && event.reason === 'store-score-failure'));
+  assert.ok(saveEvents.some((event) => event.outcome === 'blocked' && event.reason === 'cache-write-failure'));
+  assert.ok(rateEvents.some((event) => event.outcome === 'blocked' && event.reason === 'cache-write-failure'));
   assert.equal(saveEvents.some((event) => event.outcome === 'allowed'), false);
   assert.equal(rateEvents.some((event) => event.outcome === 'allowed'), false);
 });

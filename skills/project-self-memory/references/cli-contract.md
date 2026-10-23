@@ -9,9 +9,27 @@
 | 主题标签 | `tags show`, `tags suggest`, `tags apply`, `tags set`, `tags stats` |
 | CRUD | `add`, `update`, `status`, `delete` |
 | 评分 | `score`, `score-reset`, `score-repair` |
+| 缓存 | `cache add`, `cache list`, `cache show`, `cache discard`, `cache apply`, `cache prune` |
 | 生命周期 | `merge`（keep 必须较早）, `groups show|apply|rename|move`, `legacy scan|migrate`, `migrate-schema` |
 | 配置 | `config show|validate|set|reset|repair` |
 | 查看器 | `viewer install`, `viewer update`, `viewer status` |
+
+## cache 暂存区（自动流程的唯一去处）
+
+自动保存与自动评分只写 `.project-self-memory/cache.jsonl`（跨会话暂存区），不直接写 `memory.md` 或 `evidence.jsonl`。候选进入记忆库的唯一入口是 `cache apply`（skill 层 `-c/--cache-write`）。cache 文件由 Git 忽略（`init` 写入项目根 `.gitignore`）。
+
+条目模型：`event_id`（内容哈希幂等键）、`type`（`add`/`update`/`delete`/`+1`/`-1`）、`target_refid`、`target_record_version`、`record_type`、`group`、`payload`（STE 改写后正文）、`evidence`（内联理由与观察）、`source`（任务或会话标识）、`created_at`、`status`。持久 `status` 只有 `pending`/`applied`/`discarded` 三态；`stale` 是读时派生态，不落盘。
+
+- `cache add`：追加候选。`--op` 必须是 `add`/`update`/`delete`/`+1`/`-1`；`add` 需要正文与记录类型，其余需要目标记录。同一会话重复提交同一操作得到同一 `event_id`，返回 `{"duplicate": true}` 且不重复追加。返回 `{"event_id", "status", "duplicate"}`。
+- `cache list`：列出候选，按目标 refid 分组；返回 `{version, count, warning, groups}`，每组含 `key`、`kind`（`new`/`target`/`stale`）、`refid`、`stale`、`conflict`、`entries` 与目标记录的 `current` 快照。`conflict` 表示该组存在互相矛盾的候选。默认只列 `pending`；pending 超过 20 条时给出非阻断 warning（同时写入 stderr）。
+- `cache show`：返回单条候选及其 `current` 快照（目标记录当前正文与版本），供展示「原正文 vs 新正文」diff。
+- `cache discard`：标记为 `discarded`；已落库条目拒绝丢弃。
+- `cache apply`：落库或丢弃单条候选。`write` 复用既有写入栈（`memory.lock` + 备份 + baseline sha256 乐观并发 + 单行契约校验），并可用 `--content-file` 提供「改写后写入」的正文（优先于条目暂存的正文）。成功返回 `{event_id, status, record_id, ...}`。
+- `cache prune`：清理已处理（`applied`/`discarded`）与已失效条目。`pending` 候选没有 TTL，不会自动过期，只在手动 prune 时按失效判定清理。返回 `{removed, kept, removed_ids}`。
+
+失效判定是读时派生：目标记录的 `record_version` 与条目暂存时的 `target_record_version` 不一致（或目标已被删除）即视为失效。对失效条目执行 `cache apply --decision write` 会被拒绝，退出 1 并给出 `PSM_CONFLICT`，条目保持 `pending`。逐条独立成败：单条失败不影响其他条目。
+
+`cache.lock` 与 `memory.lock`/`evidence.lock` 分层：`cache.lock` 是最外层，`cache apply` 持有它期间再取库内锁，库内写入沿用既有命令的顺序（先追加账本事件，再写记忆库），两者不嵌套。读命令（`list`/`show`）不取锁。
 
 ## 标签读取与输出
 

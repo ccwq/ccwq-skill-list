@@ -43,6 +43,8 @@ node <project-root>/.project-self-memory/view-memoery.js
 memory.md（记忆正文）
         +
 evidence.jsonl（无正文的证据收据）
+        +
+cache.jsonl（跨会话待处理候选）
         ↓
 MemorySession
         ↓
@@ -53,8 +55,13 @@ MemorySession
 
 - `memory.md` 保存人可读的记忆正文和稳定记录 ID。
 - `evidence.jsonl` 是只追加的审计账本。它保存评分和使用结果，不保存记忆正文或自由文本证据。
+- `cache.jsonl` 是自动流程的暂存区。自动保存与自动评分只把候选写在这里，不直接写记忆库；候选由 `-c/--cache-write` 逐条确认后入库。该文件由 Git 忽略。
 - `MemorySession` 是自动记忆操作的唯一入口。该入口不向 Agent 暴露原始存储、CLI、shell 或文件系统能力。
 - 可选 `tags.json` 提供项目自己的分类标准；读取时从正文派生多标签，不修改正文、记录版本或评分证据。
+
+## 候选入库（cache）
+
+自动流程不再直接落库：任务结束时只把结论与投票写进 `cache.jsonl`，跨会话保留。`-c/--cache-write` 读取待处理候选，按目标记录分组逐条询问，改写类必须展示「原正文 vs 新正文」diff 后由用户确认，再逐条写入记忆库。目标记录在暂存后被改动时，该候选标记为失效并拒绝直接落库，需基于现状重新评估。`cache prune` 清理已处理与已失效条目；`pending` 候选没有 TTL，不会自动过期。
 
 ## 可选主题标签
 
@@ -89,7 +96,7 @@ MemorySession
 
 旧接口仍可读取 `positive`、`negative` 和 `last_scored_at`。这些字段由审计账本计算，不再是原始事实来源。
 
-支持的事件包括人工正负反馈、直接应用成功/失败、仍然有效、review 候选、迁移、投影修复和合并谱系。事件绑定记录版本：旧正文的成功历史不会自动转移到新正文。
+支持的事件包括人工正负反馈、直接应用成功/失败、仍然有效、迁移、投影修复和合并谱系。事件绑定记录版本：旧正文的成功历史不会自动转移到新正文。
 
 自动正向证据必须同时满足：
 
@@ -98,7 +105,7 @@ MemorySession
 3. `record_version` 等于当前加载版本；
 4. 宿主确认记忆被直接采用且具有直接结果。
 
-无法直接归因的失败会成为 `review_candidate`，不会自动扣分。Agent 自述的 evidence 或 conclusion 不能触发自动评分或自动保存。
+无法直接归因的失败不产生投票候选，既不自动扣分也不落库；这类结果留在会话里，进入 `-r` 讨论。Agent 自述的 evidence 或 conclusion 不能触发自动评分或自动保存。
 
 ## 上下文控制
 

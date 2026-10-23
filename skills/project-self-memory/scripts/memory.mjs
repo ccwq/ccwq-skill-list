@@ -35,12 +35,28 @@ import {
   writeErrors,
 } from './memory-store.mjs';
 import {
+  acquireLockSync,
   acquireMemoryLockSync,
   atomicReplace,
   backupMemoryFile,
 } from './memory-lock.mjs';
 
 import { loadTagTaxonomy, normaliseTaxonomy, tagRecords, suggestTaxonomy } from './memory-tags.mjs';
+
+import {
+  CACHE_OPS,
+  CACHE_VERSION,
+  PENDING_WARNING_THRESHOLD,
+  cacheEventId,
+  cachePaths,
+  deriveStale,
+  groupEntries,
+  normaliseEntry,
+  normaliseEvidence,
+  payloadFingerprint,
+  readCache,
+  writeCache,
+} from './memory-cache.mjs';
 
 const CONFIG_DEFAULT = {
   version: 1, auto_load: true, auto_save: true, auto_rate: true,
@@ -168,14 +184,14 @@ auto_load: ${config.auto_load}
 
 # Given：宿主显式提交且已确认的保存候选。
 # When：auto_save 为 true。
-# Then：仅保存 verified、isNew、conflictFree 的 host 候选。
+# Then：仅把 verified、isNew、conflictFree 的 host 候选暂存到 cache；不直接写记忆库。
 # 防回归：Agent 自报 conclusion 或未验证内容被自动写入。
 # 取值：true | false。参考值：true；只读任务用 false。
 auto_save: ${config.auto_save}
 
 # Given：当前任务已加载某条记忆，宿主提交直接、可归因的结果。
 # When：auto_rate 为 true。
-# Then：写入带 task/version 的幂等 evidence event；无法归因的失败仅进入 review。
+# Then：把带方向的证据暂存为 cache 投票候选；不直接追加 evidence。
 # 防回归：重试刷分、Agent 自述或旧版本证据改变当前分数。
 # 取值：true | false。参考值：true；人工审核优先时用 false。
 auto_rate: ${config.auto_rate}
@@ -259,7 +275,7 @@ function parseConfig(text, allowMissing = false) {
   return { config: { ...CONFIG_DEFAULT, ...out }, errors, missing };
 }
 function loadConfig() { const file = paths().config; if (!fs.existsSync(file)) return { config: CONFIG_DEFAULT, errors: [issue('config', '缺少 config.yaml', { impact: 'repairable' })], missing: Object.keys(CONFIG_DEFAULT) }; return parseConfig(fs.readFileSync(file, 'utf8')); }
-function initialize() { const p = paths(); fs.mkdirSync(p.base, { recursive: true }); if (!fs.existsSync(p.config)) fs.writeFileSync(p.config, configText(CONFIG_DEFAULT)); if (!fs.existsSync(p.memory)) fs.writeFileSync(p.memory, '<!-- <psm-store version="1" next_id="0001" group_dimension="" /> -->\n'); initializeLedger(p.root); viewerDeploy({ quiet: true }); console.log('PSM_INITIALIZED'); }
+function initialize() { const p = paths(); fs.mkdirSync(p.base, { recursive: true }); if (!fs.existsSync(p.config)) fs.writeFileSync(p.config, configText(CONFIG_DEFAULT)); if (!fs.existsSync(p.memory)) fs.writeFileSync(p.memory, '<!-- <psm-store version="1" next_id="0001" group_dimension="" /> -->\n'); initializeLedger(p.root); ensureCacheIgnored(p.root); viewerDeploy({ quiet: true }); console.log('PSM_INITIALIZED'); }
 
 // --- viewer deployment contract -------------------------------------------
 // New projects get the viewer on init; existing projects opt in with an
@@ -513,5 +529,271 @@ function config() {
   }
   throw Error('未知 config 子命令');
 }
-function main() { const command = args[0]; try { if (command === 'init') return initialize(); if (command === 'validate') return validate(); if (command === 'diagnose') return diagnose(); if (command === 'read') return read(); if (command === 'tags') return tagsCommand(); if (command === 'catalog') { validateLedger(paths().root); const model = loadStore(); const invalid = new Set(validateModel(model).filter((x) => x.kind === 'record').map((x) => x.id)); if (opt('--by') === 'tag') return json(tagCatalog(model.records.filter((r) => r.status === 'active' && !invalid.has(r.id)))); return json(model.groups.map((g) => ({ ...g, count: model.records.filter((r) => r.group === g.id && r.status === 'active' && !invalid.has(r.id)).length }))); } if (command === 'inspect') { const model = loadStore(); if (has('--legacy')) { const source=legacySource(); return json({ snapshot: source.snapshot, items: source.items.map((item, i) => ({ temporary_id: `U${String(i + 1).padStart(3, '0')}`, source_hash: item.source_hash, content: item.bytes.toString('utf8') })) }); } validateLedger(paths().root); if (/^\d/.test(args[1] || '')) return json(projectRecord(paths().root, find(model, args[1]))); if (has('--trim-candidates')) return json(model.records.map((r) => projectRecord(paths().root, r)).filter((r) => r.positive - r.negative < 0 || (r.negative >= 3 && r.negative >= r.positive))); return json(has('--groups') ? model.groups : model); } if (command === 'add') return add(); if (command === 'update') return update(); if (command === 'status') { const m=loadStore(); mustWritable(m); const r=find(m,args[1]); if(!STATUS.has(args[2])) throw Error('状态非法'); r.status=args[2]; save(m); return console.log(r.id); } if (command === 'delete') { const m=loadStore(); mustWritable(m); const ids=new Set((opt('--ids')||'').split(',').filter(Boolean)); m.records=m.records.filter((r)=>!ids.has(r.id)); save(m); return console.log('PSM_DELETED'); } if (command === 'score') return score('normal'); if (command === 'score-reset') return score('reset'); if (command === 'score-repair') return score('repair'); if (command === 'merge') return merge(); if (command === 'groups' || command === 'group') return groups(); if (command === 'legacy') return legacy(); if (command === 'evidence' || command === 'migrate-evidence') return evidence(); if (command === 'config') return config(); if (command === 'viewer') return viewerCommand(); if (command === 'migrate-schema') { const model=loadStore(); if(model.store?.version === '1') return console.log('PSM_NO_MIGRATION: 当前已是 v1，无可迁移前版'); throw Error('未知或未来结构化版本不能迁移'); } throw Error('未知命令'); } catch (e) { die(e.message); } }
+// --- cache (跨会话暂存区) -----------------------------------------------
+// 自动流程（auto_save / auto_rate）只写 cache；cache 进记忆库的唯一入口是
+// `cache apply`（skill 层 `-c`）。cache 与记忆库用独立的 cache.lock 分层：
+// cache.lock → memory.lock，绝不反向。
+const CACHE_IGNORE_START = '# >>> project-self-memory cache >>>';
+const CACHE_IGNORE_END = '# <<< project-self-memory cache <<<';
+
+function ensureCacheIgnored(root) {
+  const file = path.join(root, '.gitignore');
+  const block = `${CACHE_IGNORE_START}\n# 自动暂存区：跨会话持久，但不入版本库\n/.project-self-memory/cache.jsonl\n/.project-self-memory/cache.lock\n${CACHE_IGNORE_END}\n`;
+  const current = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
+  const from = current.indexOf(CACHE_IGNORE_START);
+  const to = current.indexOf(CACHE_IGNORE_END);
+  let next;
+  if (from >= 0 && to > from) next = current.slice(0, from) + block + current.slice(to + CACHE_IGNORE_END.length).replace(/^\n/, '');
+  else if (current.trim()) next = `${current.replace(/\s*$/, '\n')}\n${block}`;
+  else next = block;
+  if (next !== current) fs.writeFileSync(file, next);
+}
+
+/**
+ * 读当前记忆库与其版本快照。
+ * 库不可读时 model 为 null：stale 判定记为未知（null），不猜。
+ */
+function cacheStoreSnapshot() {
+  let model = null;
+  try { model = loadStore(); } catch { model = null; }
+  const versions = model ? new Map(model.records.map((record) => [record.id, recordVersion(record)])) : null;
+  return { model, versions };
+}
+
+function cacheEntryIndex(entries, id) {
+  const index = entries.findIndex((entry) => entry.event_id === id);
+  if (index < 0) throw Error(`不存在 cache 条目: ${id}`);
+  return index;
+}
+
+/** 读 cache 内容；库不可用时 stale 记为 null（未知，不猜）。 */
+function cacheTargetSnapshot(model, refid) {
+  const record = model ? model.records.find((item) => item.id === refid) : null;
+  if (!record) return { exists: false, record_version: null, content: '', type: null };
+  return { exists: true, record_version: recordVersion(record), content: String(record.content || ''), type: record.type };
+}
+
+function cacheAdd() {
+  const op = opt('--op');
+  if (!CACHE_OPS.has(op)) throw Error('--op 必须是 add/update/delete/+1/-1');
+  const source = String(opt('--source') || 'manual');
+  const target = opt('--target') || null;
+  const model = loadStore();
+  let recordType = null;
+  let group = null;
+  let payload = null;
+  let targetVersion = null;
+  if (op === 'add' || op === 'update') {
+    payload = contentInput(); // 单行契约：改写失败的候选不入 cache
+    if (op === 'add') {
+      recordType = opt('--record-type');
+      if (!TYPES.has(recordType)) throw Error('--record-type 必须是合法类型');
+      group = opt('--group') || null;
+      if (group && !model.groups.some((item) => item.id === group)) throw Error(`未知分组: ${group}`);
+    }
+  }
+  if (op !== 'add') {
+    if (!target) throw Error(`${op} 必须提供 --target`);
+    const record = model.records.find((item) => item.id === target);
+    if (!record) throw Error(`不存在记录: ${target}`);
+    targetVersion = recordVersion(record);
+  }
+  const evidenceJson = opt('--evidence-json');
+  const evidenceFile = opt('--evidence-file');
+  const evidence = evidenceJson
+    ? normaliseEvidence(JSON.parse(evidenceJson))
+    : (evidenceFile ? normaliseEvidence(JSON.parse(fs.readFileSync(path.resolve(evidenceFile), 'utf8'))) : normaliseEvidence(null));
+  const fingerprint = op === 'add'
+    ? payloadFingerprint({ content: payload, record_type: recordType, group })
+    : (op === 'update' ? payloadFingerprint({ content: payload }) : '');
+  const eventId = cacheEventId({ type: op, target_refid: target || '', fingerprint, source });
+  const entry = normaliseEntry({
+    event_id: eventId, type: op, target_refid: target, target_record_version: targetVersion,
+    record_type: recordType, group, payload, evidence, source, created_at: timestamp(), status: 'pending',
+  });
+  const lease = acquireLockSync(cachePaths(paths().root).lock);
+  try {
+    const entries = readCache(paths().root);
+    const existing = entries.find((item) => item.event_id === eventId);
+    if (existing) return json({ event_id: eventId, status: existing.status, duplicate: true });
+    entries.push(entry);
+    writeCache(paths().root, entries);
+    return json({ event_id: eventId, status: 'pending', duplicate: false });
+  } finally { lease.release(); }
+}
+
+function cacheList() {
+  const entries = readCache(paths().root);
+  const includeAll = has('--all');
+  const scoped = includeAll ? entries : entries.filter((entry) => entry.status === 'pending');
+  const { model, versions } = cacheStoreSnapshot();
+  const derived = deriveStale(scoped, versions);
+  const groups = groupEntries(derived).map((group) => ({
+    ...group,
+    current: group.refid ? cacheTargetSnapshot(model, group.refid) : null,
+  }));
+  const warning = scoped.length > PENDING_WARNING_THRESHOLD
+    ? `pending 条目过多（${scoped.length} > ${PENDING_WARNING_THRESHOLD}），建议尽快处理或 prune`
+    : null;
+  if (warning) console.error(`PSM_WARNING: ${warning}`);
+  return json({ version: CACHE_VERSION, count: scoped.length, warning, groups });
+}
+
+function cacheShow() {
+  const entries = readCache(paths().root);
+  const index = cacheEntryIndex(entries, args[2]);
+  const entry = entries[index];
+  const { model, versions } = cacheStoreSnapshot();
+  const [derived] = deriveStale([entry], versions);
+  return json({ ...derived, current: derived.target_refid ? cacheTargetSnapshot(model, derived.target_refid) : null });
+}
+
+/**
+ * 标 discarded：只允许从 pending 走，不覆盖已落库条目。
+ * `cache discard <id>` 与 `cache apply --id <id> --decision discard` 共用此实现。
+ */
+function cacheMarkDiscarded(id) {
+  const lease = acquireLockSync(cachePaths(paths().root).lock);
+  try {
+    const entries = readCache(paths().root);
+    const index = cacheEntryIndex(entries, id);
+    const entry = entries[index];
+    if (entry.status === 'applied') throw Error(`cache 条目已落库，不能再丢弃: ${id}`);
+    if (entry.status !== 'discarded') {
+      entries[index] = { ...entry, status: 'discarded' };
+      writeCache(paths().root, entries);
+    }
+    return json({ event_id: id, status: 'discarded' });
+  } finally { lease.release(); }
+}
+
+/**
+ * 落库正文：优先用 `--content-file` 提供的「改写后写入」版本，
+ * 否则用条目里暂存的正文。两条路径都在落库这一刻再过一次单行契约校验。
+ */
+function cacheLandingContent(entry) {
+  const content = opt('--content-file') === null ? entry.payload : contentInput();
+  assertContentContract(content);
+  return content;
+}
+
+function cacheApply() {
+  const id = opt('--id');
+  const decision = opt('--decision');
+  if (!id) throw Error('必须提供 --id');
+  if (decision !== 'write' && decision !== 'discard') throw Error('--decision 必须是 write 或 discard');
+  if (decision === 'discard') return cacheMarkDiscarded(id);
+  const lease = acquireLockSync(cachePaths(paths().root).lock);
+  try {
+    const entries = readCache(paths().root);
+    const index = cacheEntryIndex(entries, id);
+    const entry = entries[index];
+    if (entry.status !== 'pending') throw Error(`cache 条目不是 pending（${entry.status}），拒绝落库: ${id}`);
+    const model = loadStore();
+    mustWritable(model);
+    // 失效判定：目标记录在暂存后被改或被删，不得直接落库。
+    if (entry.target_refid) {
+      const record = model.records.find((item) => item.id === entry.target_refid);
+      if (!record) throw Error(`PSM_CONFLICT: 目标记录已不存在（${entry.target_refid}）；请基于现状重新评估`);
+      if (recordVersion(record) !== entry.target_record_version) throw Error(`PSM_CONFLICT: 目标记录已变更（${entry.target_refid}）；请基于现状重新评估`);
+    }
+    const result = cacheWriteThrough(entry, model);
+    const next = entries.slice();
+    next[index] = { ...entry, status: 'applied' };
+    writeCache(paths().root, next);
+    return json({ event_id: id, status: 'applied', ...result });
+  } finally { lease.release(); }
+}
+
+/** 把一条 cache 条目落到记忆库；走与 CLI add/update/score 相同的写入栈。 */
+function cacheWriteThrough(entry, model) {
+  if (entry.type === 'add') {
+    const content = cacheLandingContent(entry);
+    const id = newId(model);
+    model.records.push({
+      id, type: entry.record_type, status: 'active', positive: 0, negative: 0,
+      created_at: timestamp(), last_scored_at: '', content, group: entry.group,
+    });
+    save(model);
+    return { record_id: id, record_version: recordVersion(model.records[model.records.length - 1]) };
+  }
+  if (entry.type === 'update') {
+    const record = find(model, entry.target_refid);
+    record.content = cacheLandingContent(entry);
+    // 与 CLI update 一致：正文变更后 record_version 变化，旧投影不再适用。
+    record.positive = 0; record.negative = 0; record.last_scored_at = '';
+    save(model);
+    return { record_id: record.id, record_version: recordVersion(record) };
+  }
+  if (entry.type === 'delete') {
+    const record = find(model, entry.target_refid);
+    model.records = model.records.filter((item) => item.id !== record.id);
+    save(model);
+    return { record_id: record.id, deleted: true };
+  }
+  const record = find(model, entry.target_refid);
+  const version = recordVersion(record);
+  const positive = entry.type === '+1';
+  const kind = entry.evidence.kind && (positive
+    ? ['applied_success', 'still_valid', 'human_positive'].includes(entry.evidence.kind)
+    : ['applied_failure', 'human_negative'].includes(entry.evidence.kind))
+    ? entry.evidence.kind
+    : (positive ? 'human_positive' : 'human_negative');
+  const taskId = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/.test(entry.source) ? entry.source : 'cache';
+  appendEvent(paths().root, {
+    event_id: `cache-apply-${entry.event_id}`,
+    record_id: record.id,
+    record_version: version,
+    task_id: taskId,
+    kind,
+    source: 'manual',
+    observed_at: entry.evidence.observed_at || undefined,
+  });
+  save(model);
+  return { record_id: record.id, evidence_kind: kind };
+}
+
+function cachePrune() {
+  const olderThan = opt('--older-than');
+  const days = olderThan === null ? null : Number(String(olderThan).replace(/d$/, ''));
+  if (days !== null && (!Number.isFinite(days) || days < 0)) throw Error('--older-than 必须是天数（如 7d）');
+  const lease = acquireLockSync(cachePaths(paths().root).lock);
+  try {
+    const entries = readCache(paths().root);
+    let model = null;
+    try { model = loadStore(); } catch { model = null; }
+    const versions = model ? new Map(model.records.map((record) => [record.id, recordVersion(record)])) : null;
+    const derived = deriveStale(entries, versions);
+    const cutoff = days === null ? null : Date.now() - days * 86400000;
+    const kept = [];
+    const removed = [];
+    for (const [index, entry] of entries.entries()) {
+      // stale 是读时派生态，不写回磁盘；判定只用于决定是否清理。
+      const processed = entry.status === 'applied' || entry.status === 'discarded' || derived[index].stale === true;
+      const oldEnough = cutoff === null || Date.parse(entry.created_at) <= cutoff;
+      if (processed && oldEnough) removed.push(entry.event_id);
+      else kept.push(entry);
+    }
+    if (removed.length) writeCache(paths().root, kept);
+    return json({ removed: removed.length, kept: kept.length, removed_ids: removed });
+  } finally { lease.release(); }
+}
+
+function cacheCommand() {
+  const sub = args[1] || 'list';
+  if (sub === 'add') return cacheAdd();
+  if (sub === 'list') return cacheList();
+  if (sub === 'show') return cacheShow();
+  if (sub === 'discard') {
+    // 与 `cache apply --decision discard` 同一入口：`--id` 优先，兼容位置参数。
+    const id = opt('--id') || args[2];
+    if (!id) throw Error('必须提供 --id');
+    return cacheMarkDiscarded(id);
+  }
+  if (sub === 'apply') return cacheApply();
+  if (sub === 'prune') return cachePrune();
+  throw Error('未知 cache 子命令');
+}
+
+function main() { const command = args[0]; try { if (command === 'init') return initialize(); if (command === 'validate') return validate(); if (command === 'diagnose') return diagnose(); if (command === 'read') return read(); if (command === 'tags') return tagsCommand(); if (command === 'catalog') { validateLedger(paths().root); const model = loadStore(); const invalid = new Set(validateModel(model).filter((x) => x.kind === 'record').map((x) => x.id)); if (opt('--by') === 'tag') return json(tagCatalog(model.records.filter((r) => r.status === 'active' && !invalid.has(r.id)))); return json(model.groups.map((g) => ({ ...g, count: model.records.filter((r) => r.group === g.id && r.status === 'active' && !invalid.has(r.id)).length }))); } if (command === 'inspect') { const model = loadStore(); if (has('--legacy')) { const source=legacySource(); return json({ snapshot: source.snapshot, items: source.items.map((item, i) => ({ temporary_id: `U${String(i + 1).padStart(3, '0')}`, source_hash: item.source_hash, content: item.bytes.toString('utf8') })) }); } validateLedger(paths().root); if (/^\d/.test(args[1] || '')) return json(projectRecord(paths().root, find(model, args[1]))); if (has('--trim-candidates')) return json(model.records.map((r) => projectRecord(paths().root, r)).filter((r) => r.positive - r.negative < 0 || (r.negative >= 3 && r.negative >= r.positive))); return json(has('--groups') ? model.groups : model); } if (command === 'add') return add(); if (command === 'update') return update(); if (command === 'status') { const m=loadStore(); mustWritable(m); const r=find(m,args[1]); if(!STATUS.has(args[2])) throw Error('状态非法'); r.status=args[2]; save(m); return console.log(r.id); } if (command === 'delete') { const m=loadStore(); mustWritable(m); const ids=new Set((opt('--ids')||'').split(',').filter(Boolean)); m.records=m.records.filter((r)=>!ids.has(r.id)); save(m); return console.log('PSM_DELETED'); } if (command === 'score') return score('normal'); if (command === 'score-reset') return score('reset'); if (command === 'score-repair') return score('repair'); if (command === 'merge') return merge(); if (command === 'groups' || command === 'group') return groups(); if (command === 'legacy') return legacy(); if (command === 'evidence' || command === 'migrate-evidence') return evidence(); if (command === 'cache') return cacheCommand(); if (command === 'config') return config(); if (command === 'viewer') return viewerCommand(); if (command === 'migrate-schema') { const model=loadStore(); if(model.store?.version === '1') return console.log('PSM_NO_MIGRATION: 当前已是 v1，无可迁移前版'); throw Error('未知或未来结构化版本不能迁移'); } throw Error('未知命令'); } catch (e) { die(e.message); } }
 main();
