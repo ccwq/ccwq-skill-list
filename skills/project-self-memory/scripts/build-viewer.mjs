@@ -28,6 +28,7 @@ const MODULES = [
   ['store', 'memory-store.mjs'],
   ['lock', 'memory-lock.mjs'],
   ['ledger', 'evidence-ledger.mjs'],
+  ['tags', 'memory-tags.mjs'],
   ['server', 'viewer-server.mjs'],
   ['page', 'viewer-page.mjs'],
 ];
@@ -37,6 +38,7 @@ const IMPORTS = {
   'memory-store.mjs': [],
   'memory-lock.mjs': ['fs', 'path'],
   'evidence-ledger.mjs': ['crypto', 'fs', 'path'],
+  'memory-tags.mjs': ['fs', 'path'],
   'viewer-server.mjs': [],
   'viewer-page.mjs': [],
 };
@@ -120,6 +122,7 @@ ${factories.map((f) => f.body).join('\n\n')}
 const store = storeFactory({});
 const lock = lockFactory({}, ${['fs', 'path'].join(', ')});
 const ledger = ledgerFactory({}, ${['crypto', 'fs', 'path'].join(', ')});
+const tags = tagsFactory({}, fs, path);
 const server = serverFactory({});
 const page = pageFactory({});
 
@@ -159,7 +162,7 @@ const scriptDir = path.dirname(path.resolve(process.argv[1] || '.'));
 const projectRoot = path.basename(scriptDir) === '.project-self-memory' ? path.dirname(scriptDir) : scriptDir;
 const token = crypto.randomBytes(32).toString('hex');
 const { server: httpServer } = server.createViewerServer({
-  fs, path, crypto, http, store, lock, ledger,
+  fs, path, crypto, http, store, lock, ledger, tags,
   projectRoot, token, pageHtml: page.VIEWER_PAGE_HTML,
 });
 httpServer.listen(port, '127.0.0.1', () => {

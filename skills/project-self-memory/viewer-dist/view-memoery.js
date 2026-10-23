@@ -158,6 +158,8 @@ function serialize(model) {
  * Guard for viewer/host-supplied record edits. Content that would manufacture
  * structural markers (psm tags, store tags, group tags) breaks every other
  * record on re-serialization, so it is rejected before any write is planned.
+ * New content additionally goes through the single-line contract; unchanged
+ * bodies are exempted by the caller (patchRecord) before reaching here.
  */
 function editGuard({ content, type, status }) {
   const errors = [];
@@ -166,6 +168,37 @@ function editGuard({ content, type, status }) {
   if (!TYPES.has(type)) errors.push(`非法类型: ${type}`);
   if (!STATUS.has(status)) errors.push(`非法状态: ${status}`);
   return errors;
+}
+
+/**
+ * Deterministic single-line body contract for newly written content.
+ *
+ * Applies to every entry point that supplies NEW record text (CLI add/update/
+ * merge, legacy migrate, MemorySession auto-save, viewer PATCH). Historical
+ * multiline records stay readable; they are only re-checked when their content
+ * actually changes. The contract covers structural constraints only — meaning,
+ * voice and one-fact-per-sentence remain host responsibilities, not CLI claims.
+ *
+ * Stripping rule: surrounding whitespace including a single trailing newline
+ * of a text file is removed first; any interior line break (LF, CRLF, CR,
+ * U+2028, U+2029) is then rejected. Headings, list markers and code fences at
+ * the start are rejected because they are multiline Markdown templates, not
+ * single-line conclusions.
+ */
+function contentContractErrors(content) {
+  if (typeof content !== 'string') return ['正文必须是字符串'];
+  const text = content.trim();
+  if (!text) return ['正文必须是非空字符串'];
+  if (/[\r\n\u2028\u2029]/.test(text)) return ['新正文必须单行：去除首尾空白后不得含内部换行（含 CRLF 与 Unicode 行/段分隔符）'];
+  if (/<!--\s*<\/?\s*(psm|psm-store|psm-group)[\s/>]/.test(text)) return ['正文不得包含 psm 结构标记'];
+  if (/^(?:#{1,6}\s|[-*+]\s|\d+[.)]\s|```|~~~)/.test(text)) return ['新正文不得以 Markdown 标题、列表或代码围栏开头（单行存储要求）'];
+  return [];
+}
+
+/** Shared single-line gate: throws with the deterministic reasons on failure. */
+function assertContentContract(content) {
+  const errors = contentContractErrors(content);
+  if (errors.length) throw Error(`PSM_CONTRACT: 新正文不符合单行契约 — ${errors.join('；')}`);
 }
 
 /** Canonical timestamp shared by CLI and viewer (UTC, second precision). */
@@ -186,7 +219,7 @@ function ruleFreshness(record, nowMs) {
   return Math.max(0, Math.min(1, Math.exp(-Math.LN2 * ageDays / halfLife)));
 }
 
-  return { TYPES, STATUS, TYPE_LABEL, RECORD_KEYS, STORE_KEYS, GROUP_KEYS, escapeXml, unescapeXml, parseElement, canonicalId, issue, parseStore, validateModel, writeErrors, serialize, editGuard, timestamp, ruleFreshness };
+  return { TYPES, STATUS, TYPE_LABEL, RECORD_KEYS, STORE_KEYS, GROUP_KEYS, escapeXml, unescapeXml, parseElement, canonicalId, issue, parseStore, validateModel, writeErrors, serialize, editGuard, contentContractErrors, assertContentContract, timestamp, ruleFreshness };
 };
 
 const lockFactory = (deps, fs, path) => {
@@ -649,6 +682,117 @@ function migrateLegacyScores(projectRoot, records) {
   return { LEDGER_VERSION, LEDGER_FILE, LOCK_FILE, EVENT_KINDS, EVENT_SOURCES, ledgerPaths, recordVersion, parseLedger, readLedger, initializeLedger, appendEvent, projectEvents, projectRecord, inspectLedger, validateLedger, migrateLegacyScores };
 };
 
+const tagsFactory = (deps, fs, path) => {
+/** Optional, derived topic metadata. Never changes memory.md or evidence versions. */
+
+
+const TAG_LIMIT = 8;
+const TAG_PATTERN = /^[a-z0-9][a-z0-9_-]*(:[a-z0-9][a-z0-9_.-]*)?$/;
+const plain = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
+
+function keys(value, allowed, label) {
+  if (!plain(value) || Object.keys(value).some((key) => !allowed.includes(key))) throw Error(`${label} 含未知字段或不是对象`);
+}
+function tagList(value = []) {
+  if (!Array.isArray(value) || value.some((tag) => typeof tag !== 'string' || tag.length > 128 || !TAG_PATTERN.test(tag))) throw Error('标签必须是小写 name 或 key:value');
+  return [...new Set(value)];
+}
+function literals(value = []) {
+  if (!Array.isArray(value) || value.length > 64 || value.some((item) => typeof item !== 'string' || !item.trim() || item.length > 128)) throw Error('关键词必须是非空字面量数组，每项最多 128 字符');
+  return [...new Set(value.map((item) => item.trim()))];
+}
+
+function normaliseTaxonomy(value = { version: 1, tags: [], overrides: {} }) {
+  keys(value, ['version', 'tags', 'overrides'], '分类标准');
+  if (value.version !== 1 || !Array.isArray(value.tags) || value.tags.length > 256) throw Error('分类标准要求 version=1 和最多 256 项 tags');
+  const seen = new Set();
+  const tags = value.tags.map((rule) => {
+    keys(rule, ['name', 'any', 'all'], '标签规则');
+    const [name] = tagList([rule.name]);
+    if (seen.has(name)) throw Error(`重复标签: ${name}`);
+    seen.add(name);
+    return { name, any: literals(rule.any), all: literals(rule.all) };
+  });
+  const overrides = {};
+  keys(value.overrides ?? {}, Object.keys(value.overrides ?? {}), 'overrides');
+  if (Object.keys(value.overrides ?? {}).length > 100000) throw Error('overrides 超过上限');
+  for (const [id, override] of Object.entries(value.overrides ?? {})) {
+    if (!/^(?:\d{4}|[1-9]\d{4,})$/.test(id)) throw Error(`非法记录 ID: ${id}`);
+    keys(override, ['add', 'remove'], 'override');
+    const add = tagList(override.add); const remove = tagList(override.remove);
+    if (add.length > TAG_LIMIT || remove.length > 256) throw Error('override 标签数量超过上限');
+    overrides[id] = { add, remove };
+  }
+  return { version: 1, tags, overrides };
+}
+
+function deriveTags(record, taxonomy = normaliseTaxonomy()) {
+  const content = String(record.content || '');
+  const candidates = new Set();
+  for (const match of content.matchAll(/^\s*\[([a-z0-9][a-z0-9_-]*)=([a-z0-9][a-z0-9_.,-]*)\]/gm)) {
+    for (const value of match[2].split(',')) {
+      const tag = `${match[1]}:${value}`;
+      if (tag.length <= 128 && TAG_PATTERN.test(tag)) candidates.add(tag);
+    }
+  }
+  const lower = content.toLowerCase();
+  for (const rule of taxonomy.tags) {
+    if ((rule.any.length || rule.all.length)
+      && (!rule.any.length || rule.any.some((word) => lower.includes(word.toLowerCase())))
+      && rule.all.every((word) => lower.includes(word.toLowerCase()))) candidates.add(rule.name);
+  }
+  const override = Object.hasOwn(taxonomy.overrides, record.id) ? taxonomy.overrides[record.id] : { add: [], remove: [] };
+  for (const tag of override.add) candidates.add(tag);
+  for (const tag of override.remove) candidates.delete(tag);
+  // Explicit additions take precedence over the eight-tag cap; display order
+  // remains taxonomy declaration order, then lexical for unregistered tags.
+  const priority = [...override.add, ...candidates].filter((tag) => candidates.has(tag));
+  const selected = new Set([...new Set(priority)].slice(0, TAG_LIMIT));
+  const order = new Map(taxonomy.tags.map((rule, index) => [rule.name, index]));
+  return [...selected].sort((a, b) => (order.get(a) ?? 1000000) - (order.get(b) ?? 1000000) || a.localeCompare(b, 'en'));
+}
+
+function loadTagTaxonomy(projectRoot) {
+  const file = path.join(projectRoot, '.project-self-memory', 'tags.json');
+  try {
+    const stat = fs.statSync(file);
+    if (stat.size > 1024 * 1024) throw Error('tags.json 超过 1 MiB');
+    const text = fs.readFileSync(file, 'utf8');
+    return { taxonomy: text.trim() ? normaliseTaxonomy(JSON.parse(text)) : normaliseTaxonomy(), diagnostics: [], enabled: true };
+  } catch (error) {
+    if (error.code === 'ENOENT') return { taxonomy: normaliseTaxonomy(), diagnostics: [], enabled: true };
+    return { taxonomy: normaliseTaxonomy(), enabled: false, diagnostics: [{ kind: 'tags', message: `标签降级: ${error.message}`, impact: 'warning' }] };
+  }
+}
+
+function tagRecords(records, loaded) {
+  return records.map((record) => ({ ...record, tags: loaded.enabled ? deriveTags(record, loaded.taxonomy) : [] }));
+}
+
+/** Conservative suggestions: existing prefixes and recurring identifier tokens. */
+function suggestTaxonomy(records, loaded = { taxonomy: normaliseTaxonomy(), enabled: true }) {
+  const counts = new Map();
+  const existing = loaded.enabled ? loaded.taxonomy : normaliseTaxonomy();
+  const prefixRules = new Map(existing.tags.map((rule) => [rule.name, rule]));
+  for (const record of records) {
+    for (const tag of deriveTags(record)) if (!prefixRules.has(tag)) prefixRules.set(tag, { name: tag, any: [], all: [] });
+    const terms = new Set(String(record.content || '').toLowerCase().match(/[a-z][a-z0-9_-]{2,}/g) || []);
+    for (const term of terms) counts.set(term, (counts.get(term) || 0) + 1);
+  }
+  const stop = new Set(['the', 'and', 'true', 'false', 'null', 'node', 'root', 'http', 'https', 'host_scope']);
+  const candidates = [...counts].filter(([word, count]) => count >= 2 && !stop.has(word) && TAG_PATTERN.test(word))
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'en')).slice(0, 32)
+    .map(([word, count]) => ({ term: word, record_count: count }));
+  const proposed = [...prefixRules.values()];
+  const taxonomy = normaliseTaxonomy({ version: 1, tags: proposed.slice(0, 256), overrides: existing.overrides });
+  const projected = tagRecords(records, { taxonomy, enabled: true });
+  return { taxonomy, candidates, truncated_tags: Math.max(0, proposed.length - 256), total_records: records.length, covered_records: projected.filter((record) => record.tags.length).length,
+    uncovered_ids: projected.filter((record) => !record.tags.length).map((record) => record.id) };
+}
+
+  return { TAG_LIMIT, TAG_PATTERN, normaliseTaxonomy, deriveTags, loadTagTaxonomy, tagRecords, suggestTaxonomy };
+};
+
 const serverFactory = (deps) => {
 /**
  * HTTP service factory for the compact memory viewer.
@@ -668,7 +812,7 @@ const serverFactory = (deps) => {
  * (503 when busy), strict JSON body limits.
  */
 function createViewerServer(deps) {
-  const { fs, path, crypto, http, store, lock, ledger } = deps;
+  const { fs, path, crypto, http, store, lock, ledger, tags } = deps;
   const { projectRoot, token, pageHtml } = deps;
 
   const paths = lock.memoryPaths(projectRoot);
@@ -704,6 +848,9 @@ function createViewerServer(deps) {
   /** Full snapshot: records with current-version projections + diagnostics. */
   function buildSnapshot() {
     const diagnostics = [];
+    // 标签只是只读旁路元数据：每次快照重载，不能影响存储版本或保存权限。
+    const tagState = tags.loadTagTaxonomy(projectRoot);
+    diagnostics.push(...tagState.diagnostics);
     let model = null;
     let ledgerEvents = [];
     if (!fs.existsSync(paths.memory)) {
@@ -736,6 +883,7 @@ function createViewerServer(deps) {
           type: record.type,
           status: record.status,
           group: record.group,
+          tags: tagState.enabled ? tags.deriveTags(record, tagState.taxonomy) : [],
           content: record.content,
           created_at: record.created_at,
           record_version: version,
@@ -749,7 +897,9 @@ function createViewerServer(deps) {
       }
     }
     return {
-      format: 'psm-viewer-snapshot-v1',
+      format: 'psm-viewer-snapshot-v2',
+      // overrides 已反映到记录标签中，不随快照重复传输所有逐记录修正。
+      taxonomy: { version: tagState.taxonomy.version, tags: tagState.taxonomy.tags },
       store_revision: storeRevision(),
       read_only: diagnostics.some((x) => x.impact === 'fatal'),
       diagnostics,
@@ -835,6 +985,15 @@ function createViewerServer(deps) {
       }
       const record = model.records.find((x) => x.id === id);
       if (!record) return json(res, 404, { error: 'NOT_FOUND', message: `不存在记录: ${id}` });
+      // Single-line contract applies only to content that actually changes;
+      // resubmitting the record's own body stays a valid metadata-only edit.
+      const nextContent = String(payload.content).trim();
+      if (nextContent !== String(record.content || '').trim()) {
+        const contractErrors = store.contentContractErrors(payload.content);
+        if (contractErrors.length) {
+          return json(res, 400, { error: 'CONTRACT', message: contractErrors.join('；') });
+        }
+      }
       record.content = payload.content.trim();
       record.type = payload.type;
       record.status = payload.status;
@@ -948,6 +1107,19 @@ button, input, select, textarea { font: inherit; color: inherit; }
 #toolbar select { padding: 3px 4px; border: 1px solid var(--border); border-radius: 3px; background: var(--bg); }
 #toolbar button { padding: 3px 10px; border: 1px solid var(--border); border-radius: 3px; background: var(--bg-alt); cursor: pointer; }
 #toolbar button:hover { border-color: var(--accent); }
+#tag-filter { position: relative; max-width: 100%; }
+#tag-filter summary { padding: 3px 10px; border: 1px solid var(--border); border-radius: 3px;
+  background: var(--bg-alt); cursor: pointer; }
+#tag-options { position: absolute; top: 100%; left: 0; z-index: 4; padding: 6px;
+  width: 260px; max-width: calc(100vw - 24px); max-height: 240px; overflow-y: auto;
+  background: var(--bg); border: 1px solid var(--border); box-shadow: 0 3px 10px #0002; }
+#toolbar #tag-options label { display: flex; gap: 6px; align-items: center;
+  white-space: normal; overflow-wrap: anywhere; padding: 3px 0; }
+.tag-chip { display: inline-block; max-width: 100%; padding: 0 5px; margin-right: 4px;
+  background: var(--bg-alt); border: 1px solid var(--border); border-radius: 3px;
+  font-size: 11px; line-height: 18px; vertical-align: middle; overflow: hidden; text-overflow: ellipsis; }
+#editor-tags { display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; }
+#editor-tags .tag-chip { white-space: normal; overflow-wrap: anywhere; }
 #main { display: flex; gap: 0; flex: 1; min-height: 0; }
 #list { flex: 1; min-width: 0; overflow-y: auto; overflow-x: hidden; position: relative; }
 #editor { width: 390px; flex: none; border-left: 1px solid var(--border);
@@ -1014,7 +1186,14 @@ td .pill { display: inline-block; padding: 0 6px; border-radius: 3px; line-heigh
   #editor { position: fixed; inset: 0; width: auto; z-index: 5; }
   #mobile-toggle { display: inline-block; }
   .hide-narrow { display: none; }
-  col.c-time { width: 104px; }
+  .group-head { height: auto; min-height: 29px; overflow-wrap: anywhere; }
+  #toolbar input[type=search] { width: 130px; max-width: 100%; }
+  #tag-filter { position: static; }
+  #tag-options { left: 12px; }
+  #tag-filter summary { min-height: 32px; }
+  col.c-id { width: 44px; }
+  col.c-type, col.c-status { width: 48px; }
+  col.c-time { width: 90px; }
   tbody td, thead th { padding: 0 4px; }
   button, select, input { min-height: 32px; }
 }
@@ -1027,12 +1206,14 @@ td .pill { display: inline-block; padding: 0 6px; border-radius: 3px; line-heigh
   <label for="f-type">类型</label><select id="f-type"><option value="">全部</option></select>
   <label for="f-status">状态</label><select id="f-status"><option value="">全部</option></select>
   <label for="f-group" class="hide-narrow">存储分组</label><select id="f-group" class="hide-narrow"><option value="">全部</option></select>
+  <details id="tag-filter"><summary id="tag-summary">标签 · 全部</summary>
+    <div id="tag-options" role="group" aria-label="标签多选，任一匹配"></div></details>
   <label for="f-evidence">评分</label><select id="f-evidence">
     <option value="">全部</option><option value="has">有证据</option>
     <option value="rated">已评分</option><option value="unrated">未评分</option></select>
   <label for="view-group">分组</label><select id="view-group">
     <option value="type">按类型</option><option value="">不分组</option>
-    <option value="status">按状态</option><option value="group">按存储分组</option>
+    <option value="status">按状态</option><option value="tag">按标签</option><option value="group">按存储分组</option>
     <option value="month">按创建月份</option></select>
   <label for="sort-key">排序</label><select id="sort-key">
     <option value="created_at">创建时间</option><option value="id">ID</option>
@@ -1052,6 +1233,7 @@ td .pill { display: inline-block; padding: 0 6px; border-radius: 3px; line-heigh
     <div id="editor-head">编辑</div>
     <div id="editor-body">
       <div id="editor-meta"></div>
+      <div id="editor-tags" aria-label="派生标签（只读）"></div>
       <div class="row"><label for="e-type">类型</label><select id="e-type"></select></div>
       <div class="row"><label for="e-status">状态</label><select id="e-status"></select></div>
       <label for="e-content">正文</label>
@@ -1094,7 +1276,7 @@ if (location.hash.indexOf('#token=') === 0) {
 
 var state = {
   snapshot: null, records: [], groups: [], readOnly: false,
-  q: '', fType: '', fStatus: '', fGroup: '', fEvidence: '',
+  q: '', fType: '', fStatus: '', fGroup: '', fEvidence: '', fTags: [],
   viewGroup: 'type', sortKey: 'created_at', sortDesc: true, colorMode: 'type',
   collapsed: {}, selectedId: null,
   edit: { status: 'clean', draft: null, baseline: null, message: '' },
@@ -1105,7 +1287,8 @@ var els = {
   q: $('q'), fType: $('f-type'), fStatus: $('f-status'), fGroup: $('f-group'),
   fEvidence: $('f-evidence'), viewGroup: $('view-group'), sortKey: $('sort-key'),
   sortDir: $('sort-dir'), colorMode: $('color-mode'), reload: $('reload'),
-  list: $('list'), editor: $('editor'), editorMeta: $('editor-meta'),
+  list: $('list'), editor: $('editor'), editorMeta: $('editor-meta'), editorTags: $('editor-tags'),
+  tagOptions: $('tag-options'), tagSummary: $('tag-summary'),
   eType: $('e-type'), eStatus: $('e-status'), eContent: $('e-content'),
   saveBtn: $('save-btn'), resetBtn: $('reset-btn'), dirtyFlag: $('dirty-flag'),
   statusLine: $('status-line'), banner: $('banner'), mobileToggle: $('mobile-toggle'),
@@ -1142,6 +1325,17 @@ function api(pathname, options) {
   });
 }
 
+function acceptSnapshot(snapshot) {
+  state.snapshot = snapshot;
+  state.records = snapshot.records || [];
+  state.groups = snapshot.groups || [];
+  state.readOnly = !!snapshot.read_only;
+  var msgs = (snapshot.diagnostics || []).map(function (d) { return d.message; });
+  showBanner(state.readOnly ? '库损坏或格式不支持，只读诊断模式：' + msgs.join('；') : msgs.join('；'));
+  rebuildGroupFilter();
+  rebuildTagFilter();
+}
+
 function load() {
   if (!token) {
     showBanner('页面令牌已丢失（刷新或手动输入地址所致）。请从本次启动输出的地址重新打开。');
@@ -1156,17 +1350,7 @@ function load() {
       return;
     }
     if (r.status !== 200) { setStatus('加载失败: ' + (r.body.message || r.status), 'error'); return; }
-    state.snapshot = r.body;
-    state.records = r.body.records || [];
-    state.groups = r.body.groups || [];
-    state.readOnly = !!r.body.read_only;
-    if (state.readOnly) {
-      var msgs = (r.body.diagnostics || []).map(function (d) { return d.message; });
-      showBanner('库损坏或格式不支持，只读诊断模式：' + msgs.join('；'));
-    } else {
-      showBanner('');
-    }
-    rebuildGroupFilter();
+    acceptSnapshot(r.body);
     render();
     var msg = '共 ' + state.records.length + ' 条 · 修订 ' + r.body.store_revision.slice(0, 8);
     if (state.readOnly) msg += ' · 只读';
@@ -1188,6 +1372,40 @@ function rebuildGroupFilter() {
   els.fGroup.value = current;
 }
 
+// v1 快照没有 tags，统一按无标签处理，不改变原有分组与编辑行为。
+function recordTags(r) { return Array.isArray(r.tags) ? r.tags : []; }
+
+function updateTagSummary() {
+  els.tagSummary.textContent = state.fTags.length ? '标签 · 已选 ' + state.fTags.length + '（任一）' : '标签 · 全部';
+}
+function rebuildTagFilter() {
+  var names = [];
+  var add = function (tag) { if (names.indexOf(tag) < 0) names.push(tag); };
+  ((state.snapshot.taxonomy || {}).tags || []).forEach(function (rule) { add(rule.name); });
+  state.records.forEach(function (r) { recordTags(r).forEach(add); });
+  state.fTags = state.fTags.filter(function (tag) { return names.indexOf(tag) >= 0; });
+  els.tagOptions.textContent = '';
+  var clear = document.createElement('button'); clear.type = 'button'; clear.textContent = '清除筛选';
+  clear.addEventListener('click', function () { state.fTags = []; rebuildTagFilter(); render(); });
+  els.tagOptions.appendChild(clear);
+  if (!names.length) {
+    var empty = document.createElement('div'); empty.textContent = '暂无标签'; els.tagOptions.appendChild(empty);
+  }
+  names.forEach(function (tag) {
+    var label = document.createElement('label');
+    var input = document.createElement('input'); input.type = 'checkbox'; input.value = tag;
+    input.checked = state.fTags.indexOf(tag) >= 0;
+    input.addEventListener('change', function () {
+      state.fTags = state.fTags.filter(function (value) { return value !== tag; });
+      if (input.checked) state.fTags.push(tag);
+      updateTagSummary(); render();
+    });
+    var text = document.createElement('span'); text.textContent = tag;
+    label.appendChild(input); label.appendChild(text); els.tagOptions.appendChild(label);
+  });
+  updateTagSummary();
+}
+
 function findRecord(id) {
   for (var i = 0; i < state.records.length; i++) if (state.records[i].id === id) return state.records[i];
   return null;
@@ -1205,6 +1423,7 @@ function filtered() {
     if (state.fType && r.type !== state.fType) return false;
     if (state.fStatus && r.status !== state.fStatus) return false;
     if (state.fGroup && r.group !== state.fGroup) return false;
+    if (state.fTags.length && !recordTags(r).some(function (tag) { return state.fTags.indexOf(tag) >= 0; })) return false;
     if (state.fEvidence === 'has' && !(r.event_count > 0)) return false;
     if (state.fEvidence === 'rated' && !(r.score_event_count > 0)) return false;
     if (state.fEvidence === 'unrated' && !(r.score_event_count === 0)) return false;
@@ -1240,6 +1459,7 @@ function groupKey(r) {
   if (state.viewGroup === 'type') return 'type:' + r.type;
   if (state.viewGroup === 'status') return 'status:' + r.status;
   if (state.viewGroup === 'group') return 'group:' + (r.group || '');
+  if (state.viewGroup === 'tag') return 'tag:' + (recordTags(r)[0] || '');
   if (state.viewGroup === 'month') return 'month:' + monthKey(r.created_at);
   return '';
 }
@@ -1253,6 +1473,7 @@ function groupTitle(key) {
     for (var i = 0; i < state.groups.length; i++) if (state.groups[i].id === v) return state.groups[i].title;
     return v;
   }
+  if (kind === 'tag') return v || '未标记';
   if (kind === 'month') return v + ' (UTC)';
   return key;
 }
@@ -1268,6 +1489,12 @@ function pill(cls, text) {
   var s = document.createElement('span');
   s.className = 'pill ' + cls; s.textContent = text;
   return s;
+}
+
+function tagChip(tag) {
+  var chip = document.createElement('span');
+  chip.className = 'tag-chip'; chip.textContent = tag; chip.title = tag;
+  return chip;
 }
 
 function netCell(r) {
@@ -1391,7 +1618,12 @@ function buildRow(r) {
   fresh.textContent = r.freshness.toFixed(2);
   fresh.title = '规则估算的新鲜度（按类型半衰期），不代表内容已验证'; cells.push(fresh);
   var time = document.createElement('td'); time.textContent = (r.created_at || '').replace('T', ' ').replace('Z', ''); cells.push(time);
-  var body = document.createElement('td'); body.textContent = r.content.replace(/\\s+/g, ' ');
+  var body = document.createElement('td');
+  // 标签分组已在标题显示首标签，行内保留其余标签；其他视图显示全部。
+  var tags = recordTags(r); body.title = tags.join(' · ') + (tags.length ? '\\n' : '') + r.content;
+  (state.viewGroup === 'tag' ? tags.slice(1) : tags).forEach(function (tag) { body.appendChild(tagChip(tag)); });
+  var preview = document.createElement('span'); preview.textContent = r.content.replace(/\\s+/g, ' ');
+  body.appendChild(preview);
   cells.push(body);
   if (state.colorMode === 'net') {
     var n = netScore(r);
@@ -1450,6 +1682,10 @@ function renderEditor(r) {
     var dd = document.createElement('div'); dd.textContent = pairs[i][1];
     meta.appendChild(dt); meta.appendChild(dd);
   }
+  els.editorTags.textContent = '';
+  var tags = recordTags(r);
+  if (!tags.length) els.editorTags.textContent = '标签：未标记';
+  tags.forEach(function (tag) { els.editorTags.appendChild(tagChip(tag)); });
   els.eContent.value = state.edit.draft.content;
   els.eType.value = state.edit.draft.type;
   els.eStatus.value = state.edit.draft.status;
@@ -1497,8 +1733,7 @@ function save() {
     }),
   }).then(function (r) {
     if (r.status === 200) {
-      state.snapshot = r.body.snapshot;
-      state.records = r.body.snapshot.records || [];
+      acceptSnapshot(r.body.snapshot);
       if (r.body.applied) {
         state.edit.status = 'saved';
         state.edit.baseline = draft;
@@ -1583,6 +1818,7 @@ load();
 const store = storeFactory({});
 const lock = lockFactory({}, fs, path);
 const ledger = ledgerFactory({}, crypto, fs, path);
+const tags = tagsFactory({}, fs, path);
 const server = serverFactory({});
 const page = pageFactory({});
 
@@ -1622,7 +1858,7 @@ const scriptDir = path.dirname(path.resolve(process.argv[1] || '.'));
 const projectRoot = path.basename(scriptDir) === '.project-self-memory' ? path.dirname(scriptDir) : scriptDir;
 const token = crypto.randomBytes(32).toString('hex');
 const { server: httpServer } = server.createViewerServer({
-  fs, path, crypto, http, store, lock, ledger,
+  fs, path, crypto, http, store, lock, ledger, tags,
   projectRoot, token, pageHtml: page.VIEWER_PAGE_HTML,
 });
 httpServer.listen(port, '127.0.0.1', () => {

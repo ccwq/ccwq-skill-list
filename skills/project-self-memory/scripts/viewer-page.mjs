@@ -38,6 +38,19 @@ button, input, select, textarea { font: inherit; color: inherit; }
 #toolbar select { padding: 3px 4px; border: 1px solid var(--border); border-radius: 3px; background: var(--bg); }
 #toolbar button { padding: 3px 10px; border: 1px solid var(--border); border-radius: 3px; background: var(--bg-alt); cursor: pointer; }
 #toolbar button:hover { border-color: var(--accent); }
+#tag-filter { position: relative; max-width: 100%; }
+#tag-filter summary { padding: 3px 10px; border: 1px solid var(--border); border-radius: 3px;
+  background: var(--bg-alt); cursor: pointer; }
+#tag-options { position: absolute; top: 100%; left: 0; z-index: 4; padding: 6px;
+  width: 260px; max-width: calc(100vw - 24px); max-height: 240px; overflow-y: auto;
+  background: var(--bg); border: 1px solid var(--border); box-shadow: 0 3px 10px #0002; }
+#toolbar #tag-options label { display: flex; gap: 6px; align-items: center;
+  white-space: normal; overflow-wrap: anywhere; padding: 3px 0; }
+.tag-chip { display: inline-block; max-width: 100%; padding: 0 5px; margin-right: 4px;
+  background: var(--bg-alt); border: 1px solid var(--border); border-radius: 3px;
+  font-size: 11px; line-height: 18px; vertical-align: middle; overflow: hidden; text-overflow: ellipsis; }
+#editor-tags { display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; }
+#editor-tags .tag-chip { white-space: normal; overflow-wrap: anywhere; }
 #main { display: flex; gap: 0; flex: 1; min-height: 0; }
 #list { flex: 1; min-width: 0; overflow-y: auto; overflow-x: hidden; position: relative; }
 #editor { width: 390px; flex: none; border-left: 1px solid var(--border);
@@ -104,7 +117,14 @@ td .pill { display: inline-block; padding: 0 6px; border-radius: 3px; line-heigh
   #editor { position: fixed; inset: 0; width: auto; z-index: 5; }
   #mobile-toggle { display: inline-block; }
   .hide-narrow { display: none; }
-  col.c-time { width: 104px; }
+  .group-head { height: auto; min-height: 29px; overflow-wrap: anywhere; }
+  #toolbar input[type=search] { width: 130px; max-width: 100%; }
+  #tag-filter { position: static; }
+  #tag-options { left: 12px; }
+  #tag-filter summary { min-height: 32px; }
+  col.c-id { width: 44px; }
+  col.c-type, col.c-status { width: 48px; }
+  col.c-time { width: 90px; }
   tbody td, thead th { padding: 0 4px; }
   button, select, input { min-height: 32px; }
 }
@@ -117,12 +137,14 @@ td .pill { display: inline-block; padding: 0 6px; border-radius: 3px; line-heigh
   <label for="f-type">类型</label><select id="f-type"><option value="">全部</option></select>
   <label for="f-status">状态</label><select id="f-status"><option value="">全部</option></select>
   <label for="f-group" class="hide-narrow">存储分组</label><select id="f-group" class="hide-narrow"><option value="">全部</option></select>
+  <details id="tag-filter"><summary id="tag-summary">标签 · 全部</summary>
+    <div id="tag-options" role="group" aria-label="标签多选，任一匹配"></div></details>
   <label for="f-evidence">评分</label><select id="f-evidence">
     <option value="">全部</option><option value="has">有证据</option>
     <option value="rated">已评分</option><option value="unrated">未评分</option></select>
   <label for="view-group">分组</label><select id="view-group">
     <option value="type">按类型</option><option value="">不分组</option>
-    <option value="status">按状态</option><option value="group">按存储分组</option>
+    <option value="status">按状态</option><option value="tag">按标签</option><option value="group">按存储分组</option>
     <option value="month">按创建月份</option></select>
   <label for="sort-key">排序</label><select id="sort-key">
     <option value="created_at">创建时间</option><option value="id">ID</option>
@@ -142,6 +164,7 @@ td .pill { display: inline-block; padding: 0 6px; border-radius: 3px; line-heigh
     <div id="editor-head">编辑</div>
     <div id="editor-body">
       <div id="editor-meta"></div>
+      <div id="editor-tags" aria-label="派生标签（只读）"></div>
       <div class="row"><label for="e-type">类型</label><select id="e-type"></select></div>
       <div class="row"><label for="e-status">状态</label><select id="e-status"></select></div>
       <label for="e-content">正文</label>
@@ -184,7 +207,7 @@ if (location.hash.indexOf('#token=') === 0) {
 
 var state = {
   snapshot: null, records: [], groups: [], readOnly: false,
-  q: '', fType: '', fStatus: '', fGroup: '', fEvidence: '',
+  q: '', fType: '', fStatus: '', fGroup: '', fEvidence: '', fTags: [],
   viewGroup: 'type', sortKey: 'created_at', sortDesc: true, colorMode: 'type',
   collapsed: {}, selectedId: null,
   edit: { status: 'clean', draft: null, baseline: null, message: '' },
@@ -195,7 +218,8 @@ var els = {
   q: $('q'), fType: $('f-type'), fStatus: $('f-status'), fGroup: $('f-group'),
   fEvidence: $('f-evidence'), viewGroup: $('view-group'), sortKey: $('sort-key'),
   sortDir: $('sort-dir'), colorMode: $('color-mode'), reload: $('reload'),
-  list: $('list'), editor: $('editor'), editorMeta: $('editor-meta'),
+  list: $('list'), editor: $('editor'), editorMeta: $('editor-meta'), editorTags: $('editor-tags'),
+  tagOptions: $('tag-options'), tagSummary: $('tag-summary'),
   eType: $('e-type'), eStatus: $('e-status'), eContent: $('e-content'),
   saveBtn: $('save-btn'), resetBtn: $('reset-btn'), dirtyFlag: $('dirty-flag'),
   statusLine: $('status-line'), banner: $('banner'), mobileToggle: $('mobile-toggle'),
@@ -232,6 +256,17 @@ function api(pathname, options) {
   });
 }
 
+function acceptSnapshot(snapshot) {
+  state.snapshot = snapshot;
+  state.records = snapshot.records || [];
+  state.groups = snapshot.groups || [];
+  state.readOnly = !!snapshot.read_only;
+  var msgs = (snapshot.diagnostics || []).map(function (d) { return d.message; });
+  showBanner(state.readOnly ? '库损坏或格式不支持，只读诊断模式：' + msgs.join('；') : msgs.join('；'));
+  rebuildGroupFilter();
+  rebuildTagFilter();
+}
+
 function load() {
   if (!token) {
     showBanner('页面令牌已丢失（刷新或手动输入地址所致）。请从本次启动输出的地址重新打开。');
@@ -246,17 +281,7 @@ function load() {
       return;
     }
     if (r.status !== 200) { setStatus('加载失败: ' + (r.body.message || r.status), 'error'); return; }
-    state.snapshot = r.body;
-    state.records = r.body.records || [];
-    state.groups = r.body.groups || [];
-    state.readOnly = !!r.body.read_only;
-    if (state.readOnly) {
-      var msgs = (r.body.diagnostics || []).map(function (d) { return d.message; });
-      showBanner('库损坏或格式不支持，只读诊断模式：' + msgs.join('；'));
-    } else {
-      showBanner('');
-    }
-    rebuildGroupFilter();
+    acceptSnapshot(r.body);
     render();
     var msg = '共 ' + state.records.length + ' 条 · 修订 ' + r.body.store_revision.slice(0, 8);
     if (state.readOnly) msg += ' · 只读';
@@ -278,6 +303,40 @@ function rebuildGroupFilter() {
   els.fGroup.value = current;
 }
 
+// v1 快照没有 tags，统一按无标签处理，不改变原有分组与编辑行为。
+function recordTags(r) { return Array.isArray(r.tags) ? r.tags : []; }
+
+function updateTagSummary() {
+  els.tagSummary.textContent = state.fTags.length ? '标签 · 已选 ' + state.fTags.length + '（任一）' : '标签 · 全部';
+}
+function rebuildTagFilter() {
+  var names = [];
+  var add = function (tag) { if (names.indexOf(tag) < 0) names.push(tag); };
+  ((state.snapshot.taxonomy || {}).tags || []).forEach(function (rule) { add(rule.name); });
+  state.records.forEach(function (r) { recordTags(r).forEach(add); });
+  state.fTags = state.fTags.filter(function (tag) { return names.indexOf(tag) >= 0; });
+  els.tagOptions.textContent = '';
+  var clear = document.createElement('button'); clear.type = 'button'; clear.textContent = '清除筛选';
+  clear.addEventListener('click', function () { state.fTags = []; rebuildTagFilter(); render(); });
+  els.tagOptions.appendChild(clear);
+  if (!names.length) {
+    var empty = document.createElement('div'); empty.textContent = '暂无标签'; els.tagOptions.appendChild(empty);
+  }
+  names.forEach(function (tag) {
+    var label = document.createElement('label');
+    var input = document.createElement('input'); input.type = 'checkbox'; input.value = tag;
+    input.checked = state.fTags.indexOf(tag) >= 0;
+    input.addEventListener('change', function () {
+      state.fTags = state.fTags.filter(function (value) { return value !== tag; });
+      if (input.checked) state.fTags.push(tag);
+      updateTagSummary(); render();
+    });
+    var text = document.createElement('span'); text.textContent = tag;
+    label.appendChild(input); label.appendChild(text); els.tagOptions.appendChild(label);
+  });
+  updateTagSummary();
+}
+
 function findRecord(id) {
   for (var i = 0; i < state.records.length; i++) if (state.records[i].id === id) return state.records[i];
   return null;
@@ -295,6 +354,7 @@ function filtered() {
     if (state.fType && r.type !== state.fType) return false;
     if (state.fStatus && r.status !== state.fStatus) return false;
     if (state.fGroup && r.group !== state.fGroup) return false;
+    if (state.fTags.length && !recordTags(r).some(function (tag) { return state.fTags.indexOf(tag) >= 0; })) return false;
     if (state.fEvidence === 'has' && !(r.event_count > 0)) return false;
     if (state.fEvidence === 'rated' && !(r.score_event_count > 0)) return false;
     if (state.fEvidence === 'unrated' && !(r.score_event_count === 0)) return false;
@@ -330,6 +390,7 @@ function groupKey(r) {
   if (state.viewGroup === 'type') return 'type:' + r.type;
   if (state.viewGroup === 'status') return 'status:' + r.status;
   if (state.viewGroup === 'group') return 'group:' + (r.group || '');
+  if (state.viewGroup === 'tag') return 'tag:' + (recordTags(r)[0] || '');
   if (state.viewGroup === 'month') return 'month:' + monthKey(r.created_at);
   return '';
 }
@@ -343,6 +404,7 @@ function groupTitle(key) {
     for (var i = 0; i < state.groups.length; i++) if (state.groups[i].id === v) return state.groups[i].title;
     return v;
   }
+  if (kind === 'tag') return v || '未标记';
   if (kind === 'month') return v + ' (UTC)';
   return key;
 }
@@ -358,6 +420,12 @@ function pill(cls, text) {
   var s = document.createElement('span');
   s.className = 'pill ' + cls; s.textContent = text;
   return s;
+}
+
+function tagChip(tag) {
+  var chip = document.createElement('span');
+  chip.className = 'tag-chip'; chip.textContent = tag; chip.title = tag;
+  return chip;
 }
 
 function netCell(r) {
@@ -481,7 +549,12 @@ function buildRow(r) {
   fresh.textContent = r.freshness.toFixed(2);
   fresh.title = '规则估算的新鲜度（按类型半衰期），不代表内容已验证'; cells.push(fresh);
   var time = document.createElement('td'); time.textContent = (r.created_at || '').replace('T', ' ').replace('Z', ''); cells.push(time);
-  var body = document.createElement('td'); body.textContent = r.content.replace(/\\s+/g, ' ');
+  var body = document.createElement('td');
+  // 标签分组已在标题显示首标签，行内保留其余标签；其他视图显示全部。
+  var tags = recordTags(r); body.title = tags.join(' · ') + (tags.length ? '\\n' : '') + r.content;
+  (state.viewGroup === 'tag' ? tags.slice(1) : tags).forEach(function (tag) { body.appendChild(tagChip(tag)); });
+  var preview = document.createElement('span'); preview.textContent = r.content.replace(/\\s+/g, ' ');
+  body.appendChild(preview);
   cells.push(body);
   if (state.colorMode === 'net') {
     var n = netScore(r);
@@ -540,6 +613,10 @@ function renderEditor(r) {
     var dd = document.createElement('div'); dd.textContent = pairs[i][1];
     meta.appendChild(dt); meta.appendChild(dd);
   }
+  els.editorTags.textContent = '';
+  var tags = recordTags(r);
+  if (!tags.length) els.editorTags.textContent = '标签：未标记';
+  tags.forEach(function (tag) { els.editorTags.appendChild(tagChip(tag)); });
   els.eContent.value = state.edit.draft.content;
   els.eType.value = state.edit.draft.type;
   els.eStatus.value = state.edit.draft.status;
@@ -587,8 +664,7 @@ function save() {
     }),
   }).then(function (r) {
     if (r.status === 200) {
-      state.snapshot = r.body.snapshot;
-      state.records = r.body.snapshot.records || [];
+      acceptSnapshot(r.body.snapshot);
       if (r.body.applied) {
         state.edit.status = 'saved';
         state.edit.baseline = draft;

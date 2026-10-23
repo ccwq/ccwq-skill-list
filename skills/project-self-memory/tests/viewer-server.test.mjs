@@ -404,3 +404,130 @@ test('--no-open disables the automatic browser launch', async () => {
     assert.doesNotMatch(out, /PSM_VIEWER_OPEN_URL/);
   } finally { child.kill(); }
 });
+
+/** Source HTTP seam lets integration run before the coordinator rebuilds dist. */
+async function startSourceViewer(root) {
+  const [crypto, storeModule, lockModule, ledgerModule, tagsModule, serverModule, pageModule] = await Promise.all([
+    import('node:crypto'), import('../scripts/memory-store.mjs'), import('../scripts/memory-lock.mjs'),
+    import('../scripts/evidence-ledger.mjs'), import('../scripts/memory-tags.mjs'),
+    import('../scripts/viewer-server.mjs'), import('../scripts/viewer-page.mjs'),
+  ]);
+  const token = crypto.randomBytes(32).toString('hex');
+  const { server } = serverModule.createViewerServer({
+    fs, path, crypto, http, store: storeModule, lock: lockModule, ledger: ledgerModule, tags: tagsModule,
+    projectRoot: root, token, pageHtml: pageModule.VIEWER_PAGE_HTML,
+  });
+  await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
+  return {
+    base: `http://127.0.0.1:${server.address().port}`, token,
+    stop: () => new Promise((resolve, reject) => {
+      server.close((error) => error ? reject(error) : resolve());
+      server.closeAllConnections();
+    }),
+  };
+}
+
+/**
+ * Given：记录含行首前缀，项目 taxonomy 含字面量 any/all 规则
+ * When：读取真实查看器快照
+ * Then：v2 快照含派生标签与公开规则，读取前后原始文件逐字节不变
+ * 防回归：查看器遗漏标签集成或读取时污染持久化记录
+ */
+test('tag snapshot derives prefixes and project rules without writing files', async () => {
+  const root = project(store('0002') + record('0001', '[host_scope=tenc] Redis backup'));
+  const tagFile = path.join(root, '.project-self-memory', 'tags.json');
+  fs.writeFileSync(tagFile, JSON.stringify({ version: 1, tags: [
+    { name: 'backup', any: ['backup'], all: [] },
+    { name: 'redis', any: [], all: ['REDIS', 'backup'] },
+  ], overrides: {} }));
+  const files = [memory(root), path.join(root, '.project-self-memory', 'evidence.jsonl'), tagFile];
+  const before = files.map((file) => fs.readFileSync(file));
+  const viewer = await startSourceViewer(root);
+  try {
+    const snap = await snapshot(viewer);
+    assert.equal(snap.format, 'psm-viewer-snapshot-v2');
+    assert.deepEqual(new Set(snap.records[0].tags), new Set(['host_scope:tenc', 'backup', 'redis']));
+    assert.deepEqual(snap.taxonomy.tags.map((tag) => tag.name), ['backup', 'redis']);
+    assert.equal(snap.read_only, false);
+    files.forEach((file, i) => assert.ok(fs.readFileSync(file).equals(before[i])));
+  } finally { await viewer.stop(); }
+});
+
+/**
+ * Given：项目没有 tags.json，记录正文含通用行首前缀
+ * When：读取源码查看器快照并保存新前缀正文
+ * Then：零配置前缀仍生效，保存响应按新正文重新派生，标签不写入 memory.md
+ * 防回归：缺少分类标准时误禁用内置规则，或保存后显示旧标签
+ */
+test('tag snapshot supports missing taxonomy and recomputes tags after PATCH', async () => {
+  const root = project(store('0002') + record('0001', '[scope=old] 原文'));
+  const viewer = await startSourceViewer(root);
+  try {
+    const snap = await snapshot(viewer);
+    assert.deepEqual(snap.records[0].tags, ['scope:old']);
+    assert.deepEqual(snap.taxonomy, { version: 1, tags: [] });
+    assert.equal(snap.read_only, false);
+    const saved = await api(viewer, '/api/records/0001', { method: 'PATCH', body: {
+      store_revision: snap.store_revision, content: '[scope=new] 新正文', type: 'fact', status: 'active',
+    } });
+    assert.equal(saved.status, 200);
+    assert.deepEqual(saved.body.snapshot.records[0].tags, ['scope:new']);
+    assert.ok(!fs.existsSync(path.join(root, '.project-self-memory', 'tags.json')));
+    assert.doesNotMatch(fs.readFileSync(memory(root), 'utf8'), /tags=/);
+  } finally { await viewer.stop(); }
+});
+
+/**
+ * Given：tags.json 为非法 JSON 或含非法标签，原始记录仍有效
+ * When：读取快照并通过正常 PATCH 保存正文
+ * Then：返回 warning 和空标签但不只读，保存成功且损坏的标签文件保持不变
+ * 防回归：标签元数据损坏被误认为主库损坏并阻止正常读写
+ */
+test('tag snapshot warnings degrade to no tags without blocking saves', async () => {
+  for (const invalid of ['{broken', JSON.stringify({ version: 1, tags: [{ name: 'INVALID' }], overrides: {} })]) {
+    const root = project(store('0002') + record('0001', '[scope=old] 原文'));
+    const tagFile = path.join(root, '.project-self-memory', 'tags.json');
+    fs.writeFileSync(tagFile, invalid);
+    const viewer = await startSourceViewer(root);
+    try {
+      const snap = await snapshot(viewer);
+      assert.equal(snap.read_only, false);
+      assert.deepEqual(snap.records[0].tags, []);
+      assert.ok(snap.diagnostics.some((item) => item.kind === 'tags' && item.impact === 'warning'));
+      const saved = await api(viewer, '/api/records/0001', { method: 'PATCH', body: {
+        store_revision: snap.store_revision, content: '[scope=new] 保存仍可用', type: 'fact', status: 'active',
+      } });
+      assert.equal(saved.status, 200);
+      assert.equal(saved.body.snapshot.read_only, false);
+      assert.deepEqual(saved.body.snapshot.records[0].tags, []);
+      assert.equal(fs.readFileSync(tagFile, 'utf8'), invalid);
+    } finally { await viewer.stop(); }
+  }
+});
+
+/**
+ * Given：读取快照后只修改 tags.json，未修改正文或账本
+ * When：重新读快照，再用原 store_revision 保存；另尝试提交 tags 字段
+ * Then：派生标签更新而记录版本和库版本不变，正常保存成功，tags 字段仍被拒绝
+ * 防回归：只读元数据触发虚假并发冲突或扩大 PATCH 写入白名单
+ */
+test('tag metadata changes neither revisions nor the PATCH whitelist', async () => {
+  const root = project(store('0002') + record('0001', 'Redis backup'));
+  const tagFile = path.join(root, '.project-self-memory', 'tags.json');
+  const viewer = await startSourceViewer(root);
+  try {
+    const before = await snapshot(viewer);
+    fs.writeFileSync(tagFile, JSON.stringify({ version: 1, tags: [{ name: 'redis', any: ['redis'] }], overrides: {} }));
+    const after = await snapshot(viewer);
+    assert.deepEqual(after.records[0].tags, ['redis']);
+    assert.equal(after.store_revision, before.store_revision);
+    assert.equal(after.records[0].record_version, before.records[0].record_version);
+    const payload = { store_revision: before.store_revision, content: 'Redis backup updated', type: 'fact', status: 'active' };
+    const rejected = await api(viewer, '/api/records/0001', { method: 'PATCH', body: { ...payload, tags: ['forged'] } });
+    assert.equal(rejected.status, 400);
+    assert.equal(rejected.body.error, 'BAD_FIELDS');
+    const saved = await api(viewer, '/api/records/0001', { method: 'PATCH', body: payload });
+    assert.equal(saved.status, 200);
+    assert.deepEqual(saved.body.snapshot.records[0].tags, ['redis']);
+  } finally { await viewer.stop(); }
+});

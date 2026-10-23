@@ -17,7 +17,7 @@
  * (503 when busy), strict JSON body limits.
  */
 export function createViewerServer(deps) {
-  const { fs, path, crypto, http, store, lock, ledger } = deps;
+  const { fs, path, crypto, http, store, lock, ledger, tags } = deps;
   const { projectRoot, token, pageHtml } = deps;
 
   const paths = lock.memoryPaths(projectRoot);
@@ -53,6 +53,9 @@ export function createViewerServer(deps) {
   /** Full snapshot: records with current-version projections + diagnostics. */
   function buildSnapshot() {
     const diagnostics = [];
+    // 标签只是只读旁路元数据：每次快照重载，不能影响存储版本或保存权限。
+    const tagState = tags.loadTagTaxonomy(projectRoot);
+    diagnostics.push(...tagState.diagnostics);
     let model = null;
     let ledgerEvents = [];
     if (!fs.existsSync(paths.memory)) {
@@ -85,6 +88,7 @@ export function createViewerServer(deps) {
           type: record.type,
           status: record.status,
           group: record.group,
+          tags: tagState.enabled ? tags.deriveTags(record, tagState.taxonomy) : [],
           content: record.content,
           created_at: record.created_at,
           record_version: version,
@@ -98,7 +102,9 @@ export function createViewerServer(deps) {
       }
     }
     return {
-      format: 'psm-viewer-snapshot-v1',
+      format: 'psm-viewer-snapshot-v2',
+      // overrides 已反映到记录标签中，不随快照重复传输所有逐记录修正。
+      taxonomy: { version: tagState.taxonomy.version, tags: tagState.taxonomy.tags },
       store_revision: storeRevision(),
       read_only: diagnostics.some((x) => x.impact === 'fatal'),
       diagnostics,
@@ -184,6 +190,15 @@ export function createViewerServer(deps) {
       }
       const record = model.records.find((x) => x.id === id);
       if (!record) return json(res, 404, { error: 'NOT_FOUND', message: `不存在记录: ${id}` });
+      // Single-line contract applies only to content that actually changes;
+      // resubmitting the record's own body stays a valid metadata-only edit.
+      const nextContent = String(payload.content).trim();
+      if (nextContent !== String(record.content || '').trim()) {
+        const contractErrors = store.contentContractErrors(payload.content);
+        if (contractErrors.length) {
+          return json(res, 400, { error: 'CONTRACT', message: contractErrors.join('；') });
+        }
+      }
       record.content = payload.content.trim();
       record.type = payload.type;
       record.status = payload.status;

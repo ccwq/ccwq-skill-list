@@ -60,7 +60,7 @@ npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code --
 | `ntl-script-descriptions` | 为 package.json 补充 ntl 可读取的 scripts 中文说明 | [速查](#ntl-script-descriptions) · [SKILL](skills/ntl-script-descriptions/SKILL.md) |
 | `pro-grilling` | 手动逐层厘清复杂决策，在共同理解前保持只读 | [速查](#pro-grilling) · [SKILL](skills/pro-grilling/SKILL.md) |
 | `progressive-doc` | 用渐进式披露结构创建、改写或审查中文技术文章 | [速查](#progressive-doc) · [SKILL](skills/progressive-doc/SKILL.md) |
-| `project-self-memory` | 维护项目级结论记忆，支持自适应逐问策展、评分、分组与 legacy 迁移 | [速查](#project-self-memory) · [README](skills/project-self-memory/README.md) |
+| `project-self-memory` | 维护项目级结论记忆，支持逐问策展、评分、可选派生多标签与 legacy 迁移 | [速查](#project-self-memory) · [README](skills/project-self-memory/README.md) |
 | `rd-mode` | 远程开发模式规则，统一通过 `abc` 命令操作 host 浏览器 | [速查](#rd-mode) · [README](skills/rd-mode/README.md) |
 | `software-license-checker` | 评估软件企业内部使用的许可证合规与付费风险 | [速查](#software-license-checker) · [README](skills/software-license-checker/README.md) |
 | `subagent-router` | 预览并确认后临时创建子 Agent，支持动态模型路由 | [速查](#subagent-router) · [README](skills/subagent-router/README.md) |
@@ -752,6 +752,14 @@ node skills/project-self-memory/scripts/memory.mjs init
 node skills/project-self-memory/scripts/memory.mjs read --type pitfall
 node skills/project-self-memory/scripts/memory.mjs add --type fact --content-file conclusion.txt
 node skills/project-self-memory/scripts/memory.mjs --project-root E:\repo diagnose
+node skills/project-self-memory/scripts/memory.mjs tags show
+node skills/project-self-memory/scripts/memory.mjs tags suggest
+node skills/project-self-memory/scripts/memory.mjs tags stats
+node skills/project-self-memory/scripts/memory.mjs read --tag host_scope:tenc,component:api
+node skills/project-self-memory/scripts/memory.mjs catalog --by tag
+# 以下为显式写入，先确认具体分类标准或修正内容
+node skills/project-self-memory/scripts/memory.mjs tags apply --plan-file taxonomy.json
+node skills/project-self-memory/scripts/memory.mjs tags set 0001 --add component:api --remove host_scope:tenc
 ```
 
 活动目录固定为 `.project-self-memory/`；`self-memory/` 仅能通过 `legacy` 命令只读迁移。所有命令均可附 `--project-root <path>`。不记录凭据、个人数据、易失机器状态或未经验证推断。
@@ -762,23 +770,36 @@ node skills/project-self-memory/scripts/memory.mjs --project-root E:\repo diagno
 | 命令 | 说明 | 默认值 |
 |------|------|--------|
 | `init` / `validate` / `diagnose` | 初始化、严格校验、输出库健康摘要 | 当前项目根目录 |
-| `read` / `catalog` / `inspect` | 人读的 active 经验、分组目录、维护 JSON | `read` 仅 active |
+| `read` / `catalog` / `inspect` | 人读的 active 经验、分类目录、维护 JSON | `read` 仅 active；`catalog` 默认旧分组 |
+| `tags show` / `tags suggest` / `tags stats` | 只读查看分类标准、生成前缀与词频提案、统计覆盖率 | 不联网、不自动采纳提案 |
+| `tags apply --plan-file <file>` | 显式应用完整 taxonomy JSON（取提案的 `taxonomy` 对象，不是整个提案） | 用户授权后加锁、备份旧文件、原子替换 |
+| `tags set <id> --add <csv> --remove <csv>` | 为现存记录维护标签 override；逗号分隔，至少传一项 | 不改正文或评分版本 |
+| `read --tag <csv>` | 多标签任一匹配；与 ID、类型、旧分组筛选取交集 | 不传时不过滤无标签记录 |
+| `catalog --by tag` | 标签目录 `{name, count}[]`，只统计有效 active 记录 | 不传时保持旧分组目录 |
 | `add` / `update` / `status` / `delete` | 用文件或 stdin 传正文维护记录 | ID 永不复用 |
-| `score` / `merge` / `groups` / `legacy` / `config` | 评分、合并、计划式分组与迁移、自动行为配置 | 标准库 Node CLI |
+| `score` / `merge` / `groups` / `legacy` / `config` | 评分、合并、兼容旧分组与迁移、自动行为配置 | 新分类推荐标签，不自动迁移 group |
 | `migrate-schema` | v1 明确报告无可迁移前版；未知版本拒绝 | 当前格式为 v1 |
 | `viewer install` / `viewer update` / `viewer status` | 部署、按官方哈希升级、检查紧凑查看器 | 随 `init` 自动安装 |
 
-命令语法、JSON 输出和退出语义见 [cli-contract.md](skills/project-self-memory/references/cli-contract.md)。
+命令的 JSON 输出和退出语义见 [cli-contract.md](skills/project-self-memory/references/cli-contract.md)。新写入正文必须单行（宿主按内置 STE 表达契约改写，CLI 校验；历史多行记录保持可读），错误带 `PSM_CONTRACT` 前缀；`MemorySession` 首次召回超过 37,000 估算 token 时发非阻断提醒。规则见 [expression-contract.md](skills/project-self-memory/references/expression-contract.md) 与 [memory-format.md](skills/project-self-memory/references/memory-format.md)。
+
+标签按项目自身的分类标准读取时派生，每条最多 8 个；缺少或空白 `tags.json` 仍识别正文行首 `[key=value]` / `[key=v1,v2]`，损坏则全部标签关闭并报告 warning，不阻断其他功能。自动检索仅增加已有相关记录的标签匹配权重；显式标签筛选会排除未匹配记录。格式与规则见 [memory-format.md](skills/project-self-memory/references/memory-format.md)。
 
 </details>
 
-紧凑查看器（本机只读为主、可编辑正文/类型/状态）：
+紧凑查看器（支持标签多选任一匹配、按首标签分组；标签只读，正文/类型/状态可编辑）：
 
 ```text
 node .project-self-memory/view-memoery.js
 ```
 
 输出带 `#token=` 的本机地址；只监听 127.0.0.1；令牌只在进程与页面内存中；默认自动用系统默认浏览器打开（`--no-open` 可禁止）。写入带备份、原子替换与乐观并发。详见 [viewer.md](skills/project-self-memory/references/viewer.md)。
+
+| 查看器参数 / 环境变量 | 说明 | 默认值 |
+|------|------|--------|
+| `--port <N>` | 监听端口，整数 `0..65535`；`0` 自动分配 | `0` |
+| `--no-open` / `PSM_VIEWER_OPEN=0` | 禁止自动打开浏览器，适用于无头环境 | 自动打开 |
+| `PSM_VIEWER_OPEN=echo` | 仅打印待打开地址，不执行浏览器命令，用于诊断 | 不设置 |
 
 详情见 [README.md](skills/project-self-memory/README.md)。
 

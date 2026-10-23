@@ -10,6 +10,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   DEFAULT_RETRIEVAL,
+  estimateTokens,
   normaliseRetrievalOptions,
   parseStructuredStore,
   selectMemoryContext,
@@ -19,6 +20,10 @@ import { recordVersion } from './evidence-ledger.mjs';
 const DEFAULT_POLICY = Object.freeze({ auto_load: true, auto_save: true, auto_rate: true });
 const POLICY_KEYS = Object.keys(DEFAULT_POLICY);
 const READ_LABELS = new Set(['经验', '避坑', '决策', '约束', '事实']);
+// 37k 是十进制 37,000，不是 37 × 1024。严格大于时提醒；恰好等于不提醒。
+const RECALL_TOKEN_THRESHOLD = 37000;
+const RECALL_ALGORITHM = 'utf16-length-div-3-ceil';
+const RECALL_WARNING_MESSAGE = `首次召回估算 token 超过 37,000（实际估算 {estimated}，阈值 37,000）。建议压缩或复盘记忆；当前任务继续，本提醒不阻断工作，也不是自动整理的授权。`;
 
 const now = () => new Date().toISOString();
 const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -101,6 +106,10 @@ export class MemorySession {
     this.agent = options.agent || null;
     this.onAudit = typeof options.onAudit === 'function' ? options.onAudit : options.audit?.emit;
     this.auditEvents = [];
+    // 计量会话状态：默认实例独立；宿主可显式传入同一对象让多个任务实例
+    // 共享同一次首次检查机会。该状态只承载首次检查结果，不承载任务权限、
+    // 候选或评分证据；不写入任何持久化文件。
+    this.recallState = isObject(options.recallState) ? options.recallState : { checked: false, estimated_tokens: null, exceeded: null };
     this.loadedRecords = new Map();
     this.positiveEvidence = new Set();
     this.ratedRecords = new Set();
@@ -222,6 +231,29 @@ export class MemorySession {
       capabilities,
       policy: this.policy,
     };
+    // 首次实际使用检查：只在成功交付非空上下文时消耗。空召回、关闭加载与
+    // 加载失败都不进入这里（records 为空或 auto_load 关闭）。共享状态让
+    // 多任务宿主的后续实例不再重复检查。
+    this.recallUsage = { checked: false, estimated_tokens: null, exceeded: false, threshold: RECALL_TOKEN_THRESHOLD, algorithm: RECALL_ALGORITHM, warning: null };
+    if (records.length && selection.memoryContext && !this.recallState.checked) {
+      // 对最终交付文本整体估算一次；不做按条取整累加。
+      const estimated = estimateTokens(selection.memoryContext);
+      const exceeded = estimated > RECALL_TOKEN_THRESHOLD;
+      this.recallState.checked = true;
+      this.recallState.estimated_tokens = estimated;
+      this.recallState.exceeded = exceeded;
+      this.recallUsage.checked = true;
+      this.recallUsage.estimated_tokens = estimated;
+      this.recallUsage.exceeded = exceeded;
+      if (exceeded) {
+        const message = RECALL_WARNING_MESSAGE.replace('{estimated}', String(estimated));
+        this.recallUsage.warning = Object.freeze({ estimated_tokens: estimated, threshold: RECALL_TOKEN_THRESHOLD, message });
+        this.emit('recall-usage', true, 'estimated-tokens-exceeded', {
+          outcome: 'warning', estimated_tokens: estimated, threshold: RECALL_TOKEN_THRESHOLD,
+          algorithm: RECALL_ALGORITHM, message,
+        });
+      }
+    }
     const tools = Object.freeze({ capabilities, invokeMemory: undefined });
     if (this.agent?.run) this.agentResult = await this.agent.run(Object.freeze(payload), tools);
     return Object.freeze(payload);
@@ -263,6 +295,9 @@ export class MemorySession {
   }
 
   qualify(candidate) {
+    // The single-line body contract is enforced by the shared store core; the
+    // add CLI rejects contract violations, so a failed rewrite can never enter
+    // storage through this path.
     return isObject(candidate) && typeof candidate.type === 'string' && typeof candidate.content === 'string'
       && candidate.content.trim() && candidate.verified === true && candidate.isNew === true
       && candidate.conflictFree === true;

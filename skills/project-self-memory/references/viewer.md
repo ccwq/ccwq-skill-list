@@ -5,11 +5,13 @@
 ## 启动与令牌
 
 ```text
-node .project-self-memory/view-memoery.js [--port N] [--no-open]
+node .project-self-memory/view-memoery.js
 ```
 
+启动参数与环境变量统一见[根 README](../../../README.md#project-self-memory)。
+
 - 启动后输出 `PSM_VIEWER_URL: http://127.0.0.1:<port>/#token=<hex>`。
-- 默认用系统默认浏览器打开带令牌的地址，打开失败不致命；加 `--no-open` 或设 `PSM_VIEWER_OPEN=0` 禁止（无头环境、远程终端使用）。
+- 默认用系统默认浏览器打开带令牌的地址，打开失败不致命；无头环境、远程终端可按根 README 关闭自动打开。
 - 令牌是 ≥256-bit 随机 hex，经 URL fragment 交接；页面把它暂存进 `sessionStorage`（标签页级，关闭即清）并立刻从地址栏移除。
 - 令牌只存在于进程内存与页面会话中，不写入磁盘，不进入请求 URL、Referer 或历史记录。
 - 刷新同一标签页不需要重新复制令牌；新标签页必须重新带 `#token=` 打开。
@@ -20,7 +22,7 @@ node .project-self-memory/view-memoery.js [--port N] [--no-open]
 | 路由 | 方法 | 说明 |
 |---|---|---|
 | `/` | GET | 单页 HTML；`Content-Security-Policy: default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'`，`Cache-Control: no-store`，`Referrer-Policy: no-referrer`，`X-Content-Type-Options: nosniff` |
-| `/api/snapshot` | GET | 返回 `{store_revision, read_only, diagnostics, groups, records[]}`；每条记录含投影后的 `positive`、`negative`、`event_count`、`score_event_count`、`freshness` 与当前 `record_version` |
+| `/api/snapshot` | GET | 返回 `{format, store_revision, read_only, diagnostics, groups, group_dimension, generated_at, taxonomy, records[]}`；`format` 为 `psm-viewer-snapshot-v2`；每条记录含只读派生 `tags`、投影后的 `positive`、`negative`、`event_count`、`score_event_count`、`freshness` 与当前 `record_version` |
 | `/api/records/<id>` | PATCH | 仅接受 `{store_revision, content, type, status}` 四字段；一次提交三字段原子生效 |
 
 请求规则：
@@ -30,9 +32,20 @@ node .project-self-memory/view-memoery.js [--port N] [--no-open]
 - 写请求带 `Origin` 时必须同源，否则 403；`Content-Type` 必须是 `application/json`，否则 415；正文 ≤256KB；未知字段 400。
 - 不提供任意文件服务；未知路径 404。
 
+## 标签筛选与分组
+
+- 每次快照读取项目 `tags.json` 并派生标签；顶层 `taxonomy` 为 `{version: 1, tags: [...]}`，不传输逐记录 `overrides`，其效果已体现在记录 `tags` 中。
+- 标签多选按任一匹配筛选；未选择标签时保留无标签记录。按标签视图以首个标签分桶，其余标签显示为芯片；无标签归入「未标记」。存储 `group` 视图继续可用，不改写旧分组。
+- 列表与详情标签只读；编辑表单仍仅提交正文、类型、状态及版本令牌。PATCH 未新增 `tags`、`taxonomy` 或 override 字段，提交这些字段仍为 400。
+- 缺少或空白 taxonomy 时仍识别正文行首 `[key=value]` 与 `[key=v1,v2]`；文件非法时关闭所有标签并在快照 `diagnostics` 报 warning，不单独触发 `read_only`。规则见 [memory-format.md](memory-format.md)。
+- GET 快照不写正文、账本或 taxonomy。taxonomy 不参与 `store_revision`（仍只哈希 `memory.md` 与 `evidence.jsonl`）或 `record_version`；修改分类标准不会使评分证据失效。
+- 新页面将旧快照缺少的 `tags` 视为空数组；旧版查看器忽略旁路 `tags.json`，保持原有行为。已部署项目需升级官方查看器并重启才能使用标签 UI；部署源码与分发产物同步由构建流程负责。
+
 ## 写入管线
 
-PATCH 依次执行：字段白名单 → `editGuard`（拒绝结构标记、非法类型/状态、空正文）→ 非阻塞取锁（`memory.lock` → `evidence.lock`，忙即 503，不阻塞事件循环）→ `store_revision` 比对（`memory.md` + `evidence.jsonl` 原始字节 SHA-256，陈旧即 409，页面保留草稿）→ 全量校验失败即 422 只读 → 字节无变化返回 `applied:false`（不备份、不写盘）→ 备份到 `backups/`（失败即 500 `BACKUP_FAILED`，不提交）→ 同目录临时文件原子替换。
+PATCH 依次执行：字段白名单 → `editGuard`（拒绝结构标记、非法类型/状态、空正文）→ **单行契约**（正文与磁盘不一致时执行；拒绝内部换行、Unicode 行/段分隔符与标题/列表/围栏开头，400 `CONTRACT`）→ 非阻塞取锁（`memory.lock` → `evidence.lock`，忙即 503，不阻塞事件循环）→ `store_revision` 比对（`memory.md` + `evidence.jsonl` 原始字节 SHA-256，陈旧即 409，页面保留草稿）→ 全量校验失败即 422 只读 → 字节无变化返回 `applied:false`（不备份、不写盘）→ 备份到 `backups/`（失败即 500 `BACKUP_FAILED`，不提交）→ 同目录临时文件原子替换。
+
+单行契约只约束**实际变化**的正文：重新提交记录自身的多行正文（用于只改类型/状态）仍然合法，与 CLI 的 no-op 语义一致。查看器只校验人工提交的最终正文，不做语义改写；历史多行记录保持可读。规则见 [expression-contract.md](expression-contract.md) 与 [memory-format.md](memory-format.md)。
 
 损坏的库（未知结构元素、账本校验失败）自动进入 `read_only`，PATCH 一律拒绝，原文件逐字节不变。
 

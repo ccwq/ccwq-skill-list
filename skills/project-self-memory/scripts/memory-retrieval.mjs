@@ -25,6 +25,7 @@ const TYPE_LABEL = Object.freeze({
   experience: '经验', pitfall: '避坑', decision: '决策', constraint: '约束', fact: '事实',
 });
 const WORD_RE = /[\p{L}\p{N}_-]+/gu;
+const TASK_TEXT_FIELDS = ['query', 'goal', 'objective', 'description', 'title', 'task'];
 
 const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 const clamp = (value, min = 0, max = 1) => Math.max(min, Math.min(max, value));
@@ -72,9 +73,7 @@ function taskTerms(task) {
   if (typeof task === 'string') return words(task);
   if (!isObject(task)) return new Set();
   const values = [];
-  for (const key of ['query', 'goal', 'objective', 'description', 'title', 'task']) {
-    if (typeof task[key] === 'string') values.push(task[key]);
-  }
+  for (const key of TASK_TEXT_FIELDS) if (typeof task[key] === 'string') values.push(task[key]);
   for (const key of ['keywords', 'tags']) {
     if (Array.isArray(task[key])) values.push(task[key].join(' '));
     else if (typeof task[key] === 'string') values.push(task[key]);
@@ -115,6 +114,32 @@ function freshness(record, nowMs) {
   return clamp(Math.exp(-Math.LN2 * ageDays / halfLife));
 }
 
+// Metadata is optional and never contributes to the base eligibility score.
+function tags(value) {
+  const values = Array.isArray(value) ? value : typeof value === 'string' ? value.split(/[\s,]+/) : [];
+  return [...new Set(values.filter((tag) => typeof tag === 'string'
+    && tag.length <= 128 && /^[a-z0-9][a-z0-9_-]*(:[a-z0-9][a-z0-9_.-]*)?$/.test(tag)))];
+}
+
+function tagSignals(record, task, base) {
+  const requested = tags(isObject(task) ? task.tags : undefined);
+  const query = (typeof task === 'string' ? task : isObject(task)
+    ? TASK_TEXT_FIELDS.map((key) => typeof task[key] === 'string' ? task[key] : '').join('\n') : '').toLowerCase();
+  const pairs = /[a-z0-9][a-z0-9_-]*[:=][a-z0-9][a-z0-9_.-]*/g;
+  const queryTags = new Set((query.match(pairs) || []).map((tag) => tag.replace('=', ':')));
+  const recordTags = tags(record.tags);
+  const matched = recordTags.filter((tag) => requested.includes(tag)).length;
+  const queryMatched = recordTags.filter((tag) => queryTags.has(tag)).length;
+  // Conservative metadata tie-break: explicit coverage gets three rank points,
+  // a complete query pair 1.5; total capped at four. Bare keys/values get no
+  // bonus, avoiding ambiguous matches and double-counting generic body words.
+  const boost = base.hasTask && base.score > 0
+    ? Math.min(0.04, (requested.length ? 0.03 * matched / requested.length : 0)
+      + (queryMatched ? 0.015 : 0)) : 0;
+  return { matched, queryMatched,
+    totalMatched: recordTags.filter((tag) => requested.includes(tag) || queryTags.has(tag)).length, boost };
+}
+
 function metrics(record, task, nowMs) {
   const rel = relevance(record, task);
   const confidence = finite(record.confidence)
@@ -126,8 +151,9 @@ function metrics(record, task, nowMs) {
   const fresh = freshness(record, nowMs);
   // Relevance is intentionally the dominant term; it cannot be rescued by a
   // high historical score because zero-relevance candidates are filtered.
-  const rank = rel.score * 0.55 + confidence * 0.2 + utility * 0.15 + fresh * 0.1;
-  return { ...rel, confidence, utility, freshness: fresh, rank };
+  const tag = tagSignals(record, task, rel);
+  const rank = rel.score * 0.55 + confidence * 0.2 + utility * 0.15 + fresh * 0.1 + tag.boost;
+  return { ...rel, confidence, utility, freshness: fresh, rank, tag };
 }
 
 export function estimateTokens(text) {
@@ -153,6 +179,7 @@ function safeRecord(record, calculated) {
   return Object.freeze({
     id: String(record.id), type: String(record.type), type_label: TYPE_LABEL[record.type] || String(record.type),
     status: 'active', group: record.group ?? null, content: String(record.content).trim(),
+    ...(tags(record.tags).length ? { tags: Object.freeze(tags(record.tags)) } : {}),
     record_version: typeof record.record_version === 'string' ? record.record_version : undefined,
     confidence: calculated.confidence, utility: calculated.utility, freshness: calculated.freshness,
     relevance: calculated.score, source_summary: source,
@@ -237,6 +264,14 @@ export function selectMemoryContext(records, options = {}, task = {}, now = Date
   audit.estimated_tokens = estimated;
   const output = selected.map(({ record, calculated }) => safeRecord(record, calculated));
   audit.selected_ids = output.map((item) => item.id);
+  // Optional numeric-only attribution, in selected_ids order. Omit it entirely
+  // for legacy inputs so existing body-free audit snapshots remain identical.
+  if (sourceRecords.some((record) => tags(record?.tags).length)) {
+    audit.tag_matches = selected.map(({ calculated: { tag } }) => ({
+      matched: tag.totalMatched, task: tag.matched, query_pair: tag.queryMatched,
+      boost: tag.boost,
+    }));
+  }
   return { records: output, memoryContext: selected.map((candidate) => candidate.line).join('\n\n'), audit };
 }
 

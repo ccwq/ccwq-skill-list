@@ -134,6 +134,86 @@
         "viewer-server.mjs",
         "viewer-page.mjs"
       ]
+    },
+    "92c487d98b8618395c489a3ed26a2236d59f7cea3893251efbb22601ceaa54ba": {
+      "built_from": [
+        "memory-store.mjs",
+        "memory-lock.mjs",
+        "evidence-ledger.mjs",
+        "memory-tags.mjs",
+        "viewer-server.mjs",
+        "viewer-page.mjs"
+      ]
+    },
+    "67ee78bf9f79f7c7fcf22051822e53201bac603d20ad360ae5d2334c43f7434f": {
+      "built_from": [
+        "memory-store.mjs",
+        "memory-lock.mjs",
+        "evidence-ledger.mjs",
+        "memory-tags.mjs",
+        "viewer-server.mjs",
+        "viewer-page.mjs"
+      ]
+    },
+    "9798a7b7c324fa2dde7b03d283075eae51590f9f3627e8b42652d8602b54947c": {
+      "built_from": [
+        "memory-store.mjs",
+        "memory-lock.mjs",
+        "evidence-ledger.mjs",
+        "memory-tags.mjs",
+        "viewer-server.mjs",
+        "viewer-page.mjs"
+      ]
+    },
+    "4baca30ab4532dc9da74480b1d6316055524a5a385af51904330d4e378a87902": {
+      "built_from": [
+        "memory-store.mjs",
+        "memory-lock.mjs",
+        "evidence-ledger.mjs",
+        "memory-tags.mjs",
+        "viewer-server.mjs",
+        "viewer-page.mjs"
+      ]
+    },
+    "88137cb4b053f329d3234b47c9f4ccc12717fd089995d06bdc292f37d9c4ef8f": {
+      "built_from": [
+        "memory-store.mjs",
+        "memory-lock.mjs",
+        "evidence-ledger.mjs",
+        "memory-tags.mjs",
+        "viewer-server.mjs",
+        "viewer-page.mjs"
+      ]
+    },
+    "9c6bec1f3d67bd7a699f77e92cab76e4fbdad648c9dca62b7d3eb91c381c92f9": {
+      "built_from": [
+        "memory-store.mjs",
+        "memory-lock.mjs",
+        "evidence-ledger.mjs",
+        "memory-tags.mjs",
+        "viewer-server.mjs",
+        "viewer-page.mjs"
+      ]
+    },
+    "286679e52510622dbf5e9a363f32b233145a3b0b3016de4cc5d75a255c9e6b4e": {
+      "built_from": [
+        "memory-store.mjs",
+        "memory-lock.mjs",
+        "evidence-ledger.mjs",
+        "memory-tags.mjs",
+        "viewer-server.mjs",
+        "viewer-page.mjs"
+      ]
+    },
+    "d193207e49ef04e700ebaa368f10d0cd2d076867c5a0b052c132e436730f05cc": {
+      "built_from": [
+        "memory-store.mjs",
+        "memory-lock.mjs",
+        "evidence-ledger.mjs",
+        "memory-tags.mjs",
+        "viewer-server.mjs",
+        "viewer-page.mjs"
+      ]
     }
   },
   "name": "view-memoery.js"

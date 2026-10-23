@@ -129,6 +129,8 @@ export function serialize(model) {
  * Guard for viewer/host-supplied record edits. Content that would manufacture
  * structural markers (psm tags, store tags, group tags) breaks every other
  * record on re-serialization, so it is rejected before any write is planned.
+ * New content additionally goes through the single-line contract; unchanged
+ * bodies are exempted by the caller (patchRecord) before reaching here.
  */
 export function editGuard({ content, type, status }) {
   const errors = [];
@@ -137,6 +139,37 @@ export function editGuard({ content, type, status }) {
   if (!TYPES.has(type)) errors.push(`非法类型: ${type}`);
   if (!STATUS.has(status)) errors.push(`非法状态: ${status}`);
   return errors;
+}
+
+/**
+ * Deterministic single-line body contract for newly written content.
+ *
+ * Applies to every entry point that supplies NEW record text (CLI add/update/
+ * merge, legacy migrate, MemorySession auto-save, viewer PATCH). Historical
+ * multiline records stay readable; they are only re-checked when their content
+ * actually changes. The contract covers structural constraints only — meaning,
+ * voice and one-fact-per-sentence remain host responsibilities, not CLI claims.
+ *
+ * Stripping rule: surrounding whitespace including a single trailing newline
+ * of a text file is removed first; any interior line break (LF, CRLF, CR,
+ * U+2028, U+2029) is then rejected. Headings, list markers and code fences at
+ * the start are rejected because they are multiline Markdown templates, not
+ * single-line conclusions.
+ */
+export function contentContractErrors(content) {
+  if (typeof content !== 'string') return ['正文必须是字符串'];
+  const text = content.trim();
+  if (!text) return ['正文必须是非空字符串'];
+  if (/[\r\n\u2028\u2029]/.test(text)) return ['新正文必须单行：去除首尾空白后不得含内部换行（含 CRLF 与 Unicode 行/段分隔符）'];
+  if (/<!--\s*<\/?\s*(psm|psm-store|psm-group)[\s/>]/.test(text)) return ['正文不得包含 psm 结构标记'];
+  if (/^(?:#{1,6}\s|[-*+]\s|\d+[.)]\s|```|~~~)/.test(text)) return ['新正文不得以 Markdown 标题、列表或代码围栏开头（单行存储要求）'];
+  return [];
+}
+
+/** Shared single-line gate: throws with the deterministic reasons on failure. */
+export function assertContentContract(content) {
+  const errors = contentContractErrors(content);
+  if (errors.length) throw Error(`PSM_CONTRACT: 新正文不符合单行契约 — ${errors.join('；')}`);
 }
 
 /** Canonical timestamp shared by CLI and viewer (UTC, second precision). */

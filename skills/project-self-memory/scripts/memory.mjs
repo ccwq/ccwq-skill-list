@@ -23,7 +23,9 @@ import {
   STORE_KEYS,
   TYPE_LABEL,
   TYPES,
+  assertContentContract,
   canonicalId,
+  contentContractErrors,
   escapeXml,
   issue,
   parseStore,
@@ -38,6 +40,8 @@ import {
   backupMemoryFile,
 } from './memory-lock.mjs';
 
+import { loadTagTaxonomy, normaliseTaxonomy, tagRecords, suggestTaxonomy } from './memory-tags.mjs';
+
 const CONFIG_DEFAULT = {
   version: 1, auto_load: true, auto_save: true, auto_rate: true,
   load_mode: 'relevant', max_context_tokens: 4096, max_records: 24,
@@ -50,9 +54,29 @@ const has = (name) => args.includes(name);
 const die = (message) => { console.error(`PSM_ERROR: ${message}`); process.exit(1); };
 const json = (data) => console.log(JSON.stringify(data, null, 2));
 function paths() { const root = path.resolve(opt('--project-root') || process.cwd()); const base = path.join(root, '.project-self-memory'); return { root, base, memory: path.join(base, 'memory.md'), config: path.join(base, 'config.yaml'), legacy: path.join(root, 'self-memory', 'memory.md') }; }
-function contentInput() { const file = opt('--content-file'); const value = file ? fs.readFileSync(path.resolve(file), 'utf8') : !process.stdin.isTTY ? fs.readFileSync(0, 'utf8') : null; if (!value?.trim()) throw Error('正文必须通过 --content-file 或标准输入提供'); return value.trim(); }
+function contentInput() {
+  const file = opt('--content-file');
+  const value = file ? fs.readFileSync(path.resolve(file), 'utf8') : !process.stdin.isTTY ? fs.readFileSync(0, 'utf8') : null;
+  if (!value?.trim()) throw Error('正文必须通过 --content-file 或标准输入提供');
+  // 契约只约束“新正文”：去除外围空白（含文本文件末尾换行）后必须单行。
+  // 历史多行正文与磁盘字节一致地重新提交时走 unchangedFor 路径豁免。
+  assertContentContract(value);
+  return value.trim();
+}
 
-function loadStore() { const file = paths().memory; if (!fs.existsSync(file)) throw Error('缺少 memory.md；先运行 init'); return withBaseline(parseStore(fs.readFileSync(file, 'utf8'))); }
+/** Same as contentInput but allows resubmitting a record's own on-disk body verbatim. */
+function contentInputFor(model, recordId) {
+  const file = opt('--content-file');
+  const value = file ? fs.readFileSync(path.resolve(file), 'utf8') : !process.stdin.isTTY ? fs.readFileSync(0, 'utf8') : null;
+  if (!value?.trim()) throw Error('正文必须通过 --content-file 或标准输入提供');
+  const record = model.records.find((item) => item.id === recordId);
+  const next = value.trim();
+  if (record && next === String(record.content || '').trim()) return next; // no-op metadata-style update
+  assertContentContract(value);
+  return next;
+}
+
+function loadStore() { const file = paths().memory; if (!fs.existsSync(file)) throw Error('缺少 memory.md；先运行 init'); const model = withBaseline(parseStore(fs.readFileSync(file, 'utf8'))); model.records = tagRecords(model.records, loadTagTaxonomy(paths().root)); return model; }
 function mustWritable(model) { const errors = writeErrors(model); try { validateLedger(paths().root); } catch (error) { errors.push(issue('evidence', error.message, { impact: 'fatal' })); } if (errors.length) throw Error(`拒绝写入损坏库: ${errors.map((x) => x.message).join('；')}`); }
 
 /**
@@ -277,13 +301,13 @@ function viewerCommand() {
 }
 
 function validate() { const config = loadConfig(); let store; try { store = loadStore(); validateLedger(paths().root); } catch (e) { die(e.message); } const errors = [...config.errors, ...validateModel(store)]; if (errors.length) die(errors.map((x) => `${x.kind}: ${x.message}`).join('\n')); console.log('PSM_VALID'); }
-function diagnose() { const config = loadConfig(); let model; let evidenceError = null; try { model = loadStore(); try { validateLedger(paths().root); } catch (error) { evidenceError = issue('evidence', error.message, { impact: 'fatal' }); } } catch (e) { return json({ config: config.errors, store: [issue('store', e.message, { impact: 'fatal' })], group: [], record: [], legacy: [], evidence: [], valid_records: 0, write_safe: false }); } const errors = writeErrors(model); if (evidenceError) errors.push(evidenceError); const by = (kind) => errors.filter((x) => x.kind === kind); const badIds = new Set(by('record').map((x) => x.id)); json({ config: config.errors, store: by('store'), group: by('group'), record: by('record'), legacy: model.legacy.map((content, index) => ({ line: index + 1, content })), evidence: by('evidence'), valid_records: Math.max(0, model.records.filter((x) => !badIds.has(x.id)).length), write_safe: errors.length === 0 }); }
-function read() { const model = loadStore(); const ledger = readLedger(paths().root); const errors = validateModel(model); if (errors.some((x) => x.impact === 'fatal')) die(errors.map((x) => x.message).join('；')); const invalid = new Set(errors.filter((x) => x.kind === 'record').map((x) => x.id)); const wanted = new Set((opt('--ids') || '').split(',').filter(Boolean)); const wantedGroups = new Set((opt('--group') || '').split(',').filter(Boolean)); const type = opt('--type'); const visible = model.records.filter((x) => x.status === 'active' && !invalid.has(x.id) && (!wanted.size || wanted.has(x.id)) && (!wantedGroups.size || wantedGroups.has(x.group)) && (!type || x.type === type)); let lastGroup = Symbol('none'); for (const record of visible) { const version = recordVersion(record); const projection = projectEvents(ledger.events, record.id, version); if (record.group !== lastGroup) { const group = model.groups.find((x) => x.id === record.group); if (group) console.log(`## ${group.title}`); lastGroup = record.group; } console.log(`[${record.id}][${TYPE_LABEL[record.type]}] ${record.content}`); } }
+function diagnose() { const config = loadConfig(); let model; let evidenceError = null; try { model = loadStore(); try { validateLedger(paths().root); } catch (error) { evidenceError = issue('evidence', error.message, { impact: 'fatal' }); } } catch (e) { return json({ config: config.errors, store: [issue('store', e.message, { impact: 'fatal' })], group: [], record: [], legacy: [], evidence: [], valid_records: 0, write_safe: false }); } const errors = writeErrors(model); if (evidenceError) errors.push(evidenceError); const by = (kind) => errors.filter((x) => x.kind === kind); const badIds = new Set(by('record').map((x) => x.id)); json({ config: config.errors, store: by('store'), group: by('group'), record: by('record'), legacy: model.legacy.map((content, index) => ({ line: index + 1, content })), evidence: by('evidence'), tags: loadTagTaxonomy(paths().root).diagnostics, valid_records: Math.max(0, model.records.filter((x) => !badIds.has(x.id)).length), write_safe: errors.length === 0 }); }
+function read() { const model = loadStore(); const ledger = readLedger(paths().root); const errors = validateModel(model); if (errors.some((x) => x.impact === 'fatal')) die(errors.map((x) => x.message).join('；')); const invalid = new Set(errors.filter((x) => x.kind === 'record').map((x) => x.id)); const wanted = new Set((opt('--ids') || '').split(',').filter(Boolean)); const wantedGroups = new Set((opt('--group') || '').split(',').filter(Boolean)); const wantedTags = new Set((opt('--tag') || '').split(',').filter(Boolean)); const type = opt('--type'); const visible = model.records.filter((x) => x.status === 'active' && !invalid.has(x.id) && (!wantedTags.size || x.tags.some((tag) => wantedTags.has(tag))) && (!wanted.size || wanted.has(x.id)) && (!wantedGroups.size || wantedGroups.has(x.group)) && (!type || x.type === type)); let lastGroup = Symbol('none'); for (const record of visible) { const version = recordVersion(record); const projection = projectEvents(ledger.events, record.id, version); if (record.group !== lastGroup) { const group = model.groups.find((x) => x.id === record.group); if (group) console.log(`## ${group.title}`); lastGroup = record.group; } console.log(`[${record.id}][${TYPE_LABEL[record.type]}] ${record.content}`); } }
 function add() { const type = opt('--type'); if (!TYPES.has(type)) throw Error('--type 必须是合法类型'); const model = loadStore(); mustWritable(model); const group = opt('--group'); if (group && !model.groups.some((x) => x.id === group)) throw Error(`未知分组: ${group}`); const id = newId(model); model.records.push({ id, type, status: 'active', positive: 0, negative: 0, created_at: timestamp(), last_scored_at: '', content: contentInput(), group }); save(model); console.log(id); }
 function update() {
   const model = loadStore(); mustWritable(model); const record = find(model, args[1]);
   const old = projectRecord(paths().root, record);
-  record.content = contentInput();
+  record.content = contentInputFor(model, record.id);
   if (has('--keep-score')) {
     appendEvent(paths().root, {
       record_id: record.id,
@@ -327,7 +351,7 @@ function merge() {
   if (BigInt(keep) >= BigInt(remove)) throw Error('keep 必须是较早的永久 ID');
   const record = find(model, keep); const removed = find(model, remove);
   const keepVersion = recordVersion(record); const removedVersion = recordVersion(removed);
-  record.content = contentInput(); record.positive = 0; record.negative = 0; record.last_scored_at = '';
+  record.content = contentInputFor(model, keep); record.positive = 0; record.negative = 0; record.last_scored_at = '';
   const mergedVersion = recordVersion(record);
   appendEvent(paths().root, {
     event_id: `merge-${keep}-${remove}-${mergedVersion.slice(0, 16)}`,
@@ -339,6 +363,68 @@ function merge() {
   });
   model.records = model.records.filter((x) => x.id !== remove); save(model); console.log(keep);
 }
+/** Explicit taxonomy writes share the memory lock; never serialize the main store. */
+function saveTaxonomy(makeNext) {
+  const p = paths();
+  const lease = acquireMemoryLockSync(p.root);
+  try {
+    const target = path.join(p.base, 'tags.json');
+    if (fs.existsSync(target) && fs.lstatSync(target).isSymbolicLink()) throw Error('拒绝替换 tags.json 符号链接');
+    const current = loadTagTaxonomy(p.root);
+    const next = normaliseTaxonomy(makeNext(current));
+    const bytes = Buffer.from(JSON.stringify(next, null, 2) + '\n');
+    if (bytes.length > 1024 * 1024) throw Error('tags.json 超过 1 MiB，拒绝写入');
+    if (fs.existsSync(target)) {
+      const original = fs.readFileSync(target);
+      if (original.equals(bytes)) return false;
+      const backups = path.join(p.base, 'backups');
+      fs.mkdirSync(backups, { recursive: true });
+      const backup = path.join(backups, `tags-${crypto.randomUUID()}.json`);
+      fs.writeFileSync(backup, original, { flag: 'wx' });
+      if (!fs.readFileSync(backup).equals(original)) throw Error('标签备份校验失败');
+    }
+    atomicReplace(target, bytes);
+    return true;
+  } finally { lease.release(); }
+}
+function tagCatalog(records) {
+  const counts = new Map();
+  for (const record of records) for (const tag of record.tags || []) counts.set(tag, (counts.get(tag) || 0) + 1);
+  return [...counts].sort(([a], [b]) => a.localeCompare(b, 'en')).map(([name, count]) => ({ name, count }));
+}
+function tagsCommand() {
+  const sub = args[1] || 'show';
+  const model = loadStore();
+  const loaded = loadTagTaxonomy(paths().root);
+  if (sub === 'show') return json(loaded);
+  if (sub === 'suggest') return json(suggestTaxonomy(model.records, loaded));
+  if (sub === 'stats') return json({ total_records: model.records.length, tagged_records: model.records.filter((r) => r.tags.length).length, tags: tagCatalog(model.records), diagnostics: loaded.diagnostics });
+  mustWritable(model);
+  if (sub === 'apply') {
+    if (!opt('--plan-file')) throw Error('缺少 --plan-file');
+    const plan = normaliseTaxonomy(JSON.parse(fs.readFileSync(path.resolve(opt('--plan-file')), 'utf8')));
+    if (Object.keys(plan.overrides).some((id) => !model.records.some((record) => record.id === id))) throw Error('override 引用未知记录');
+    return json({ applied: saveTaxonomy(() => plan) });
+  }
+  if (sub === 'set') {
+    find(model, args[2]);
+    if (!has('--add') && !has('--remove')) throw Error('必须提供 --add 或 --remove');
+    const add = (opt('--add') || '').split(',').filter(Boolean);
+    const remove = (opt('--remove') || '').split(',').filter(Boolean);
+    return json({ applied: saveTaxonomy((current) => {
+      if (!current.enabled) throw Error('分类标准损坏；先用 tags apply 显式修复');
+      const next = current.taxonomy;
+      const prior = next.overrides[args[2]] || { add: [], remove: [] };
+      next.overrides[args[2]] = {
+        add: [...new Set([...prior.add.filter((tag) => !remove.includes(tag)), ...add])],
+        remove: [...new Set([...prior.remove.filter((tag) => !add.includes(tag)), ...remove])],
+      };
+      return next;
+    }) });
+  }
+  throw Error('未知 tags 子命令');
+}
+
 function groups() { const sub = args[1]; const model = loadStore(); mustWritable(model); if (sub === 'show') return json({ dimension: model.store.group_dimension, groups: model.groups }); if (sub === 'apply') { const plan = JSON.parse(fs.readFileSync(path.resolve(opt('--plan-file')), 'utf8')); if (!plan.group_dimension || !Array.isArray(plan.groups) || !plan.assignments || typeof plan.assignments !== 'object') throw Error('分组计划必须包含非空 group_dimension、groups、assignments'); const ids = new Set(); for (const g of plan.groups) { if (!g || !/^[a-z0-9][a-z0-9-]*$/.test(g.id) || !g.title || !g.scope || ids.has(g.id)) throw Error('分组计划含非法或重复 group'); ids.add(g.id); } const old = new Set(model.groups.map((x) => x.id)); if ([...old].some((id) => !ids.has(id))) throw Error('groups apply 不得删除既有稳定 group ID'); const recordIds = new Set(model.records.map((x) => x.id)); if (Object.keys(plan.assignments).length !== recordIds.size || Object.keys(plan.assignments).some((id) => !recordIds.has(id))) throw Error('assignments 必须完整且仅覆盖现存记录'); for (const id of recordIds) { const target = plan.assignments[id]; if (target !== null && !ids.has(target)) throw Error(`记录 ${id} 指向未知分组`); } model.groups = plan.groups; model.store.group_dimension = plan.group_dimension; for (const record of model.records) record.group = plan.assignments[record.id]; save(model); return console.log('PSM_GROUPS_APPLIED'); } if (sub === 'rename') { const group = model.groups.find((x) => x.id === args[2]); if (!group) throw Error('未知分组'); group.title = opt('--title') || group.title; group.scope = opt('--scope') || group.scope; save(model); return console.log('PSM_GROUP_RENAMED'); } if (sub === 'move') { const target = opt('--to'); if (target !== null && !model.groups.some((x) => x.id === target)) throw Error('未知目标分组'); for (const id of (opt('--ids') || '').split(',').filter(Boolean)) find(model, id).group = target; save(model); return console.log('PSM_GROUP_MOVED'); } throw Error('未知 groups 子命令'); }
 function sha(bytes) { return crypto.createHash('sha256').update(bytes).digest('hex'); }
 function legacySource() {
@@ -352,7 +438,10 @@ function writePrepared(file, bytes) { const temp = `${file}.psm-${process.pid}-$
 function legacy() { const sub = args[1]; const source = legacySource(); if (sub === 'scan') return json({ snapshot: source.snapshot, items: source.items.map((item, i) => ({ temporary_id: `U${String(i + 1).padStart(3, '0')}`, source_hash: item.source_hash, content: item.bytes.toString('utf8') })) }); if (sub !== 'migrate') throw Error('未知 legacy 子命令'); const plan = JSON.parse(fs.readFileSync(path.resolve(opt('--plan-file')), 'utf8')); if (plan.snapshot !== source.snapshot || !Array.isArray(plan.items)) throw Error('legacy 计划快照不匹配或缺少 items'); const seen = new Set();
   for (const item of plan.items) { const index = Number(String(item.temporary_id).slice(1)) - 1; const sourceItem = source.items[index]; if (!/^U\d{3,}$/.test(item.temporary_id) || seen.has(item.temporary_id)) throw Error('temporary_id 必须唯一'); seen.add(item.temporary_id); if (!sourceItem || sourceItem.source_hash !== item.source_hash) throw Error(`legacy 原始范围或 hash 不匹配: ${item.temporary_id}`); }
   const model = loadStore(); mustWritable(model); const removed = []; const result = [];
-  for (const item of plan.items) { const index = Number(item.temporary_id.slice(1)) - 1; if (!TYPES.has(item.type) || !item.content || (item.group && !model.groups.some((x) => x.id === item.group))) { result.push({ temporary_id: item.temporary_id, ok: false, reason: '类型、正文或分组非法' }); continue; } const id = newId(model); model.records.push({ id, type: item.type, status: 'active', positive: 0, negative: 0, created_at: timestamp(), last_scored_at: '', content: item.content, group: item.group || null }); removed.push(source.items[index]); result.push({ temporary_id: item.temporary_id, ok: true, id }); }
+  for (const item of plan.items) { const index = Number(item.temporary_id.slice(1)) - 1; if (!TYPES.has(item.type) || !item.content || (item.group && !model.groups.some((x) => x.id === item.group))) { result.push({ temporary_id: item.temporary_id, ok: false, reason: '类型、正文或分组非法' }); continue; }
+    const contractErrors = contentContractErrors(item.content);
+    if (contractErrors.length) { result.push({ temporary_id: item.temporary_id, ok: false, reason: `新正文不符合单行契约：${contractErrors.join('；')}` }); continue; }
+    const id = newId(model); model.records.push({ id, type: item.type, status: 'active', positive: 0, negative: 0, created_at: timestamp(), last_scored_at: '', content: String(item.content).trim(), group: item.group || null }); removed.push(source.items[index]); result.push({ temporary_id: item.temporary_id, ok: true, id }); }
   // Validate both output bytes before either durable replacement; legacy is renamed first so memory is never ahead of it.
   mustWritable(model); const newMemory = Buffer.from(serialize(model), 'utf8'); const pieces = []; let cursor = 0; for (const item of [...removed].sort((a, b) => a.start - b.start)) { pieces.push(source.bytes.subarray(cursor, item.start)); cursor = item.end; } pieces.push(source.bytes.subarray(cursor)); const newLegacy = Buffer.concat(pieces);
   const p = paths(); const legacyTemp = writePrepared(p.legacy, newLegacy); const memoryTemp = writePrepared(p.memory, newMemory); try { fs.renameSync(legacyTemp, p.legacy); fs.renameSync(memoryTemp, p.memory); } catch (e) { if (fs.existsSync(legacyTemp)) fs.unlinkSync(legacyTemp); if (fs.existsSync(memoryTemp)) fs.unlinkSync(memoryTemp); throw e; } json(result); }
@@ -424,5 +513,5 @@ function config() {
   }
   throw Error('未知 config 子命令');
 }
-function main() { const command = args[0]; try { if (command === 'init') return initialize(); if (command === 'validate') return validate(); if (command === 'diagnose') return diagnose(); if (command === 'read') return read(); if (command === 'catalog') { validateLedger(paths().root); const model = loadStore(); const invalid = new Set(validateModel(model).filter((x) => x.kind === 'record').map((x) => x.id)); return json(model.groups.map((g) => ({ ...g, count: model.records.filter((r) => r.group === g.id && r.status === 'active' && !invalid.has(r.id)).length }))); } if (command === 'inspect') { const model = loadStore(); if (has('--legacy')) { const source=legacySource(); return json({ snapshot: source.snapshot, items: source.items.map((item, i) => ({ temporary_id: `U${String(i + 1).padStart(3, '0')}`, source_hash: item.source_hash, content: item.bytes.toString('utf8') })) }); } validateLedger(paths().root); if (/^\d/.test(args[1] || '')) return json(projectRecord(paths().root, find(model, args[1]))); if (has('--trim-candidates')) return json(model.records.map((r) => projectRecord(paths().root, r)).filter((r) => r.positive - r.negative < 0 || (r.negative >= 3 && r.negative >= r.positive))); return json(has('--groups') ? model.groups : model); } if (command === 'add') return add(); if (command === 'update') return update(); if (command === 'status') { const m=loadStore(); mustWritable(m); const r=find(m,args[1]); if(!STATUS.has(args[2])) throw Error('状态非法'); r.status=args[2]; save(m); return console.log(r.id); } if (command === 'delete') { const m=loadStore(); mustWritable(m); const ids=new Set((opt('--ids')||'').split(',').filter(Boolean)); m.records=m.records.filter((r)=>!ids.has(r.id)); save(m); return console.log('PSM_DELETED'); } if (command === 'score') return score('normal'); if (command === 'score-reset') return score('reset'); if (command === 'score-repair') return score('repair'); if (command === 'merge') return merge(); if (command === 'groups' || command === 'group') return groups(); if (command === 'legacy') return legacy(); if (command === 'evidence' || command === 'migrate-evidence') return evidence(); if (command === 'config') return config(); if (command === 'viewer') return viewerCommand(); if (command === 'migrate-schema') { const model=loadStore(); if(model.store?.version === '1') return console.log('PSM_NO_MIGRATION: 当前已是 v1，无可迁移前版'); throw Error('未知或未来结构化版本不能迁移'); } throw Error('未知命令'); } catch (e) { die(e.message); } }
+function main() { const command = args[0]; try { if (command === 'init') return initialize(); if (command === 'validate') return validate(); if (command === 'diagnose') return diagnose(); if (command === 'read') return read(); if (command === 'tags') return tagsCommand(); if (command === 'catalog') { validateLedger(paths().root); const model = loadStore(); const invalid = new Set(validateModel(model).filter((x) => x.kind === 'record').map((x) => x.id)); if (opt('--by') === 'tag') return json(tagCatalog(model.records.filter((r) => r.status === 'active' && !invalid.has(r.id)))); return json(model.groups.map((g) => ({ ...g, count: model.records.filter((r) => r.group === g.id && r.status === 'active' && !invalid.has(r.id)).length }))); } if (command === 'inspect') { const model = loadStore(); if (has('--legacy')) { const source=legacySource(); return json({ snapshot: source.snapshot, items: source.items.map((item, i) => ({ temporary_id: `U${String(i + 1).padStart(3, '0')}`, source_hash: item.source_hash, content: item.bytes.toString('utf8') })) }); } validateLedger(paths().root); if (/^\d/.test(args[1] || '')) return json(projectRecord(paths().root, find(model, args[1]))); if (has('--trim-candidates')) return json(model.records.map((r) => projectRecord(paths().root, r)).filter((r) => r.positive - r.negative < 0 || (r.negative >= 3 && r.negative >= r.positive))); return json(has('--groups') ? model.groups : model); } if (command === 'add') return add(); if (command === 'update') return update(); if (command === 'status') { const m=loadStore(); mustWritable(m); const r=find(m,args[1]); if(!STATUS.has(args[2])) throw Error('状态非法'); r.status=args[2]; save(m); return console.log(r.id); } if (command === 'delete') { const m=loadStore(); mustWritable(m); const ids=new Set((opt('--ids')||'').split(',').filter(Boolean)); m.records=m.records.filter((r)=>!ids.has(r.id)); save(m); return console.log('PSM_DELETED'); } if (command === 'score') return score('normal'); if (command === 'score-reset') return score('reset'); if (command === 'score-repair') return score('repair'); if (command === 'merge') return merge(); if (command === 'groups' || command === 'group') return groups(); if (command === 'legacy') return legacy(); if (command === 'evidence' || command === 'migrate-evidence') return evidence(); if (command === 'config') return config(); if (command === 'viewer') return viewerCommand(); if (command === 'migrate-schema') { const model=loadStore(); if(model.store?.version === '1') return console.log('PSM_NO_MIGRATION: 当前已是 v1，无可迁移前版'); throw Error('未知或未来结构化版本不能迁移'); } throw Error('未知命令'); } catch (e) { die(e.message); } }
 main();

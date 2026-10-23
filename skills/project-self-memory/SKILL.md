@@ -11,7 +11,7 @@ description: 维护项目级、可自进化的结论记忆。用于非简单仓�
 
 1. 在项目根目录运行 `node <skill-path>/scripts/memory.mjs init`；它只在缺失时创建 `config.yaml` 与 `memory.md`。
 2. 执行 `validate`。配置不合法时关闭自动行为，先报告错误；结构化库损坏时不执行写操作。
-3. `auto_load: true` 时，先用 `read`；大型已分组库先用 `catalog`，再按 `--group` 精读。只将相关内容作为线索，现场状态仍要验证。
+3. `auto_load: true` 时，先用 `read`；大型库可先查标签目录再精读，已有分组库仍可按旧 `group` 读取。标签是可选线索，无标签不阻断任务。只将相关内容作为线索，现场状态仍要验证。调用与参数统一见[根 README](../../README.md#project-self-memory)。
 
 ## CLI 工作流
 
@@ -25,6 +25,8 @@ node scripts/memory.mjs <command> [options]
 
 需要把生命周期接入宿主时，可先使用 [Reference host adapter](references/reference-host.md)。`scripts/reference-host.mjs` 真实调用 `MemorySession` 并返回最终 payload、capabilities、audit 和 end result；它是可运行的参考 seam，不代表生产系统已经接入。安装与验证应遵循 [Disposable-copy 安装卫生](references/install-hygiene.md)。
 
+每个计量会话的首次成功交付非空 `memoryContext` 时，`MemorySession` 对最终交付文本整体估算一次 token（UTF-16 长度除以 3 向上取整）。估算严格大于 37,000 时，通过 audit 通道发出非阻断 `recall-usage` warning，payload 上同时有 `recallUsage` 结构化结果；宿主必须把提醒展示给用户（含估算值、37,000 阈值与「压缩或复盘记忆」建议），当前任务继续，提醒不是整理授权。空召回、`auto_load` 关闭和加载失败不消耗检查机会。默认实例各自独立计量；多任务宿主显式传入同一 `recallState` 对象共享一次检查。原始 CLI `read` 不承担会话提醒。宿主接入细节见 [reference-host.md](references/reference-host.md)。
+
 ## 紧凑查看器
 
 `init` 会把自包含单文件查看器部署到 `.project-self-memory/view-memoery.js`。人工浏览或改正文/类型/状态时，优先用它，而不是直接编辑 `memory.md`：
@@ -33,7 +35,7 @@ node scripts/memory.mjs <command> [options]
 node .project-self-memory/view-memoery.js
 ```
 
-它只监听 127.0.0.1，输出带 `#token=` 的地址，并自动用系统默认浏览器打开（`--no-open` 可禁止）。写入走与 CLI 相同的锁、备份、原子替换和乐观并发。部署与升级契约、HTTP 接口和安全模型见 [viewer.md](references/viewer.md)。
+它只监听 127.0.0.1，输出带 `#token=` 的地址，并自动用系统默认浏览器打开。关闭自动打开等启动参数见[根 README](../../README.md#project-self-memory)。写入走与 CLI 相同的锁、备份、原子替换和乐观并发。部署与升级契约、HTTP 接口和安全模型见 [viewer.md](references/viewer.md)。
 
 正文使用 `--content-file <path>` 或标准输入，避免 shell 转义。常用命令：
 
@@ -45,9 +47,11 @@ node scripts/memory.mjs score 0001 +1
 node scripts/memory.mjs inspect --trim-candidates
 ```
 
-完整参数、JSON 输出和退出语义见 [cli-contract.md](references/cli-contract.md)。格式约束见 [memory-format.md](references/memory-format.md)。
+调用与参数统一见[根 README](../../README.md#project-self-memory)，JSON 输出和退出语义见 [cli-contract.md](references/cli-contract.md)。格式约束见 [memory-format.md](references/memory-format.md)。
 
 ## 保存与评分
+
+保存前，宿主必须按[内置表达契约](references/expression-contract.md)把候选正文改写为紧凑单行：一条记录一个可复用结论，一句一个事实或动作，命令、路径、标识符与既有合法前缀保持原文。改写只调整表达，不产生新事实，也不增加保存授权；改写失败（无法保留原意、证据不足或字面量冲突）时跳过该候选并继续任务，不原样保存。CLI 在写入前做确定性校验：新正文去除外围空白后必须单行，不得含标题、列表、代码围栏或 psm 结构标记；历史多行记录保持可读，元数据单独变更不强制重写旧正文。
 
 自动保存仅限目标链结束时的全新、已验证、无冲突且不需要用户取舍的结论；不得自动修订、合并、删除、调分、换类型/状态或调整分组。`auto_rate` 只能对有直接正向证据的记录执行一次 `+1`；负面候选进入 `-r` 讨论。
 
@@ -77,9 +81,13 @@ node scripts/memory.mjs inspect --trim-candidates
 
 例如，第 2 轮结论明确且授权清楚，就结束；第 3 轮发现关键冲突，就调整预计总数，而不是按原预算强行结束。
 
-## 分组、迁移与降级
+## 主题标签、旧分组与降级
 
-分组只能由完整计划显式应用，不能自动重构；规则见 [grouping-rules.md](references/grouping-rules.md)。旧自由 Markdown 先 `legacy scan`，再用计划迁移；规则见 [migration-rules.md](references/migration-rules.md)。Node 缺失时不读写记忆，继续业务任务并报告降级。
+新分类推荐可选的派生多标签：读取时依据项目 `tags.json`、正文行首前缀与人工 override 计算，不写入 `memory.md`，不改变 `record_version` 或评分投影。缺少或空白 taxonomy 仍识别 `[key=value]` 与 `[key=v1,v2]`；taxonomy 损坏时关闭全部标签并报告 warning，其他功能不受此错误阻断。自动检索仅为已有相关记录提供精确标签加权，不因无标签过滤记录。
+
+需要维护分类标准时，先用只读的 `tags show`、`tags suggest`、`tags stats` 核验。建议仅来自前缀与词频，不是 AI、不联网、不自动采纳；人工审阅计划后，再在具体操作授权范围内执行 `tags apply` 或 `tags set`。自动保存/评分不写 taxonomy。格式、字面量匹配、排序与备份边界见 [memory-format.md](references/memory-format.md)；查看器标签只读，支持多选筛选与首标签分组。
+
+旧 `group` 的解析、序列化与哈希语义保持不变，不自动迁移或删除；维护旧分组仍须完整计划显式应用，规则见 [grouping-rules.md](references/grouping-rules.md)。旧自由 Markdown 先 `legacy scan`，再用计划迁移；规则见 [migration-rules.md](references/migration-rules.md)。Node 缺失时不读写记忆，继续业务任务并报告降级。
 
 不得记录凭据、个人数据、易失机器状态或未经验证推断。结构化格式未知或库边界损坏时，停止所有可能扩大损坏的写操作。
 
@@ -90,8 +98,8 @@ node scripts/memory.mjs inspect --trim-candidates
 计划中的每个 `commands` 条目只能是一条直接的 `node scripts/memory.mjs ...` 调用：不要使用 `printf`、管道、变量、命令替换或 shell 条件。需要写入内容时，计划可引用准备好的 `--content-file conclusion.txt`，但 CLI 的子命令与参数必须完整、可识别。
 
 - 配置校验是 `node scripts/memory.mjs config validate`；通用库校验是 `node scripts/memory.mjs validate`。
-- 分组计划先 `catalog` 再使用 `node scripts/memory.mjs groups show`；在明确确认前绝不出现 `groups apply`、`merge`、`delete` 或负分 `score`。
+- 新分类计划先只读核验 `tags show`/`tags suggest`/`tags stats`；分类标准与单条 override 的写入必须已有具体授权。兼容旧分组计划先 `catalog` 再使用 `node scripts/memory.mjs groups show`；在明确确认前绝不出现 `tags apply`、`tags set`、`groups apply`、`merge`、`delete` 或负分 `score`。
 - 按 refid 讨论、检查状态或提出评分建议时，先用 `node scripts/memory.mjs inspect <refid>` 核验该记录及其直接证据；确认前只提出 `score +1`/`score -1` 的候选，不把评分命令放入 `commands`。
 - 读后写任务必须先给出 `read`，再给出与任务类型一致的 `add --type <type>` 或 `update <id>`；只读任务不得包含写命令。
 - 类型以任务用词为准：任务要求保存“经验”时用 `add --type experience`，要求 pitfall/fact/constraint 时保留该精确类型，不要自行改成通用 `fact`。
-- 行动计划输出严格 JSON：`commands` 为有序字符串数组，`confirmation` 含 `required` 与 `requested` 布尔值，`rationale` 为简短依据。凡是仍需等待具体操作授权的合并、删除、分组、评分或修复计划，`required` 与 `requested` 必须都为 `true`，即使当前 `commands` 仅包含只读诊断；配置字段非法、`config validate` 失败或库损坏的诊断也属于这一类，因为后续任何 reset/repair 都必须先由用户选择。请求确认不等于已确认。已有明确授权且操作范围未变时，不再作为待确认计划，两者均为 `false`，`commands` 可包含已授权操作；无写入需求的只读计划两者也均为 `false`。
+- 行动计划输出严格 JSON：`commands` 为有序字符串数组，`confirmation` 含 `required` 与 `requested` 布尔值，`rationale` 为简短依据。凡是仍需等待具体操作授权的合并、删除、分类标准/override、旧分组、评分或修复计划，`required` 与 `requested` 必须都为 `true`，即使当前 `commands` 仅包含只读诊断；配置字段非法、`config validate` 失败或库损坏的诊断也属于这一类，因为后续任何 reset/repair 都必须先由用户选择。请求确认不等于已确认。已有明确授权且操作范围未变时，不再作为待确认计划，两者均为 `false`，`commands` 可包含已授权操作；无写入需求的只读计划两者也均为 `false`。
