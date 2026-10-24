@@ -734,37 +734,49 @@ $progressive-doc 审查这篇事故复盘，标出证据缺口和未核验论断
 任务结束后，只保存经过验证且可以复用的结论。记录范围包括事实、长期决策和避坑经验。
 
 ```text
-/project-self-memory -g
-/project-self-memory -r
-/project-self-memory -c
-/project-self-memory -g -r
+$project-self-memory -g
+$project-self-memory -r
+$project-self-memory -t
+$project-self-memory -c
+$project-self-memory -g -r
+$project-self-memory -l
 ```
+
+Codex 用 `$` 前缀显式调用；Claude Code 用 `/` 前缀（`/project-self-memory -c`）。自然语言请求同样生效。
 
 | 参数 | 说明 | 默认值 |
 |------|------|--------|
 | `-g` / `--grilling` | 逐问盘点新增、修订、合并、冲突和迁移候选 | 显式调用或自然语言要求盘点时进入 |
 | `-r` / `--rate` | 讨论本会话实际使用、有结果且尚未评分的记录 | 每条每会话最多评分一次 |
+| `-t` / `--trim` | 清理负分占优的记录；可保留、修订、设为 review/disabled 或删除 | 只处理 `positive - negative < 0` 或 `negative >= 3 && negative >= positive` |
 | `-c` / `--cache-write` | 处理自动暂存区（cache）里的待处理候选，逐条决定入库或丢弃 | 显式调用时进入；候选入库的唯一入口 |
 | `-g -r` / `-r -g` | 组合策展与评分，共享讨论进度 | 参数顺序不影响进度 |
+| `-l` / `--load` | 显式读取：小库直接读，大库先查目录再按分组精读 | `auto_load: true` 时自动读取 |
+| `--no-load` / `--no-save` / `--no-rate` | 仅本次任务关掉自动读、自动存或自动评分 | 任务级覆盖优先于会话级与配置 |
+| `--no-load-session` / `--no-save-session` / `--no-rate-session` | 本次会话内持续关掉对应自动行为 | 目标链结束或明确恢复时失效 |
 
 讨论量默认预计约 3 轮、复杂时可展开；以结论和具体操作授权为准，详见 [讨论轮次与结束条件](skills/project-self-memory/SKILL.md#讨论轮次与结束条件)。
 
+活动目录固定为 `.project-self-memory/`；`self-memory/` 仅能通过 `legacy` 命令只读迁移。所有命令均可附 `--project-root <path>`。不记录凭据、个人数据、易失机器状态或未经验证推断。
+
+CLI 脚本随 skill 安装，路径与当前工作目录无关：Codex 装在 `.agents/skills/project-self-memory/`，Claude Code 装在 `.claude/skills/project-self-memory/`。下面的示例用 `<skill-path>` 表示该目录。
+
 ```text
-node skills/project-self-memory/scripts/memory.mjs init
-node skills/project-self-memory/scripts/memory.mjs read --type pitfall
-node skills/project-self-memory/scripts/memory.mjs add --type fact --content-file conclusion.txt
-node skills/project-self-memory/scripts/memory.mjs --project-root E:\repo diagnose
-node skills/project-self-memory/scripts/memory.mjs tags show
-node skills/project-self-memory/scripts/memory.mjs tags suggest
-node skills/project-self-memory/scripts/memory.mjs tags stats
-node skills/project-self-memory/scripts/memory.mjs read --tag host_scope:tenc,component:api
-node skills/project-self-memory/scripts/memory.mjs catalog --by tag
-node skills/project-self-memory/scripts/memory.mjs cache list
-node skills/project-self-memory/scripts/memory.mjs cache show <id>
+node <skill-path>/scripts/memory.mjs init
+node <skill-path>/scripts/memory.mjs read --type pitfall
+node <skill-path>/scripts/memory.mjs add --type fact --content-file conclusion.txt
+node <skill-path>/scripts/memory.mjs --project-root E:\repo diagnose
+node <skill-path>/scripts/memory.mjs tags show
+node <skill-path>/scripts/memory.mjs tags suggest
+node <skill-path>/scripts/memory.mjs tags stats
+node <skill-path>/scripts/memory.mjs read --tag host_scope:tenc,component:api
+node <skill-path>/scripts/memory.mjs catalog --by tag
+node <skill-path>/scripts/memory.mjs cache list
+node <skill-path>/scripts/memory.mjs cache show <id>
 # 以下为显式写入，先确认具体分类标准或修正内容
-node skills/project-self-memory/scripts/memory.mjs cache apply --id <id> --decision write
-node skills/project-self-memory/scripts/memory.mjs tags apply --plan-file taxonomy.json
-node skills/project-self-memory/scripts/memory.mjs tags set 0001 --add component:api --remove host_scope:tenc
+node <skill-path>/scripts/memory.mjs cache apply --id <id> --decision write
+node <skill-path>/scripts/memory.mjs tags apply --plan-file taxonomy.json
+node <skill-path>/scripts/memory.mjs tags set 0001 --add component:api --remove host_scope:tenc
 ```
 
 活动目录固定为 `.project-self-memory/`；`self-memory/` 仅能通过 `legacy` 命令只读迁移。所有命令均可附 `--project-root <path>`。不记录凭据、个人数据、易失机器状态或未经验证推断。
@@ -810,7 +822,7 @@ node .project-self-memory/view-memoery.js
 | `--no-open` / `PSM_VIEWER_OPEN=0` | 禁止自动打开浏览器，适用于无头环境 | 自动打开 |
 | `PSM_VIEWER_OPEN=echo` | 仅打印待打开地址，不执行浏览器命令，用于诊断 | 不设置 |
 
-详情见 [README.md](skills/project-self-memory/README.md)。
+详情见 [README.md](skills/project-self-memory/README.md)。按「你的意图」组织的使用指南见 [使用指南](docs/teach/project-self-memory/lessons/0001-psm-usage-guide.html)。
 
 ---
 

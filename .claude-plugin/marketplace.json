@@ -123,8 +123,8 @@
     {
       "name": "project-self-memory",
       "source": "./skills/project-self-memory",
-      "description": "项目级结论记忆 Node CLI：逐问策展、评分、项目化可选派生多标签与 legacy 迁移，保留旧 group 兼容；新正文按内置 STE 表达契约单行存储，首次召回超 37k 估算 token 发非阻断提醒；标签只读派生、不参与检索 rank 排序，分类标准显式授权写入；自动流程只写跨会话 cache 暂存区，候选经 -c 逐条确认入库；附本机紧凑查看器（标签筛选、令牌保护、备份与乐观并发）",
-      "version": "2.4.0",
+      "description": "项目级结论记忆：Codex 用 $project-self-memory 调用（-g 盘点 / -r 评分 / -t 清理 / -c 候选入库 / -l 显式读取），另有逐问策展、评分、项目化可选派生多标签与 legacy 迁移，保留旧 group 兼容；新正文按内置 STE 表达契约单行存储，首次召回超 37k 估算 token 发非阻断提醒；标签只读派生、不参与检索 rank 排序，分类标准显式授权写入；自动流程只写跨会话 cache 暂存区，候选经 -c 逐条确认入库；附本机紧凑查看器（标签筛选、令牌保护、备份与乐观并发）",
+      "version": "2.5.0",
       "category": "devtools"
     },
     {
