@@ -21,13 +21,13 @@
     },
     {
       "id": "cli-add-content-file",
-      "prompt": "node scripts/memory.mjs add --type constraint --content-file conclusion.txt",
+      "prompt": "node .agents/skills/project-self-memory/scripts/memory.mjs add --type constraint --content-file conclusion.txt",
       "expected_output": "通过 CLI 文件输入新增一条经过调用方准备的 constraint 记录，并返回永久 ID。",
       "files": []
     },
     {
       "id": "cli-add-stdin",
-      "prompt": "echo 已验证结论 | node scripts/memory.mjs add --type fact",
+      "prompt": "echo 已验证结论 | node .agents/skills/project-self-memory/scripts/memory.mjs add --type fact",
       "expected_output": "通过标准输入读取非空正文；缺少正文时明确拒绝。",
       "files": []
     },
@@ -101,6 +101,24 @@
       "id": "combined-shared-progress",
       "prompt": "分别回放 -g -r 与 -r -g，两个独立子场景均有新增候选和实际使用且未评分的 0001。已经完成第 2 问，当前预计约 5 问；下一步从新增候选讨论切换到 0001 的评分归因。驱动方只提供当前问题的回答，未授权写入。",
       "expected_output": "Given：组合模式共用一个正在推进的会话。When：切换策展与评分议题。Then：两种参数顺序都沿用第 3 问和当前预计总数，若有新证据再解释调整；不重启第 1 问、不为每种模式分配固定轮数或固定评分轮次，待授权前不写入。防回归：组合被拆成两套独立进度。",
+      "files": []
+    },
+    {
+      "id": "cache-write-choice-flow",
+      "prompt": "$project-self-memory -c。测试上下文：暂存区有一条 add 候选（正文「回源接口在高峰期需要限流并加熔断」）和一条 update 候选（目标 0001，base_content「回源接口在高峰期需要限流」，payload.content「回源接口需要限流并加熔断」）。驱动方逐轮回答选择；未获授权前不得写入。",
+      "expected_output": "Given：暂存区有 add 与 update 两类待处理候选，记忆库尚未改动。When：进入 -c 流程。Then：先只读 cache list 按目标 refid 分组，update 组展示 base_content 与 payload.content 的原文对照，其选项为改写后写入/丢弃/暂缓且无直接写入，add 组选项为写入/丢弃/暂缓；每组单独授权后逐条执行 cache apply（改写后写入附 --content-file），写后回读该记录。防回归：修改类静默写入、选项集缺少 diff 对照、批量 apply 未逐条独立成败。",
+      "files": []
+    },
+    {
+      "id": "cache-write-stale-target",
+      "prompt": "$project-self-memory -c。测试上下文：暂存区一条 update 候选指向 0001，暂存时的 target_record_version 与当前 0001 的 record_version 不一致（目标已被改过）。驱动方尝试要求直接写入。",
+      "expected_output": "Given：候选的目标记录在暂存后已变更。When：用户要求直接落库。Then：该组被标为 stale 并单独成组展示原基准与现状，选项只有丢弃/基于现状重新评估；拒绝直接写入并说明需基于现状重新评估，条目保持 pending 不被静默跳过。防回归：失效候选覆盖用户已改过的正文、失效项被静默丢弃。",
+      "files": []
+    },
+    {
+      "id": "cache-write-empty",
+      "prompt": "$project-self-memory -c。测试上下文：暂存区没有 pending 条目，记忆库有若干记录。",
+      "expected_output": "Given：暂存区为空。When：进入 -c。Then：直接说明没有待处理候选并结束，不制造问题、不请求空操作授权、不写入。防回归：为了进入流程而虚构候选或生成空的确认请求。",
       "files": []
     },
     {
