@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PSM 命令速查表 · Codex 用户版</title>
+<link rel="stylesheet" href="../assets/teach.css">
+</head>
+<body>
+<div class="wrap">
+
+<header class="masthead">
+  <p class="eyebrow">Reference · project-self-memory · Codex</p>
+  <h1>命令速查表</h1>
+  <p class="lede">两栏:在 Codex 里<strong>敲什么</strong>,和 Codex 背后<strong>跑什么</strong>。参数名与完整示例只在<a href="../../../../README.md#project-self-memory">根 README 的参数速查</a>维护一处。</p>
+  <div class="meta">
+    <span>脚本路径：.agents/skills/project-self-memory/scripts/memory.mjs</span>
+    <span>记忆库路径：&lt;项目根&gt;/.project-self-memory/</span>
+  </div>
+</header>
+
+<nav class="toc">
+  <h2>目录</h2>
+  <ol>
+    <li><a href="#invoke">在 Codex 里敲什么</a></li>
+    <li><a href="#cli">CLI 命令</a></li>
+    <li><a href="#viewer">查看器</a></li>
+    <li><a href="#errors">错误与退出码</a></li>
+  </ol>
+</nav>
+
+<section id="invoke">
+<h2>在 Codex 里敲什么</h2>
+<div class="scroll-x">
+<table>
+<tr><th>你想</th><th>在 Codex 里输入</th><th>等价的自然语言</th></tr>
+<tr><td>处理暂存候选</td><td><code>$project-self-memory -c</code></td><td>「处理候选」「把攒的候选入库」</td></tr>
+<tr><td>盘点经验</td><td><code>$project-self-memory -g</code> 或 <code>-g 主题</code></td><td>「盘点一下这次有哪些经验值得沉淀」</td></tr>
+<tr><td>评分讨论</td><td><code>$project-self-memory -r</code></td><td>「评价一下这次用过的记忆」</td></tr>
+<tr><td>清理过时结论</td><td><code>$project-self-memory -t</code> 或 <code>-t 主题</code></td><td>「清理一下已经过时的经验」</td></tr>
+<tr><td>组合</td><td><code>$project-self-memory -g -r</code></td><td>「盘点并顺便评价」</td></tr>
+<tr><td>显式读取</td><td><code>$project-self-memory -l</code></td><td>「把相关记忆列出来」</td></tr>
+<tr><td>本次不读</td><td><code>$project-self-memory --no-load</code></td><td>「这次不读记忆」</td></tr>
+<tr><td>本次不存</td><td><code>$project-self-memory --no-save</code></td><td>「这次不要保存」</td></tr>
+<tr><td>本次不评分</td><td><code>$project-self-memory --no-rate</code></td><td>「这次不评分」</td></tr>
+<tr><td>会话内持续关</td><td><code>$project-self-memory --no-load-session</code></td><td>「整个会话都不要读记忆」</td></tr>
+</table>
+</div>
+</section>
+
+<section id="cli">
+<h2>CLI 命令</h2>
+<p>下表命令都在<strong>项目根目录</strong>执行。脚本路径固定为 <code>.agents/skills/project-self-memory/scripts/memory.mjs</code>。</p>
+<div class="scroll-x">
+<table>
+<tr><th>你想要的</th><th>命令</th><th>输出</th></tr>
+<tr><td>建库</td><td><code>init</code></td><td>文本 <code>PSM_INITIALIZED</code></td></tr>
+<tr><td>体检（闸门）</td><td><code>validate</code></td><td>文本 <code>PSM_VALID</code> / 失败退出 1</td></tr>
+<tr><td>体检（报告）</td><td><code>diagnose</code></td><td>JSON，恒退出 0。看 <code>write_safe</code></td></tr>
+<tr><td>读结论</td><td><code>read</code></td><td>人读文本</td></tr>
+<tr><td>看目录</td><td><code>catalog</code> / <code>catalog --by tag</code></td><td>JSON</td></tr>
+<tr><td>看单条详情</td><td><code>inspect 0001</code></td><td>JSON，含 <code>record_version</code> 与派生 <code>tags</code></td></tr>
+<tr><td>找待清理记录</td><td><code>inspect --trim-candidates</code></td><td>JSON</td></tr>
+<tr><td>新增结论</td><td><code>add --type fact --content-file conclusion.txt</code></td><td>文本：新 ID</td></tr>
+<tr><td>改正文</td><td><code>update 0001 --content-file revised.txt</code></td><td>文本：ID。正文变了，评分清零（<code>--keep-score</code> 可保留）</td></tr>
+<tr><td>改状态</td><td><code>status 0001 review</code></td><td>文本：ID</td></tr>
+<tr><td>删记录</td><td><code>delete --ids 0003</code></td><td>文本 <code>PSM_DELETED</code></td></tr>
+<tr><td>合并两条</td><td><code>merge --keep 0001 --remove 0002 --content-file merged.txt</code></td><td>文本：保留的 ID</td></tr>
+<tr><td>投票</td><td><code>score 0001 +1</code> / <code>score 0001 -1</code></td><td>JSON 投影</td></tr>
+<tr><td>清零评分</td><td><code>score-reset 0001</code></td><td>JSON 投影</td></tr>
+<tr><td>修评分</td><td><code>score-repair 0001 --positive 3 --negative 0</code></td><td>JSON 投影。绝对值，不是增量</td></tr>
+<tr><td>看候选</td><td><code>cache list</code></td><td>JSON，按 refid 分组，含失效与冲突标记</td></tr>
+<tr><td>看单条候选</td><td><code>cache show &lt;event_id&gt;</code></td><td>JSON，含 <code>base_content</code> 与目标现状</td></tr>
+<tr><td>候选入库</td><td><code>cache apply --id &lt;id&gt; --decision write</code></td><td>JSON。改写后写入时加 <code>--content-file</code></td></tr>
+<tr><td>丢弃候选</td><td><code>cache apply --id &lt;id&gt; --decision discard</code></td><td>JSON</td></tr>
+<tr><td>清历史条目</td><td><code>cache prune --older-than 7d</code></td><td>JSON。待处理的永不清理</td></tr>
+<tr><td>手工塞候选</td><td><code>cache add --op update --target 0001 --content-file p.txt</code></td><td>JSON</td></tr>
+<tr><td>看分类标准</td><td><code>tags show</code> / <code>tags suggest</code> / <code>tags stats</code></td><td>JSON，只读</td></tr>
+<tr><td>改分类标准</td><td><code>tags apply --plan-file taxonomy.json</code></td><td>JSON。需具体授权</td></tr>
+<tr><td>改单条标签</td><td><code>tags set 0001 --add component:api --remove host_scope:tenc</code></td><td>JSON。需具体授权</td></tr>
+<tr><td>看旧分组</td><td><code>groups show</code></td><td>JSON，只读</td></tr>
+<tr><td>改旧分组</td><td><code>groups apply --plan-file groups.json</code></td><td>文本。计划须完整覆盖所有记录</td></tr>
+<tr><td>扫旧格式库</td><td><code>legacy scan</code></td><td>JSON，含快照哈希</td></tr>
+<tr><td>按计划迁入</td><td><code>legacy migrate --plan-file plan.json</code></td><td>JSON 数组，逐项成败</td></tr>
+<tr><td>看配置</td><td><code>config show</code></td><td>JSON</td></tr>
+<tr><td>改配置</td><td><code>config set auto_save false</code></td><td>文本</td></tr>
+<tr><td>操作别的项目</td><td>任意命令加 <code>--project-root E:\repo</code></td><td>—</td></tr>
+</table>
+</div>
+</section>
+
+<section id="viewer">
+<h2>查看器</h2>
+<div class="scroll-x">
+<table>
+<tr><th>你想要的</th><th>命令</th><th>输出</th></tr>
+<tr><td>人工浏览改正文</td><td><code>node .project-self-memory/view-memoery.js</code></td><td>本机网页地址</td></tr>
+<tr><td>不自动开浏览器</td><td><code>node .project-self-memory/view-memoery.js --no-open</code></td><td>只打印地址</td></tr>
+<tr><td>确认查看器版本</td><td><code>viewer status</code></td><td>JSON</td></tr>
+<tr><td>显式部署</td><td><code>viewer install</code></td><td>文本。幂等</td></tr>
+<tr><td>升级到官方版本</td><td><code>viewer update</code></td><td>文本。本地改过的一律拒绝</td></tr>
+</table>
+</div>
+</section>
+
+<section id="errors">
+<h2>错误与退出码</h2>
+<div class="scroll-x">
+<table>
+<tr><th>输出前缀</th><th>含义</th><th>处理</th></tr>
+<tr><td><code>PSM_ERROR</code></td><td>通用失败，退出 1</td><td>按消息定位参数或文件问题。</td></tr>
+<tr><td><code>PSM_ERROR: PSM_CONFLICT</code></td><td>乐观并发冲突：磁盘已被外部改动</td><td>重读后重试。</td></tr>
+<tr><td><code>PSM_ERROR: PSM_CONTRACT</code></td><td>正文违反单行契约</td><td>改成单行，不以标题、列表、围栏开头。</td></tr>
+<tr><td><code>PSM_BACKUP</code></td><td>stderr，非失败</td><td>写库前的备份路径。</td></tr>
+<tr><td><code>PSM_WARNING</code></td><td>stderr，非阻断</td><td>例如 pending 积压超过 20 条。</td></tr>
+</table>
+</div>
+</section>
+
+<footer class="colophon">
+  <p>本页只给选择路径。参数名与完整调用示例见<a href="../../../../README.md#project-self-memory">根 README 的 project-self-memory 速查</a>。</p>
+  <p><a href="../lessons/0001-psm-usage-guide.html">← 返回使用指南</a></p>
+</footer>
+
+</div>
+</body>
+</html>

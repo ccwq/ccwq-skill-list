@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>project-self-memory 使用指南 · Codex 用户版</title>
+<link rel="stylesheet" href="../assets/teach.css">
+</head>
+<body>
+<div class="wrap">
+
+<header class="masthead">
+  <p class="eyebrow">使用指南 · project-self-memory · Codex</p>
+  <h1>Codex 里怎么用 project-self-memory</h1>
+  <p class="lede">这份指南假设你用 Codex。每一步给出<strong>可以直接粘贴的命令行</strong>、<strong>你会看到什么</strong>、<strong>它背后在工作做什么</strong>。你不需要理解 CLI,只需要知道该敲哪条命令。</p>
+  <div class="meta">
+    <span>命令速查：<a href="../reference/cli-cheatsheet.html">cli-cheatsheet.html</a></span>
+    <span>适用版本：cache 暂存区落地后</span>
+  </div>
+</header>
+
+<nav class="toc">
+  <h2>目录</h2>
+  <ol>
+    <li><a href="#install">第 0 步：装到 Codex</a></li>
+    <li><a href="#mental">它替你做了什么</a></li>
+    <li><a href="#paths">两个路径,别搞混</a></li>
+    <li><a href="#first">第 1 步：初始化</a></li>
+    <li><a href="#auto">第 2 步：干活,什么都不用敲</a></li>
+    <li><a href="#cache">第 3 步：处理候选（<code>-c</code>）</a></li>
+    <li><a href="#stale">候选失效了怎么办</a></li>
+    <li><a href="#other">其他三个策展入口</a></li>
+    <li><a href="#direct">直接改一条记忆</a></li>
+    <li><a href="#switches">开关:自动还是手动</a></li>
+    <li><a href="#viewer">人工浏览:查看器</a></li>
+    <li><a href="#boundary">它不会替你做的事</a></li>
+    <li><a href="#pitfall">五个常见坑</a></li>
+    <li><a href="#cheatsheet">命令速查表</a></li>
+  </ol>
+</nav>
+
+<h2 id="install">第 0 步：装到 Codex</h2>
+
+<p>先确认装好了。已经装过就跳过这一节。</p>
+
+<div class="pick">
+  <div class="k head">你在哪装</div><div class="v head">命令</div>
+  <div class="k">全局（所有项目可用）</div><div class="v"><code>npx -y skills add ccwq/ccwq-skill-list --agent codex --skill project-self-memory -g</code></div>
+  <div class="k">当前项目</div><div class="v"><code>npx -y skills add ccwq/ccwq-skill-list --agent codex --skill project-self-memory</code></div>
+</div>
+
+<p>装完确认一下。Codex 读的是 <code>.agents/skills/</code> 目录:</p>
+
+<pre><code>ls .agents/skills/project-self-memory/          # 项目级
+ls ~/.agents/skills/project-self-memory/         # 用户级</code></pre>
+
+<div class="note">
+  <span class="label">已验证</span>
+  本机实测:<code>--agent codex</code> 把 skill 装到 <code>.agents/skills/project-self-memory/</code>(项目级)或 <code>~/.agents/skills/project-self-memory/</code>(加 <code>-g</code>)。注意不是 <code>.codex/skills/</code>。
+</div>
+
+<h2 id="mental">它替你做了什么</h2>
+
+<p>一句话:<strong>开工前读你过去攒的结论,收工时把新结论记下来。</strong></p>
+
+<div class="why">
+  <span class="label">原理</span>
+  人的记性有两个毛病:忘了,和记错。这个 skill 对应两个机制。开工时把相关结论加载进 Codex 的上下文,解决忘了;收工时把结论写进项目里的记忆库,解决记错。记忆库跟着 git 走,团队共享;结论必须经过你确认,错的进不去。
+</div>
+
+<div class="pick">
+  <div class="k head">时机</div><div class="v head">你看到什么</div>
+  <div class="k">开工前</div><div class="v">Codex 自动读相关记忆,把命中的结论放进上下文。你不用做任何事,通常也看不到提示。</div>
+  <div class="k">干活中</div><div class="v">Codex 用这些结论干活。想看它读到了什么,敲 <code>$project-self-memory -l</code>。</div>
+  <div class="k">收工时</div><div class="v">Codex 把新结论和评分<strong>暂存</strong>起来,<strong>不直接写进记忆库</strong>。</div>
+  <div class="k">你要处理时</div><div class="v">敲 <code>$project-self-memory -c</code>,Codex 逐条给你看,你决定哪条进库。</div>
+</div>
+
+<div class="note">
+  <span class="label">这一版最大的变化</span>
+  收工时 Codex <strong>不再直接写记忆库</strong>。它把结论先暂存在项目里的暂存区,跨会话保留。<code>-c</code> 时它逐条问你:写还是不写,写的话用什么措辞。<strong>这是本次更新的全部要点</strong>,第 3 节展开。
+</div>
+
+<h2 id="paths">两个路径,别搞混</h2>
+
+<p>这个 skill 有两个目录概念。搞混了命令就跑不通。</p>
+
+<div class="pick">
+  <div class="k head">路径</div><div class="v head">是什么</div>
+  <div class="k">skill 目录</div><div class="v"><code>.agents/skills/project-self-memory/</code>。代码在这里。<strong>这个路径是固定的</strong>,Codex 装的时候决定的。</div>
+  <div class="k">记忆库目录</div><div class="v"><code>&lt;项目根&gt;/.project-self-memory/</code>。你的记忆在这里。<strong>这个路径跟着项目走</strong>,会进 git。</div>
+</div>
+
+<p>所以调用 CLI 时,脚本路径用 skill 目录,操作对象用项目目录:</p>
+
+<pre><code># 在项目根目录执行
+node .agents/skills/project-self-memory/scripts/memory.mjs read
+node .agents/skills/project-self-memory/scripts/memory.mjs cache list
+
+# 或者显式指定要操作哪个项目
+node .agents/skills/project-self-memory/scripts/memory.mjs \
+  --project-root E:\my-project diagnose</code></pre>
+
+<div class="note">
+  <span class="label">坑</span>
+  直接敲 <code>node scripts/memory.mjs</code> 在 Codex 下会失败——当前工作目录是项目根,不是 skill 目录。要么用上面的相对路径,要么用 skill 目录的绝对路径。
+</div>
+
+<h2 id="first">第 1 步：初始化</h2>
+
+<p>新项目第一次用,先建记忆库。在<strong>项目根目录</strong>执行:</p>
+
+<pre><code>node .agents/skills/project-self-memory/scripts/memory.mjs init</code></pre>
+
+<div class="beat agent" style="border:1px solid var(--line);border-radius:var(--radius);padding:14px 18px;margin-bottom:16px">
+  <span class="who">你会看到</span>
+  <p><code>PSM_INITIALIZED</code></p>
+  <p style="color:var(--fg-soft)">项目下出现 <code>.project-self-memory/</code> 目录,含 <code>config.yaml</code> 与空的 <code>memory.md</code>。同时项目根的 <code>.gitignore</code> 被写入忽略规则,暂存区与锁文件不会进版本库。查看器也部署好了。</p>
+</div>
+
+<p>确认库是好的:</p>
+
+<pre><code>node .agents/skills/project-self-memory/scripts/memory.mjs validate</code></pre>
+
+<div class="beat agent" style="border:1px solid var(--line);border-radius:var(--radius);padding:14px 18px;margin-bottom:16px">
+  <span class="who">你会看到</span>
+  <p><code>PSM_VALID</code></p>
+</div>
+
+<div class="note">
+  <span class="label">注意</span>
+  初始化<strong>只在记忆缺失时</strong>做。已有库不要重跑,否则会丢掉已有记忆。<code>validate</code> 报错误时停止写操作,先修库。
+</div>
+
+<h2 id="auto">第 2 步：干活,什么都不用敲</h2>
+
+<p>这是最常见的场景。正常提需求就行,记忆功能自动生效。</p>
+
+<div class="script">
+  <div class="scene">场景：修一个线上偶发超时的问题</div>
+  <div class="beat you"><span class="who">你在 Codex 里输入</span><p>排查一下回源接口为什么偶发超时。</p></div>
+  <div class="beat agent"><span class="who">Codex 做的事</span><p>开工前静默加载相关记忆。它读到你上次留下的「回源接口在高峰期需要限流」,于是从限流方向查起,而不是从零开始。</p></div>
+  <div class="beat agent"><span class="who">Codex 做的事</span><p>收工时发现新结论:「回源接口在高峰期需要限流并加熔断」。这是全新、已验证、无冲突的结论,自动暂存到暂存区。</p></div>
+  <div class="beat agent"><span class="who">Codex 回你</span><p>「已暂存一条候选:回源接口在高峰期需要限流并加熔断。记忆库暂未改动,需要入库时敲 <code>$project-self-memory -c</code>。」</p></div>
+  <div class="beat result"><span class="who">此刻的状态</span><p>暂存区多了一条候选。记忆库还是原样。措辞被改写过也没关系——暂存的正文已经是可直接入库的单行形态。</p></div>
+</div>
+
+<p>想看 Codex 读到了什么:</p>
+
+<pre><code>$project-self-memory -l</code></pre>
+
+<p>或者直接让它列出来:<code>$project-self-memory 把相关记忆列出来</code>。</p>
+
+<div class="why">
+  <span class="label">为什么这样设计</span>
+  旧版本 Codex 会直接把你没看过的结论写进记忆库。低价值或措辞不佳的结论从此混在记忆里,越积越多。现在你有机会在入库前改写它,或者干脆不要它。
+</div>
+
+<h2 id="cache">第 3 步：处理候选（<code>-c</code>）</h2>
+
+<p>这是新流程的核心。<code>-c</code> 是候选进记忆库的<strong>唯一入口</strong>。</p>
+
+<pre><code>$project-self-memory -c</code></pre>
+
+<div class="script">
+  <div class="scene">场景：攒了两三次任务的候选,现在一次性处理</div>
+  <div class="beat you"><span class="who">你在 Codex 里输入</span><p><code>$project-self-memory -c</code></p></div>
+  <div class="beat agent"><span class="who">Codex 做的事</span><p>先跑 <code>cache list</code> 读暂存区,按目标记录分组。同一记录的矛盾候选聚成一组(既有加分又有扣分、或者有两条不同修改),独立新增每条一组。</p></div>
+  <div class="beat agent"><span class="who">Codex 问你</span><p>第 1 问／预计约 2 问。附上这一组的原文对照和选项。</p></div>
+</div>
+
+<p>你会看到每组的选项。<strong>选项按风险分档</strong>,这是有意为之:</p>
+
+<div class="pick">
+  <div class="k head">候选类型</div><div class="v head">你看到什么</div>
+  <div class="k">修改已有记忆</div><div class="v">原文和新文案的对照。选项:<strong>改写后写入 / 丢弃 / 暂缓</strong>。注意没有「直接写入」。</div>
+  <div class="k">新增、删除、加分、扣分</div><div class="v">选项:<strong>写入 / 丢弃 / 暂缓</strong>。</div>
+  <div class="k">目标已变的候选</div><div class="v">选项:<strong>丢弃 / 基于现状重新评估</strong>。</div>
+</div>
+
+<div class="why">
+  <span class="label">为什么修改类没有「直接写入」</span>
+  修改会覆盖一条已经存在的记忆正文。如果 Codex 暂存时看到的是旧版本,而你后来手工改过这条记忆,直接写入就等于用旧判断覆盖你的新判断。所以修改类必须你看一眼、确认一次。改写后的措辞由你在选项里给。
+</div>
+
+<div class="script">
+  <div class="scene">继续</div>
+  <div class="beat you"><span class="who">你在 Codex 里输入</span><p>选「改写后写入」,措辞改成「回源接口在高峰期需限流并加熔断」。</p></div>
+  <div class="beat agent"><span class="who">Codex 做的事</span><p>只处理这一条。跑 <code>cache apply --id &lt;id&gt; --decision write --content-file &lt;改写后的正文&gt;</code>。落库走既有写入栈:加锁、备份、乐观并发检查、单行契约校验。</p></div>
+  <div class="beat agent"><span class="who">Codex 回你</span><p>「[0001][事实] 回源接口在高峰期需限流并加熔断」——落库后回读这条记录,把结果给你看。</p></div>
+  <div class="beat result"><span class="who">此刻的状态</span><p>这条候选状态变成已入库。暂存区保留这条记录作为痕迹,不再出现在待处理列表里。</p></div>
+</div>
+
+<p>几个边界行为:</p>
+
+<div class="pick">
+  <div class="k head">情况</div><div class="v head">Codex 的行为</div>
+  <div class="k">暂存区是空的</div><div class="v">直接告诉你没有待处理。不编问题,不请求空授权。</div>
+  <div class="k">你中途打断</div><div class="v">已处理的已经落库生效,未处理的留在暂存区,下次继续。</div>
+  <div class="k">某一条失败</div><div class="v">这一条失败不影响其他条。失败的那条保持待处理,你可以重试。</div>
+  <div class="k">你选「暂缓」</div><div class="v">不动它,也不标记处理。留在暂存区等你下次。</div>
+</div>
+
+<div class="note">
+  <span class="label">选择即授权</span>
+  你选「写入」本身就是对这一条的写入授权,Codex 不会再问一遍「确定要写吗」。但选「暂缓」或没选,都不算授权。
+</div>
+
+<h3>手动核对暂存区</h3>
+
+<p>想在 Codex 之外看候选,直接敲 CLI:</p>
+
+<pre><code># 看有哪些候选、分了几组
+node .agents/skills/project-self-memory/scripts/memory.mjs cache list
+
+# 看单条的原文对照
+node .agents/skills/project-self-memory/scripts/memory.mjs cache show &lt;event_id&gt;
+
+# 清掉已处理和已失效的条目
+node .agents/skills/project-self-memory/scripts/memory.mjs cache prune --older-than 7d</code></pre>
+
+<h2 id="stale">候选失效了怎么办</h2>
+
+<p>暂存之后,你或别人改了目标记录。这时旧候选的判断依据已经不成立。</p>
+
+<div class="script">
+  <div class="scene">场景：你昨天让 Codex 暂存了一条修改建议,今天你手工改了同一条记录</div>
+  <div class="beat you"><span class="who">你在 Codex 里输入</span><p><code>$project-self-memory -c</code></p></div>
+  <div class="beat agent"><span class="who">Codex 做的事</span><p>这组被标成失效,单独成组展示:「目标已变更」。给你看暂存时的原基准和你现在的正文。</p></div>
+  <div class="beat agent"><span class="who">Codex 问你</span><p>选项只有两个:丢弃 / 基于现状重新评估。没有「直接写入」。</p></div>
+  <div class="beat agent"><span class="who">Codex 做的事</span><p>如果你坚持直接写,系统拒绝:<code>PSM_CONFLICT: 目标记录已变更;请基于现状重新评估</code>。这条候选保持待处理。</p></div>
+  <div class="beat result"><span class="who">此刻的状态</span><p>失效候选不会被静默跳过。它照样出现在列表里、照样等你处理。你攒过的判断不会因为过期就消失。</p></div>
+</div>
+
+<div class="why">
+  <span class="label">原理</span>
+  暂存时 Codex 记下了目标记录的版本指纹。读的时候比对一次,指纹不一致就是失效。这是同一套乐观并发机制在暂存层的镜像:不猜,只比对。
+</div>
+
+<h2 id="other">其他三个策展入口</h2>
+
+<p>这三个不处理暂存区,只扫记忆库本身。</p>
+
+<div class="pick">
+  <div class="k head">你在 Codex 里输入</div><div class="v head">Codex 干什么</div>
+  <div class="k"><code>$project-self-memory -g 鉴权迁移</code><br>或「盘点一下这次有哪些经验值得沉淀」</div><div class="v">扫描记忆库,找出新增、修订、合并、冲突和迁移候选,逐个问你。</div>
+  <div class="k"><code>$project-self-memory -r</code><br>或「评价一下」</div><div class="v">只讨论本次会话<strong>实际用过</strong>且有结果的记录,给出加分、扣分或不评分的建议。</div>
+  <div class="k"><code>$project-self-memory -t 鉴权</code><br>或「清理一下」</div><div class="v">只处理长期没帮上忙的记录,你可以保留、修订、停用或删除。</div>
+</div>
+
+<div class="pick">
+  <div class="k head">组合</div><div class="v head">说明</div>
+  <div class="k"><code>$project-self-memory -g -r</code></div><div class="v">盘点与评分一起做,共享同一个问题编号和预计总数。切换不重置进度。<code>-r -g</code> 等价。</div>
+</div>
+
+<div class="note">
+  <span class="label">职责正交</span>
+  <code>-g</code>、<code>-r</code>、<code>-t</code> 都不读暂存区。暂存区只由 <code>-c</code> 消费。旧的策展工作流完全不受这次改动影响。
+</div>
+
+<h3>评分与清理的实际命令</h3>
+
+<p>讨论到需要落盘时,Codex 会跑这些:</p>
+
+<pre><code># 评分:vote 只接受 +1 或 -1
+node .agents/skills/project-self-memory/scripts/memory.mjs score 0001 +1
+node .agents/skills/project-self-memory/scripts/memory.mjs score 0001 -1
+
+# 清零与修复
+node .agents/skills/project-self-memory/scripts/memory.mjs score-reset 0001
+node .agents/skills/project-self-memory/scripts/memory.mjs score-repair 0001 --positive 3 --negative 0
+
+# 状态:active / review / disabled
+node .agents/skills/project-self-memory/scripts/memory.mjs status 0001 review</code></pre>
+
+<div class="why">
+  <span class="label">原理</span>
+  评分不是计数器。分值来自一张只追加的账本,每次写库时按账本重算成 <code>memory.md</code> 里的数字。好处是每次评分都留痕,出问题能追溯;坏处是正文一改,旧评分自动作废——这是对的,因为那条经验可能已经被改了。
+</div>
+
+<p class="note"><span class="label">一条底线</span>证据不足的记忆只标「未证实」并保留,不会因为旧、无关或暂未核验就被删。</p>
+
+<h2 id="direct">直接改一条记忆</h2>
+
+<p>直接改不需要经过暂存区,也不需要 <code>-c</code>。直接对 Codex 说就行。</p>
+
+<div class="script">
+  <div class="scene">场景：一条决策变了</div>
+  <div class="beat you"><span class="who">你在 Codex 里输入</span><p>「回源接口在高峰期需要限流」这条已经不成立了,改成「回源接口需要限流并加熔断与降级」。</p></div>
+  <div class="beat agent"><span class="who">Codex 做的事</span><p>先看这条的现状和它的评分历史,把改写后的正文给你确认。</p></div>
+  <div class="beat agent"><span class="who">Codex 做的事</span><p>你确认后写入,并说明一个副作用:正文变了,版本就变了,这条之前的评分不再适用,正负分清零。</p></div>
+  <div class="beat result"><span class="who">此刻的状态</span><p>记忆已更新。想保留原来的评分,明说「保留评分」,Codex 会记一条修复事件留痕。</p></div>
+</div>
+
+<p>其他直接操作的说法:</p>
+
+<div class="pick">
+  <div class="k head">你说</div><div class="v head">结果</div>
+  <div class="k">「这条删掉」</div><div class="v">记录删除。编号永不复用。</div>
+  <div class="k">「这条先停用」</div><div class="v">状态改为停用。不再出现在读取结果里,也不进检索。保留内容,随时能恢复。</div>
+  <div class="k">「这条标记为待复核」</div><div class="v">状态改为待复核。同样不再出现在读取结果里。</div>
+  <div class="k">「把 0001 和 0002 合成一条」</div><div class="v">合并。保留较早的编号,删除另一个,合并谱系写进账本。</div>
+  <div class="k">「这是长期决策」</div><div class="v">写入时用决策类型。决策和约束不随时间衰减,事实会衰减,经验和避坑衰减更慢。</div>
+</div>
+
+<h2 id="switches">开关:自动还是手动</h2>
+
+<p>你可以决定哪些行为自动发生、哪些由你点头。</p>
+
+<div class="pick">
+  <div class="k head">开关</div><div class="v head">关掉之后</div>
+  <div class="k">自动读</div><div class="v">Codex 不加载任何记忆。上下文里不会有记忆内容,连提示都没有。</div>
+  <div class="k">自动存</div><div class="v">收工时不暂存候选。记忆库和暂存区都不动。</div>
+  <div class="k">自动评分</div><div class="v">收工时不暂存投票候选。</div>
+</div>
+
+<p>有三种粒度:</p>
+
+<div class="pick">
+  <div class="k head">粒度</div><div class="v head">怎么设</div>
+  <div class="k">本次任务</div><div class="v">在这次请求里说「这次不读记忆」「这次不要保存」。或用 <code>$project-self-memory --no-load</code>、<code>--no-save</code>、<code>--no-rate</code>。</div>
+  <div class="k">本次会话</div><div class="v">说「整个会话都不要读记忆」。或用 <code>--no-load-session</code>、<code>--no-save-session</code>、<code>--no-rate-session</code>。直到你恢复为止。</div>
+  <div class="k">整个项目</div><div class="v">改 <code>.project-self-memory/config.yaml</code> 里的 <code>auto_load</code>、<code>auto_save</code>、<code>auto_rate</code>。默认三个都开。</div>
+</div>
+
+<div class="why">
+  <span class="label">优先级</span>
+  任务级覆盖会话级覆盖,会话级覆盖配置文件,配置文件覆盖默认值。粒度越近,优先级越高。这让你可以在一次特殊任务里临时关掉自动,而不必改项目配置。
+</div>
+
+<p>改配置用 CLI,不要手改 YAML:</p>
+
+<pre><code>node .agents/skills/project-self-memory/scripts/memory.mjs config show
+node .agents/skills/project-self-memory/scripts/memory.mjs config set auto_save false
+node .agents/skills/project-self-memory/scripts/memory.mjs config validate</code></pre>
+
+<h2 id="viewer">人工浏览:查看器</h2>
+
+<p>想用眼睛看整个记忆库,起一个本机网页。在项目根目录执行:</p>
+
+<pre><code>node .project-self-memory/view-memoery.js</code></pre>
+
+<div class="beat agent" style="border:1px solid var(--line);border-radius:var(--radius);padding:14px 18px;margin-bottom:16px">
+  <span class="who">你会看到</span>
+  <p><code>PSM_VIEWER_URL: http://127.0.0.1:&lt;port&gt;/#token=&lt;hex&gt;</code></p>
+  <p style="color:var(--fg-soft)">浏览器自动打开这个地址。只监听 127.0.0.1,令牌只在进程与页面内存中,不落盘。</p>
+</div>
+
+<div class="pick">
+  <div class="k head">查看器能做</div><div class="v head">说明</div>
+  <div class="k">浏览、改正文</div><div class="v">正文、类型、状态可编辑。写入走与 CLI 相同的锁、备份、原子替换和乐观并发。</div>
+  <div class="k">按标签筛选</div><div class="v">多选任一匹配,按首标签分组。<strong>标签只读</strong>。</div>
+  <div class="k">不能做</div><div class="v">不碰暂存区。查看器只编辑记忆库记录。</div>
+</div>
+
+<p>无头环境加 <code>--no-open</code>:<code>node .project-self-memory/view-memoery.js --no-open</code>。</p>
+
+<h2 id="boundary">它不会替你做的事</h2>
+
+<div class="pick">
+  <div class="k head">它不做</div><div class="v head">为什么</div>
+  <div class="k">自动把结论写进记忆库</div><div class="v">这是这一版改掉的。结论先暂存,你确认后才进库。</div>
+  <div class="k">自动删记录、合并记录</div><div class="v">这两类操作不可逆。自动流程只暂存这类候选,落库必须经你确认。</div>
+  <div class="k">自动改分类标准</div><div class="v">分类标准是项目的公共约定,改动要具体授权。</div>
+  <div class="k">把高分当真相</div><div class="v">历史高分只说明过去奏效。当前状态仍要现场验证。</div>
+  <div class="k">记录凭据、个人数据</div><div class="v">记忆库跟着 git 走,进了版本库就等于公开。</div>
+  <div class="k">按标签给记忆排序</div><div class="v">标签只用于筛选和观察,不改变检索排名。</div>
+</div>
+
+<h2 id="pitfall">五个常见坑</h2>
+
+<div class="script">
+  <div class="scene">坑 1：以为收工就写进去了</div>
+  <div class="beat agent"><span class="who">症状</span><p>Codex 说「已记录」,你过几天看记忆库却找不到。因为它只暂存了。</p></div>
+  <div class="beat result"><span class="who">怎么办</span><p>敲 <code>$project-self-memory -c</code>。或者下次开工前先问「暂存区里有什么」。</p></div>
+</div>
+
+<div class="script">
+  <div class="scene">坑 2：暂存区越积越多</div>
+  <div class="beat agent"><span class="who">症状</span><p>候选攒到几十条,处理时一轮问不完。</p></div>
+  <div class="beat result"><span class="who">怎么办</span><p>待处理超过 20 条时 Codex 会提醒你。攒多了就分批处理,或者明确丢弃不需要的。已处理的和已失效的条目可以 <code>cache prune</code> 清理掉,<strong>但待处理的永不自动过期</strong>——攒多久都不丢。</p></div>
+</div>
+
+<div class="script">
+  <div class="scene">坑 3：改了正文,评分归零</div>
+  <div class="beat agent"><span class="who">症状</span><p>你改了一条记忆,之前攒的正分没了。</p></div>
+  <div class="beat result"><span class="who">怎么办</span><p>这是设计行为,不是 bug。评分绑定记录版本,正文变了旧评分就不适用。想保留就说「保留评分」。</p></div>
+</div>
+
+<div class="script">
+  <div class="scene">坑 4：正文写多行被拒</div>
+  <div class="beat agent"><span class="who">症状</span><p>写入报 <code>PSM_CONTRACT</code>:正文必须是单行。</p></div>
+  <div class="beat result"><span class="who">怎么办</span><p>一条记录写一件事,压成一行。不能用标题、列表、代码围栏开头。历史多行记录照常能读,只是新写的不行。</p></div>
+</div>
+
+<div class="script">
+  <div class="scene">坑 5：以为「确认后保存」等于授权</div>
+  <div class="beat agent"><span class="who">症状</span><p>你说「可以,保存吧」,Codex 还是没写。</p></div>
+  <div class="beat result"><span class="who">怎么办</span><p>「认可结论」「确认后保存」只是同意讨论结论,不是授权写操作。要授权就直接说「写入」「删掉」「改成……」。</p></div>
+</div>
+
+<h2 id="cheatsheet">命令速查表</h2>
+
+<p>完整速查见 <a href="../reference/cli-cheatsheet.html">cli-cheatsheet.html</a>。最常用的几条:</p>
+
+<div class="scroll-x">
+<table>
+<tr><th>你想</th><th>在 Codex 里输入</th></tr>
+<tr><td>处理攒下的候选</td><td><code>$project-self-memory -c</code></td></tr>
+<tr><td>盘点经验</td><td><code>$project-self-memory -g 主题</code></td></tr>
+<tr><td>评价本次用过的记忆</td><td><code>$project-self-memory -r</code></td></tr>
+<tr><td>清理过时结论</td><td><code>$project-self-memory -t 主题</code></td></tr>
+<tr><td>显式读取记忆</td><td><code>$project-self-memory -l</code></td></tr>
+<tr><td>这次不读记忆</td><td><code>$project-self-memory --no-load</code></td></tr>
+<tr><td>看暂存区有几条</td><td><code>node .agents/skills/project-self-memory/scripts/memory.mjs cache list</code></td></tr>
+<tr><td>看记忆库健康度</td><td><code>node .agents/skills/project-self-memory/scripts/memory.mjs diagnose</code></td></tr>
+<tr><td>开查看器</td><td><code>node .project-self-memory/view-memoery.js</code></td></tr>
+</table>
+</div>
+
+<div class="note" style="margin-top:32px">
+  <span class="label">有问题就问</span>
+  哪一步不清楚,直接问你的教师 Agent。它能查本仓库的代码和文档给出确切答案。
+</div>
+
+<footer class="colophon">
+  <p>本指南的每条事实都在 <code>skills/project-self-memory/</code> 的代码与文档里核对过,并在本机实测了 <code>skills add --agent codex</code> 的安装路径。命令与参数见<a href="../reference/cli-cheatsheet.html">命令速查表</a>;行为契约见 <code>references/cli-contract.md</code>。</p>
+</footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,449 @@
+/* project-self-memory 教程工作区共享样式
+   目标：可打印、可快速查阅、层级清晰。所有颜色用 :root 变量定义，
+   暗色模式在 @media (prefers-color-scheme: dark) 下重定义。 */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #f7f8fa;
+  --bg-code: #f2f3f5;
+  --fg: #1f2328;
+  --fg-soft: #57606a;
+  --fg-faint: #8b949e;
+  --line: #d8dee4;
+  --line-soft: #e8ebef;
+  --accent: #0b62d0;
+  --accent-soft: #e8f0fc;
+  --ok: #1a7f37;
+  --ok-soft: #e6f4ea;
+  --warn: #9a6700;
+  --warn-soft: #fff4d6;
+  --danger: #b42318;
+  --danger-soft: #fdeceb;
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", "JetBrains Mono", Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", "Source Han Sans SC", sans-serif;
+  --radius: 8px;
+  --maxw: 900px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14171a;
+    --bg-soft: #1b1f23;
+    --bg-code: #21262c;
+    --fg: #e6edf3;
+    --fg-soft: #9aa5b1;
+    --fg-faint: #6e7781;
+    --line: #30363d;
+    --line-soft: #262c33;
+    --accent: #6cb0ff;
+    --accent-soft: #16273d;
+    --ok: #4ac26b;
+    --ok-soft: #14261a;
+    --warn: #e3b341;
+    --warn-soft: #2b2413;
+    --danger: #ff7b72;
+    --danger-soft: #2d1917;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  padding: 0 16px 96px;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.75;
+}
+
+@media (min-width: 760px) {
+  body { padding: 0 32px 96px; }
+}
+
+.wrap { max-width: var(--maxw); margin: 0 auto; }
+
+/* ---------- 头部 ---------- */
+
+header.masthead {
+  border-bottom: 1px solid var(--line);
+  padding: 40px 0 24px;
+  margin-bottom: 32px;
+}
+
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-faint);
+  margin: 0 0 10px;
+}
+
+h1 {
+  font-size: 30px;
+  line-height: 1.3;
+  margin: 0 0 12px;
+  letter-spacing: -0.01em;
+}
+
+.lede {
+  font-size: 17px;
+  color: var(--fg-soft);
+  margin: 0 0 20px;
+  max-width: 62ch;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  font-size: 13px;
+  color: var(--fg-faint);
+  font-family: var(--mono);
+}
+
+/* ---------- 标题层级 ---------- */
+
+h2 {
+  font-size: 22px;
+  line-height: 1.4;
+  margin: 48px 0 12px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line-soft);
+  letter-spacing: -0.005em;
+}
+
+h3 {
+  font-size: 17px;
+  margin: 28px 0 8px;
+}
+
+h4 {
+  font-size: 15px;
+  margin: 20px 0 6px;
+  color: var(--fg-soft);
+}
+
+p { margin: 0 0 12px; }
+
+a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+a:hover { text-decoration-thickness: 2px; }
+
+ul, ol { margin: 0 0 14px; padding-left: 24px; }
+li { margin-bottom: 5px; }
+
+strong { font-weight: 650; }
+
+/* ---------- 代码 ---------- */
+
+code {
+  font-family: var(--mono);
+  font-size: 0.88em;
+  background: var(--bg-code);
+  padding: 0.14em 0.38em;
+  border-radius: 4px;
+  word-break: break-word;
+}
+
+pre {
+  background: var(--bg-code);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  overflow-x: auto;
+  margin: 0 0 16px;
+  font-size: 13.5px;
+  line-height: 1.65;
+}
+
+pre code { background: none; padding: 0; font-size: inherit; }
+
+/* ---------- 表格 ---------- */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 18px;
+  font-size: 14px;
+}
+
+th, td {
+  border: 1px solid var(--line-soft);
+  padding: 8px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  background: var(--bg-soft);
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+td code { white-space: nowrap; }
+
+.scroll-x { overflow-x: auto; }
+
+/* ---------- 组件：原理条 ---------- */
+
+.why {
+  border-left: 3px solid var(--accent);
+  background: var(--accent-soft);
+  padding: 12px 16px;
+  margin: 0 0 18px;
+  border-radius: 0 var(--radius) var(--radius) 0;
+  font-size: 14.5px;
+}
+
+.why > .label {
+  display: block;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+
+/* ---------- 组件：提示条 ---------- */
+
+.note, .warn, .danger {
+  border-left: 3px solid var(--line);
+  background: var(--bg-soft);
+  padding: 12px 16px;
+  margin: 0 0 18px;
+  border-radius: 0 var(--radius) var(--radius) 0;
+  font-size: 14.5px;
+}
+
+.warn { border-left-color: var(--warn); background: var(--warn-soft); }
+.danger { border-left-color: var(--danger); background: var(--danger-soft); }
+.note .label, .warn .label, .danger .label {
+  display: block;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.warn .label { color: var(--warn); }
+.danger .label { color: var(--danger); }
+
+/* ---------- 组件：特性卡 ---------- */
+
+.feature {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 20px 22px;
+  margin: 0 0 22px;
+  background: var(--bg);
+}
+
+.feature > h3 { margin-top: 0; }
+
+.feature .tag {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--bg-soft);
+  color: var(--fg-soft);
+  border: 1px solid var(--line-soft);
+  vertical-align: 3px;
+  margin-left: 8px;
+  white-space: nowrap;
+}
+
+dl.spec { margin: 0 0 14px; font-size: 14.5px; }
+dl.spec dt {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--fg-faint);
+  margin-top: 10px;
+}
+dl.spec dd { margin: 2px 0 0; }
+
+/* ---------- 组件：步骤 ---------- */
+
+ol.steps { counter-reset: step; list-style: none; padding-left: 0; }
+ol.steps > li {
+  counter-increment: step;
+  position: relative;
+  padding-left: 34px;
+  margin-bottom: 14px;
+}
+ol.steps > li::before {
+  content: counter(step);
+  position: absolute;
+  left: 0;
+  top: 2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  color: var(--fg-soft);
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 20px;
+  text-align: center;
+}
+
+/* ---------- 组件：术语 ---------- */
+
+.terms { font-size: 14px; }
+.terms dt { font-weight: 650; margin-top: 10px; }
+.terms dd { margin: 2px 0 0; color: var(--fg-soft); }
+
+/* ---------- 组件：自检问答 ---------- */
+
+.quiz {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  margin: 0 0 16px;
+  background: var(--bg-soft);
+}
+.quiz .q { font-weight: 650; margin-bottom: 8px; }
+.quiz details { margin-top: 8px; }
+.quiz summary { cursor: pointer; color: var(--accent); font-size: 14px; }
+.quiz .a { margin-top: 8px; font-size: 14.5px; }
+
+/* ---------- 组件：对话剧本 ---------- */
+
+.script {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  margin: 0 0 22px;
+  overflow: hidden;
+}
+
+.script > .scene {
+  background: var(--bg-soft);
+  border-bottom: 1px solid var(--line-soft);
+  padding: 12px 18px;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--fg-faint);
+}
+
+.script > .scene:last-child { border-bottom: 0; }
+
+.beat {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 15px;
+}
+.beat:last-child { border-bottom: 0; }
+
+.beat > .who {
+  display: block;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.beat.you { background: var(--accent-soft); }
+.beat.you > .who { color: var(--accent); }
+.beat.agent { background: var(--bg); }
+.beat.agent > .who { color: var(--fg-soft); }
+.beat.decide { background: var(--warn-soft); }
+.beat.decide > .who { color: var(--warn); }
+.beat.result { background: var(--ok-soft); }
+.beat.result > .who { color: var(--ok); }
+
+.beat p { margin: 0 0 6px; }
+.beat p:last-child { margin-bottom: 0; }
+
+/* ---------- 组件：决策表 ---------- */
+
+.pick {
+  display: grid;
+  grid-template-columns: minmax(120px, 190px) 1fr;
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin: 0 0 20px;
+  font-size: 14.5px;
+}
+.pick > div { padding: 10px 14px; border-bottom: 1px solid var(--line-soft); }
+.pick > div:nth-last-child(-n+2) { border-bottom: 0; }
+.pick .k {
+  font-family: var(--mono);
+  font-size: 13px;
+  background: var(--bg-soft);
+  border-right: 1px solid var(--line-soft);
+  font-weight: 600;
+}
+.pick .v { background: var(--bg); }
+.pick > .k.head { background: var(--bg-soft); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg-faint); }
+.pick > .v.head { background: var(--bg-soft); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg-faint); }
+
+@media (max-width: 560px) {
+  .pick { grid-template-columns: 1fr; }
+  .pick > .k { border-right: 0; }
+  .pick > div:nth-last-child(-n+2) { border-bottom: 1px solid var(--line-soft); }
+  .pick > div:last-child { border-bottom: 0; }
+}
+
+/* ---------- 导航 ---------- */
+
+nav.toc {
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  background: var(--bg-soft);
+  margin: 0 0 32px;
+}
+nav.toc h2 {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--fg-faint);
+  margin: 0 0 8px;
+  padding: 0;
+  border: 0;
+}
+nav.toc ol { margin: 0; padding-left: 20px; font-size: 14.5px; }
+nav.toc ol ol { padding-left: 18px; color: var(--fg-soft); font-size: 14px; }
+
+.pager {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 56px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line-soft);
+  font-size: 14.5px;
+}
+
+footer.colophon {
+  margin-top: 56px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line-soft);
+  font-size: 13px;
+  color: var(--fg-faint);
+}
+
+/* ---------- 打印 ---------- */
+
+@media print {
+  body { padding: 0; font-size: 11pt; }
+  nav.toc, .pager, .no-print { display: none; }
+  .feature, .quiz, pre, table { break-inside: avoid; }
+  h2 { break-after: avoid; }
+  a { color: inherit; text-decoration: underline; }
+}

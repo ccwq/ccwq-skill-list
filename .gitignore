@@ -36,6 +36,10 @@ docs/agents/*
 !docs/agents/issue-tracker.md
 !docs/agents/triage-labels.md
 !docs/agents/domain.md
+!docs/teach/
+docs/teach/*
+!docs/teach/project-self-memory/
+!docs/teach/project-self-memory/**
 .codebase-memory
 /research_*
 
