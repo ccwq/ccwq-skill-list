@@ -6,6 +6,8 @@
 <!-- <psm-store version="1" next_id="0001" group_dimension="" /> -->
 ```
 
+同目录下的其他活动文件：`<project-root>/.project-self-memory/evidence.jsonl`（只追加评分账本）、`<project-root>/.project-self-memory/cache.jsonl`（自动流程的跨会话候选暂存区）、`<project-root>/.project-self-memory/tags.json`（可选分类标准）、`<project-root>/.project-self-memory/backups/`（写库前备份）。cache 由 `init` 写入项目根 `.gitignore` 忽略。
+
 记录为单行 XML-like 元数据后接正文。只允许 `psm-store`、`psm-group`、`psm` 自闭合元素、双引号和必要实体转义；拒绝未知/重复属性、嵌套、DOCTYPE、CDATA、命名空间。
 
 ```md
@@ -20,7 +22,9 @@
 两个层次必须区分：
 
 - **历史正文可读**：存量记录允许多行 Markdown；解析、读取、inspect 与检索照常工作。引入单行契约不需要迁移，历史记录不因格式重写。
-- **新正文必须单行**：任何实际新增或变化正文（CLI `add`、显式 `update`、`merge`、`legacy migrate`、MemorySession 自动保存、查看器正文编辑）在写入前经过确定性校验：去除首尾空白后必须单行（不得含内部换行、CRLF 或 U+2028/U+2029），不得以标题、列表或代码围栏开头，不得包含 psm 结构标记。元数据单独变更（status、score、tags、groups）与 no-op 不触发校验，不要求重写旧正文。
+- **新正文必须单行**：任何实际新增或变化正文（CLI `add`、显式 `update`、`merge`、`legacy migrate`、`cache apply` 落库、查看器正文编辑）在写入前经过确定性校验：去除首尾空白后必须单行（不得含内部换行、CRLF 或 U+2028/U+2029），不得以标题、列表或代码围栏开头，不得包含 psm 结构标记。元数据单独变更（status、score、tags、groups）与 no-op 不触发校验，不要求重写旧正文。
+
+自动流程的候选正文在 `cache add` 时过一次校验，落库那一刻再过一次。自动保存本身不是记忆库的写入点：它只写 `cache.jsonl`。
 
 单行契约与宿主侧 STE 改写原则的完整说明见 [expression-contract.md](expression-contract.md)；校验失败时 CLI 输出 `PSM_CONTRACT` 错误并在任何持久化副作用（含账本追加、备份）之前拒绝。宿主在调用写入入口前按契约改写候选正文；改写不增加写操作授权。
 

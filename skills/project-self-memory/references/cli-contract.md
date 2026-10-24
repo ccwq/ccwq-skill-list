@@ -1,6 +1,6 @@
 # CLI contract
 
-入口：`node scripts/memory.mjs <command> [options]`。成功退出 0；参数、格式或安全拒绝退出 1 并输出 `PSM_ERROR:`。维护读取输出稳定 JSON；普通 `read` 输出人读 Markdown。调用示例与参数的唯一维护处是[根 README](../../../README.md#project-self-memory)，本页定义命令行为与输出。
+入口：`node <skill-path>/scripts/memory.mjs <command> [options]`。`<skill-path>` 是本 Skill 自身目录（`SKILL.md` 所在处），与当前工作目录无关；操作哪个项目的记忆库由 `--project-root` 或当前工作目录决定。成功退出 0；参数、格式或安全拒绝退出 1 并输出 `PSM_ERROR:`。维护读取输出稳定 JSON；普通 `read` 输出人读 Markdown。调用示例与参数的唯一维护处是[根 README](../../../README.md#project-self-memory)，本页定义命令行为与输出。
 
 | 命令族 | 命令 |
 |---|---|
@@ -45,7 +45,7 @@
 
 ## 新正文单行契约与错误行为
 
-提供**新正文**的入口（`add`、显式 `update`、`merge`、`legacy migrate`、MemorySession 自动保存、查看器 PATCH）在写入前经过确定性校验：去除首尾空白后必须单行，不得以标题、列表或代码围栏开头，不得包含 psm 结构标记。文本文件末尾的单个换行会被去除。历史多行正文的读取不受影响；与磁盘一致的 no-op 重提交、纯元数据变更（`status`、`score`、`tags`、`groups`）不触发校验。
+提供**新正文**的入口（`add`、显式 `update`、`merge`、`legacy migrate`、`cache apply` 落库、查看器 PATCH）在写入前经过确定性校验：去除首尾空白后必须单行，不得以标题、列表或代码围栏开头，不得包含 psm 结构标记。文本文件末尾的单个换行会被去除。历史多行正文的读取不受影响；与磁盘一致的 no-op 重提交、纯元数据变更（`status`、`score`、`tags`、`groups`）不触发校验。
 
 - 校验失败时退出 1，错误带 `PSM_CONTRACT` 前缀并列出可定位原因；发生在任何持久化副作用之前——不追加账本事件、不产生备份、不留部分提交。
 - `legacy migrate` 不整体失败：多行条目在结果中标 `ok: false` 并给出契约原因，合法条目继续迁移。

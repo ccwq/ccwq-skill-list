@@ -6,7 +6,7 @@
 
 ## 快速开始
 
-从目标项目根目录调用 Skill 中的 CLI：
+从目标项目根目录调用 Skill 中的 CLI。`<skill-path>` 是本 Skill 自身目录（`SKILL.md` 所在处）：Codex 装在 `.agents/skills/project-self-memory/`，Claude Code 装在 `.claude/skills/project-self-memory/`。
 
 ```bash
 node <skill-path>/scripts/memory.mjs init
@@ -21,6 +21,17 @@ node <skill-path>/scripts/memory.mjs read
 node <skill-path>/scripts/memory.mjs add --type fact --content-file conclusion.txt
 node <skill-path>/scripts/memory.mjs score 0001 +1
 node <skill-path>/scripts/memory.mjs evidence inspect --record-id 0001
+node <skill-path>/scripts/memory.mjs cache list
+```
+
+Skill 层的显式调用：Codex 用 `$project-self-memory`，Claude Code 用 `/project-self-memory`。
+
+```text
+$project-self-memory -g      # 盘点经验
+$project-self-memory -r      # 评价本次用过的记忆
+$project-self-memory -t      # 清理过时结论
+$project-self-memory -c      # 处理暂存区候选（候选入库的唯一入口）
+$project-self-memory -l      # 显式读取
 ```
 
 [查看调用与参数](../../README.md#project-self-memory)。JSON 输出和退出语义见 [CLI contract](references/cli-contract.md)。

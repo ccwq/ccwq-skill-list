@@ -18,8 +18,10 @@ description: 维护项目级、可自进化的结论记忆。用于非简单仓�
 唯一入口是：
 
 ```text
-node scripts/memory.mjs <command> [options]
+node <skill-path>/scripts/memory.mjs <command> [options]
 ```
+
+`<skill-path>` 是本 Skill 自身目录，即 `SKILL.md` 所在目录。它与当前工作目录无关：Codex 装在 `<项目>/.agents/skills/project-self-memory/`，用户级装在 `~/.agents/skills/project-self-memory/`。记忆库的位置由 `--project-root` 或当前工作目录决定，与 skill 目录无关。
 
 ## Host adapter
 
@@ -37,14 +39,16 @@ node .project-self-memory/view-memoery.js
 
 它只监听 127.0.0.1，输出带 `#token=` 的地址，并自动用系统默认浏览器打开。关闭自动打开等启动参数见[根 README](../../README.md#project-self-memory)。写入走与 CLI 相同的锁、备份、原子替换和乐观并发。部署与升级契约、HTTP 接口和安全模型见 [viewer.md](references/viewer.md)。
 
-正文使用 `--content-file <path>` 或标准输入，避免 shell 转义。常用命令：
+正文使用 `--content-file <path>` 或标准输入，避免 shell 转义。常用命令（`<skill-path>` 是本 Skill 自身目录）：
 
 ```bash
-node scripts/memory.mjs init
-node scripts/memory.mjs read --type pitfall
-node scripts/memory.mjs add --type fact --content-file conclusion.txt
-node scripts/memory.mjs score 0001 +1
-node scripts/memory.mjs inspect --trim-candidates
+node <skill-path>/scripts/memory.mjs init
+node <skill-path>/scripts/memory.mjs read --type pitfall
+node <skill-path>/scripts/memory.mjs add --type fact --content-file conclusion.txt
+node <skill-path>/scripts/memory.mjs score 0001 +1
+node <skill-path>/scripts/memory.mjs inspect --trim-candidates
+node <skill-path>/scripts/memory.mjs cache list
+node <skill-path>/scripts/memory.mjs cache apply --id <id> --decision write
 ```
 
 调用与参数统一见[根 README](../../README.md#project-self-memory)，JSON 输出和退出语义见 [cli-contract.md](references/cli-contract.md)。格式约束见 [memory-format.md](references/memory-format.md)。
@@ -67,7 +71,7 @@ node scripts/memory.mjs inspect --trim-candidates
 
 `-r/--rate`：仅讨论本会话实际使用且有可观察结果、尚未评分的记录，按“建议 +1 / 建议 -1 / 暂不评分”汇总，按下述共用规则讨论；每条每会话最多一次，包括已由 `auto_rate` 暂存过投票的记录。
 
-`-t/--trim`：只处理负分或 `negative >= 3 && negative >= positive` 的候选；可保留、修订、设为 review/disabled 或删除。策展判断详见 [curation-rules.md](references/curation-rules.md)。
+`-t/--trim`：只处理 `positive - negative < 0`，或 `negative >= 3 && negative >= positive` 的候选；可保留、修订、设为 review/disabled 或删除。策展判断详见 [curation-rules.md](references/curation-rules.md)。
 
 `-c/--cache-write`：处理 cache 里的待处理候选，是候选进入记忆库的唯一入口。
 
@@ -114,11 +118,11 @@ node scripts/memory.mjs inspect --trim-candidates
 
 当任务要求给出行动计划时，先判断项目状态：仅在明确为空或缺少记忆时使用 `init`；已有、重复、待确认或损坏状态不得初始化。损坏状态先 `config validate` 和/或 `diagnose`，并停止写操作。
 
-计划中的每个 `commands` 条目只能是一条直接的 `node scripts/memory.mjs ...` 调用：不要使用 `printf`、管道、变量、命令替换或 shell 条件。需要写入内容时，计划可引用准备好的 `--content-file conclusion.txt`，但 CLI 的子命令与参数必须完整、可识别。
+计划中的每个 `commands` 条目只能是一条直接的 `node <skill-path>/scripts/memory.mjs ...` 调用：不要使用 `printf`、管道、变量、命令替换或 shell 条件。`<skill-path>` 是本 Skill 自身目录（`SKILL.md` 所在处），不是当前工作目录；`--project-root` 决定操作哪个项目的记忆库。需要写入内容时，计划可引用准备好的 `--content-file conclusion.txt`，但 CLI 的子命令与参数必须完整、可识别。
 
-- 配置校验是 `node scripts/memory.mjs config validate`；通用库校验是 `node scripts/memory.mjs validate`。
-- 新分类计划先只读核验 `tags show`/`tags suggest`/`tags stats`；分类标准与单条 override 的写入必须已有具体授权。兼容旧分组计划先 `catalog` 再使用 `node scripts/memory.mjs groups show`；在明确确认前绝不出现 `tags apply`、`tags set`、`groups apply`、`merge`、`delete` 或负分 `score`。
-- 按 refid 讨论、检查状态或提出评分建议时，先用 `node scripts/memory.mjs inspect <refid>` 核验该记录及其直接证据；确认前只提出 `score +1`/`score -1` 的候选，不把评分命令放入 `commands`。
+- 配置校验是 `node <skill-path>/scripts/memory.mjs config validate`；通用库校验是 `node <skill-path>/scripts/memory.mjs validate`。
+- 新分类计划先只读核验 `tags show`/`tags suggest`/`tags stats`；分类标准与单条 override 的写入必须已有具体授权。兼容旧分组计划先 `catalog` 再使用 `node <skill-path>/scripts/memory.mjs groups show`；在明确确认前绝不出现 `tags apply`、`tags set`、`groups apply`、`merge`、`delete` 或负分 `score`。
+- 按 refid 讨论、检查状态或提出评分建议时，先用 `node <skill-path>/scripts/memory.mjs inspect <refid>` 核验该记录及其直接证据；确认前只提出 `score +1`/`score -1` 的候选，不把评分命令放入 `commands`。
 - 读后写任务必须先给出 `read`，再给出与任务类型一致的 `add --type <type>` 或 `update <id>`；只读任务不得包含写命令。
 - 类型以任务用词为准：任务要求保存“经验”时用 `add --type experience`，要求 pitfall/fact/constraint 时保留该精确类型，不要自行改成通用 `fact`。
 - 候选入库走 `-c` 流程：先只读 `cache list` 核验待处理候选，再在授权范围内给出 `cache apply --id <id> --decision write|discard`；在明确确认前不出现 `cache apply`。
