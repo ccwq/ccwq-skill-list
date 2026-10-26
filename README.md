@@ -60,7 +60,7 @@ npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code --
 | `ntl-script-descriptions` | 为 package.json 补充 ntl 可读取的 scripts 中文说明 | [速查](#ntl-script-descriptions) · [SKILL](skills/ntl-script-descriptions/SKILL.md) |
 | `pro-grilling` | 手动逐层厘清复杂决策，在共同理解前保持只读 | [速查](#pro-grilling) · [SKILL](skills/pro-grilling/SKILL.md) |
 | `progressive-doc` | 用渐进式披露结构创建、改写或审查中文技术文章 | [速查](#progressive-doc) · [SKILL](skills/progressive-doc/SKILL.md) |
-| `project-self-memory` | 维护项目级结论记忆，支持逐问策展、评分、候选逐条入库、可选派生多标签与 legacy 迁移 | [速查](#project-self-memory) · [README](skills/project-self-memory/README.md) |
+| `project-self-memory` | 维护项目级结论记忆，支持逐问策展、评分、候选逐条入库、结论暂存、可选派生多标签与 legacy 迁移 | [速查](#project-self-memory) · [README](skills/project-self-memory/README.md) |
 | `rd-mode` | 远程开发模式规则，统一通过 `abc` 命令操作 host 浏览器 | [速查](#rd-mode) · [README](skills/rd-mode/README.md) |
 | `software-license-checker` | 评估软件企业内部使用的许可证合规与付费风险 | [速查](#software-license-checker) · [README](skills/software-license-checker/README.md) |
 | `subagent-router` | 预览并确认后临时创建子 Agent，支持动态模型路由 | [速查](#subagent-router) · [README](skills/subagent-router/README.md) |
@@ -738,6 +738,8 @@ $project-self-memory -g
 $project-self-memory -r
 $project-self-memory -t
 $project-self-memory -c
+$project-self-memory -a
+$project-self-memory -a -c
 $project-self-memory -g -r
 $project-self-memory -l
 ```
@@ -750,10 +752,12 @@ Codex 用 `$` 前缀显式调用；Claude Code 用 `/` 前缀（`/project-self-m
 | `-r` / `--rate` | 讨论本会话实际使用、有结果且尚未评分的记录 | 每条每会话最多评分一次 |
 | `-t` / `--trim` | 清理负分占优的记录；可保留、修订、设为 review/disabled 或删除 | 只处理 `positive - negative < 0` 或 `negative >= 3 && negative >= positive` |
 | `-c` / `--cache-write` | 处理自动暂存区（cache）里的待处理候选，逐条决定入库或丢弃 | 显式调用时进入；候选入库的唯一入口 |
+| `-a` / `--stage-candidate` | 把本次会话的结论逐条暂存进 cache（`cache add`），记忆库保持不变 | 显式调用或自然语言要求「先攒起来」时进入；本次任务收尾时按 `auto_save` 自动暂存 |
+| `-a -c` | 先暂存本次会话的候选，再逐条处理暂存区 | 一次调用里连用，暂存完立即处理 |
 | `-g -r` / `-r -g` | 组合策展与评分，共享讨论进度 | 参数顺序不影响进度 |
 | `-l` / `--load` | 显式读取：小库直接读，大库先查目录再按分组精读 | `auto_load: true` 时自动读取 |
 | `--no-load` / `--no-save` / `--no-rate` | 仅本次任务关掉自动读、自动存或自动评分 | 任务级覆盖优先于会话级与配置 |
-| `--no-load-session` / `--no-save-session` / `--no-rate-session` | 本次会话内持续关掉对应自动行为 | 目标链结束或明确恢复时失效 |
+| `--no-load-session` / `--no-save-session` / `--no-rate-session` | 本次会话内持续关掉对应自动行为 | 本次任务收尾后失效 |
 
 讨论量默认预计约 3 轮、复杂时可展开；以结论和具体操作授权为准，详见 [讨论轮次与结束条件](skills/project-self-memory/SKILL.md#讨论轮次与结束条件)。
 

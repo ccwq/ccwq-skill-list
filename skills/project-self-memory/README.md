@@ -31,6 +31,7 @@ $project-self-memory -g      # 盘点经验
 $project-self-memory -r      # 评价本次用过的记忆
 $project-self-memory -t      # 清理过时结论
 $project-self-memory -c      # 处理暂存区候选（候选入库的唯一入口）
+$project-self-memory -a      # 把本次会话的结论暂存进暂存区
 $project-self-memory -l      # 显式读取
 ```
 
@@ -72,7 +73,9 @@ MemorySession
 
 ## 候选入库（cache）
 
-自动流程不再直接落库：任务结束时只把结论与投票写进 `cache.jsonl`，跨会话保留。`-c/--cache-write` 读取待处理候选，按目标记录分组逐条询问，改写类必须展示「原正文 vs 新正文」diff 后由用户确认，再逐条写入记忆库。目标记录在暂存后被改动时，该候选标记为失效并拒绝直接落库，需基于现状重新评估。`cache prune` 清理已处理与已失效条目；`pending` 候选没有 TTL，不会自动过期。
+自动流程不再直接落库：本次任务收尾时把结论写进 `cache.jsonl`，跨会话保留。`-a/--stage-candidate` 是显式入口，把本次会话的结论逐条暂存进 cache，记忆库保持不变；自然语言「把这次结论先攒起来」「暂存本次会话的候选」等同 `-a`。`-c/--cache-write` 读取待处理候选，按目标记录分组逐条询问，改写类必须展示「原正文 vs 新正文」diff 后由用户确认，再逐条写入记忆库。目标记录在暂存后被改动时，该候选标记为失效并拒绝直接落库，需基于现状重新评估。`cache prune` 清理已处理与已失效条目；`pending` 候选没有 TTL，不会自动过期。
+
+收尾时机、资格条件、来源标识与暂存动作见 [SKILL.md](SKILL.md#暂存候选)。
 
 ## 可选主题标签
 

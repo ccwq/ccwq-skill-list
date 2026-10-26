@@ -47,6 +47,7 @@ node <skill-path>/scripts/memory.mjs read --type pitfall
 node <skill-path>/scripts/memory.mjs add --type fact --content-file conclusion.txt
 node <skill-path>/scripts/memory.mjs score 0001 +1
 node <skill-path>/scripts/memory.mjs inspect --trim-candidates
+node <skill-path>/scripts/memory.mjs cache add --op add --record-type fact --content-file conclusion.txt --source <session-id>
 node <skill-path>/scripts/memory.mjs cache list
 node <skill-path>/scripts/memory.mjs cache apply --id <id> --decision write
 ```
@@ -57,13 +58,58 @@ node <skill-path>/scripts/memory.mjs cache apply --id <id> --decision write
 
 保存前，宿主必须按[内置表达契约](references/expression-contract.md)把候选正文改写为紧凑单行：一条记录一个可复用结论，一句一个事实或动作，命令、路径、标识符与既有合法前缀保持原文。改写只调整表达，不产生新事实，也不增加保存授权；改写失败（无法保留原意、证据不足或字面量冲突）时跳过该候选并继续任务，不原样保存。CLI 在写入前做确定性校验：新正文去除外围空白后必须单行，不得含标题、列表、代码围栏或 psm 结构标记；历史多行记录保持可读，元数据单独变更不强制重写旧正文。
 
-自动保存仅限目标链结束时的全新、已验证、无冲突且不需要用户取舍的结论。`auto_rate` 只能对有直接正向证据的记录执行一次 `+1`；可归因的失败暂存为 `-1` 候选，无法归因的结果不投票、留在会话里进入 `-r` 讨论。
+自动保存仅限本次任务收尾时的全新、已验证、无冲突且不需要用户取舍的结论，收尾时机与暂存动作见[暂存候选](#暂存候选)。宿主接入 `MemorySession` 时，`auto_rate` 只能对有直接正向证据的记录执行一次 `+1`；可归因的失败暂存为 `-1` 候选，无法归因的结果不投票、留在会话里进入 `-r` 讨论。提示词宿主下的收尾只暂存新增结论，见[暂存候选](#暂存候选)。
 
 **自动流程一律不得直接写入记忆库**，只能把候选暂存进 cache。原来的「自动流程不得修订、合并、删除、调分」由这条替代：修订、删除、评分候选现在可以暂存，写入则一律经 `-c` 确认。`config.yaml` 字段名与取值不变，仅语义改为「自动暂存到 cache」。
 
-`-l/--load` 是显式读取：小库可 `read`，大库先 `catalog` 后 `read --group`，无法可靠选择时读取全部 active 记录。任务级 `--no-load/--no-save/--no-rate` 高于会话级覆盖，高于 `config.yaml`，高于默认值；会话级覆盖使用 `--no-load-session/--no-save-session/--no-rate-session`，在目标链结束或明确恢复时失效。明确自然语言要求同样有效。
+`-l/--load` 是显式读取：小库可 `read`，大库先 `catalog` 后 `read --group`，无法可靠选择时读取全部 active 记录。任务级 `--no-load/--no-save/--no-rate` 高于会话级覆盖，高于 `config.yaml`，高于默认值；会话级覆盖使用 `--no-load-session/--no-save-session/--no-rate-session`，在本次任务收尾后或明确恢复时失效。明确自然语言要求同样有效。
 
 当前会话临时清单分两类：**落盘 cache 的候选类**（新增、修订、删除、待评分投票）与**只留内存的读取态**（已加载 refid、已声明的任务与会话覆盖）。前者跨会话保留，后者随目标切换或完成时清空。
+
+## 暂存候选
+
+`-a/--stage-candidate` 把结论暂存进 cache：只写 cache，记忆库保持不变，落库仍由 `-c/--cache-write` 逐条确认。Codex 用 `$project-self-memory -a`，Claude Code 用 `/project-self-memory -a`；自然语言「把这次结论先攒起来」「暂存本次会话的候选」等同 `-a`。
+
+### 何时收尾
+
+**本次任务收尾**指从用户提出该目标到 agent 交付本次任务最终答复的一段过程。收尾是自动暂存的触发点：agent 在交付最终答复之前完成暂存。任务级 `--no-save` 与会话级 `--no-save-session` 同样作用于收尾暂存：关了自动保存，本次任务收尾就不暂存。
+
+### 暂存哪些
+
+`-a` 与收尾自动暂存共用同一套资格条件：全新、已验证、无冲突、无需用户取舍。
+
+- **全新**：记忆库里还没有这条结论。
+- **已验证**：本次任务中有可核验的证据。
+- **无冲突**：不与现有记录矛盾，也不与本次会话的其他候选矛盾。
+- **无需用户取舍**：不需要用户在多个选项之间选择。
+
+`-a` 收集候选时，用户显式指定的内容优先；用户未指定时，取本次会话内满足上述条件的结论。
+
+### 怎么暂存
+
+逐条调用 `cache add`：
+
+- 新增结论：`--op add`，配 `--record-type` 与 `--content-file`。
+- 修订已有记录：`--op update`，配 `--target` 与 `--content-file`（新正文）。
+- 用户明确要求暂存评分：`--op +1` 或 `--op -1`，配 `--target`。
+
+删除由既有的人工策展入口处理。暂存只写 cache，记忆库与评分账本保持不变。
+
+正文按内置表达契约改写为单行（契约见[内置表达契约](references/expression-contract.md)），CLI 在 `cache add` 时再过一次确定性校验。改写无法保留原意、证据不足或字面量冲突时，跳过该候选并说明哪条没进去、为什么，与[保存与评分](#保存与评分)的改写失败处理一致。暂存内容与记忆库写入同一边界：凭据、个人数据、易失机器状态与未核验推断不进暂存区。
+
+### 来源标识
+
+`--source` 取当前宿主会话的稳定标识：优先取宿主提供的会话标识（Claude Code 的 Bash 环境有 `CLAUDE_CODE_SESSION_ID`）；宿主不提供时，在本次对话开始时固定一个标识，整段对话复用同一个。
+
+来源标识取会话标识而非候选正文：已丢弃的候选需要能重新暂存，而 CLI 对已存在条目返回 `duplicate: true` 并沿用旧状态。
+
+### 暂存之后
+
+向用户报告暂存条数、每条的 `event_id`，并说明结论尚未写入记忆库、落库用 `-c` 处理。没有可暂存的结论时直接说明，不制造候选、不请求空操作授权。
+
+暂存不需要逐条授权：用户显式调用 `-a` 即已授权暂存，需要授权的是落库这一步。一次调用里连用 `-a -c` 时，先完成暂存，再进入 `-c` 的逐条处理。
+
+提示词宿主（Codex、Claude Code）下，收尾自动暂存由 agent 自己在交付最终答复前执行，规则与资格条件同 `-a`，且只暂存 `--op add`——提示词宿主没有可直接归因的宿主证据，不产生投票候选。宿主接入 `MemorySession` 后，收尾暂存由 `endTask()` 承担。
 
 ## 人工策展
 
@@ -73,7 +119,7 @@ node <skill-path>/scripts/memory.mjs cache apply --id <id> --decision write
 
 `-t/--trim`：只处理 `positive - negative < 0`，或 `negative >= 3 && negative >= positive` 的候选；可保留、修订、设为 review/disabled 或删除。策展判断详见 [curation-rules.md](references/curation-rules.md)。
 
-`-c/--cache-write`：处理 cache 里的待处理候选，是候选进入记忆库的唯一入口。
+`-c/--cache-write`：处理 cache 里的待处理候选（含 `-a` 与收尾自动暂存放入的候选），是候选进入记忆库的唯一入口。
 
 ### `-c` 的处理流程
 
@@ -123,7 +169,7 @@ node <skill-path>/scripts/memory.mjs cache apply --id <id> --decision write
 - 配置校验是 `node <skill-path>/scripts/memory.mjs config validate`；通用库校验是 `node <skill-path>/scripts/memory.mjs validate`。
 - 新分类计划先只读核验 `tags show`/`tags suggest`/`tags stats`；分类标准与单条 override 的写入必须已有具体授权。兼容旧分组计划先 `catalog` 再使用 `node <skill-path>/scripts/memory.mjs groups show`；在明确确认前绝不出现 `tags apply`、`tags set`、`groups apply`、`merge`、`delete` 或负分 `score`。
 - 按 refid 讨论、检查状态或提出评分建议时，先用 `node <skill-path>/scripts/memory.mjs inspect <refid>` 核验该记录及其直接证据；确认前只提出 `score +1`/`score -1` 的候选，不把评分命令放入 `commands`。
-- 读后写任务必须先给出 `read`，再给出与任务类型一致的 `add --type <type>` 或 `update <id>`；只读任务不得包含写命令。
-- 类型以任务用词为准：任务要求保存“经验”时用 `add --type experience`，要求 pitfall/fact/constraint 时保留该精确类型，不要自行改成通用 `fact`。
+- 读后写任务必须先给出 `read`。写入分两条路：用户已就这条具体操作授权的人工策展，直接给出 `add --type <type>` 或 `update <id>`；任务收尾的自动保存给出 `cache add --op add --record-type <type> --content-file <file>` 暂存候选，落库由 `-c` 流程逐条确认。只读任务不得包含写命令。
+- 类型以任务用词为准：任务要求保存“经验”时用 `experience`（`add --type experience` 或 `cache add --op add --record-type experience`），要求 pitfall/fact/constraint 时保留该精确类型，不要自行改成通用 `fact`。
 - 候选入库走 `-c` 流程：先只读 `cache list` 核验待处理候选，再在授权范围内给出 `cache apply --id <id> --decision write|discard`；在明确确认前不出现 `cache apply`。
 - 行动计划输出严格 JSON：`commands` 为有序字符串数组，`confirmation` 含 `required` 与 `requested` 布尔值，`rationale` 为简短依据。凡是仍需等待具体操作授权的合并、删除、分类标准/override、旧分组、评分或修复计划，`required` 与 `requested` 必须都为 `true`，即使当前 `commands` 仅包含只读诊断；配置字段非法、`config validate` 失败或库损坏的诊断也属于这一类，因为后续任何 reset/repair 都必须先由用户选择。请求确认不等于已确认。已有明确授权且操作范围未变时，不再作为待确认计划，两者均为 `false`，`commands` 可包含已授权操作；无写入需求的只读计划两者也均为 `false`。

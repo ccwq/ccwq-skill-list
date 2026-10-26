@@ -4,7 +4,7 @@
     {
       "id": "verified-runtime-fact",
       "prompt": "调查当前仓库的鉴权刷新流程，完成浏览器验证后修复失败分支。",
-      "expected_output": "先读取 .project-self-memory/memory.md；验证完成后通过 memory.mjs add 或 update 保存可复用结论。",
+      "expected_output": "先读取 .project-self-memory/memory.md；验证完成后把可复用结论经 memory.mjs cache add 暂存，落库由 -c 逐条确认。",
       "files": []
     },
     {
@@ -119,6 +119,54 @@
       "id": "cache-write-empty",
       "prompt": "$project-self-memory -c。测试上下文：暂存区没有 pending 条目，记忆库有若干记录。",
       "expected_output": "Given：暂存区为空。When：进入 -c。Then：直接说明没有待处理候选并结束，不制造问题、不请求空操作授权、不写入。防回归：为了进入流程而虚构候选或生成空的确认请求。",
+      "files": []
+    },
+    {
+      "id": "stage-candidate-explicit-no-write",
+      "prompt": "$project-self-memory -a。测试上下文：本次会话形成一条全新、已验证、无冲突且无需取舍的结论「回源接口在高峰期需要限流并加熔断」，记忆库里没有这条结论，用户尚未要求入库。",
+      "expected_output": "Given：本次会话有一条符合资格条件的结论，用户显式调用 -a。When：执行暂存。Then：按内置表达契约改写为单行后用 cache add --op add 逐条暂存，报告暂存条数与该条的 event_id，并说明结论尚未写入记忆库、落库用 -c 处理；记忆库与评分账本保持不变。防回归：-a 直接写入记忆库、跳过单行改写、暂存后不报告 event_id。",
+      "files": []
+    },
+    {
+      "id": "stage-candidate-auto-close",
+      "prompt": "任务收尾场景：线上 503 的修复结论已核验，config.yaml 的 auto_save 为 true，本次会话形成一条全新、已验证、无冲突、无需用户取舍的结论，另有一条尚未复现的怀疑。本次会话没有显式调用 -a。",
+      "expected_output": "Given：本次任务即将交付最终答复，会话内有一条符合资格条件的结论和一条未核验的怀疑，auto_save 为 true 且未被 --no-save 关掉。When：执行收尾暂存。Then：在交付最终答复之前只把符合资格条件的结论暂存进 cache，未核验的怀疑不进暂存区，不产生投票候选，不写记忆库。防回归：收尾时直接落库、把怀疑也暂存、提示词宿主自动产生 +1 投票。",
+      "files": []
+    },
+    {
+      "id": "stage-candidate-no-save-override",
+      "prompt": "任务收尾场景：本次任务以 --no-save 调用，config.yaml 的 auto_save 为 true，会话内有一条全新、已验证的结论。",
+      "expected_output": "Given：本次任务用 --no-save 关掉自动保存，会话内存在符合资格条件的结论。When：执行收尾暂存。Then：该结论不进暂存区，暂存区与记忆库都不变，并说明这条结论因本次任务的 --no-save 被跳过。防回归：--no-save 不作用于收尾暂存。",
+      "files": []
+    },
+    {
+      "id": "stage-candidate-idempotent",
+      "prompt": "$project-self-memory -a。本次会话内对同一条结论「回源接口在高峰期需要限流并加熔断」暂存两次，两次都在同一会话内。",
+      "expected_output": "Given：同一会话内对同一条结论重复发起暂存。When：逐条调用 cache add。Then：两次使用同一个 --source 会话标识，第二次报告 duplicate，暂存区只保留一条，报告的条数不因重复而增加。防回归：重复暂存产生两条待办、每次暂存各换一个 --source。",
+      "files": []
+    },
+    {
+      "id": "stage-candidate-cross-session",
+      "prompt": "$project-self-memory -a。本次会话里同一条结论「回源接口在高峰期需要限流并加熔断」在上一会话已经暂存并被 -c 丢弃过。",
+      "expected_output": "Given：该结论在上一会话已暂存且已丢弃。When：本次会话再次暂存同一条结论。Then：使用本次会话的新 --source 会话标识，条目作为新的 pending 候选出现，可再次被 -c 处理。防回归：沿用已丢弃条目的旧标识导致无法重新暂存、以候选正文充当来源标识。",
+      "files": []
+    },
+    {
+      "id": "stage-candidate-then-cache-write",
+      "prompt": "$project-self-memory -a -c。测试上下文：本次会话形成一条全新、已验证、无冲突且无需取舍的结论「回源接口在高峰期需要限流并加熔断」，记忆库尚无这条记录，暂存区原本为空。",
+      "expected_output": "Given：暂存区原本为空，本次会话有一条符合资格条件的结论。When：一次调用里连用 -a 与 -c。Then：先暂存该候选并报告 event_id，再进入 -c 流程：cache list 能看到该候选并按新增组逐条询问，选项为写入/丢弃/暂缓；选择写入后才用 cache apply --id <id> --decision write 落库并回读。防回归：-a 直接落库、-c 看不到刚暂存的候选、-a 之后没有进入 -c。",
+      "files": []
+    },
+    {
+      "id": "stage-candidate-contract-violation",
+      "prompt": "$project-self-memory -a。测试上下文：用户要求暂存一条包含两行代码与列表标记的结论。",
+      "expected_output": "Given：候选正文改写后仍不合单行契约或含结构标记。When：执行暂存。Then：按内置表达契约改写；改写无法保留原意、证据不足或字面量冲突时跳过该候选并说明哪条没进去、为什么，其余候选照常暂存。防回归：不合契约的候选被静默跳过、或原样暂存后才失败。",
+      "files": []
+    },
+    {
+      "id": "stage-candidate-no-candidate",
+      "prompt": "$project-self-memory -a。测试上下文：本次会话没有形成任何结论，也没有任何可暂存的既有候选。",
+      "expected_output": "Given：本次会话没有符合资格条件的结论。When：执行 -a。Then：直接说明没有可暂存的结论并结束，不制造候选、不写记忆库、不请求空操作授权。防回归：为了有产出而虚构候选、生成空的暂存动作。",
       "files": []
     },
     {
