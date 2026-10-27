@@ -809,8 +809,9 @@ test('cache routes enforce token, origin, field whitelist and lock', async () =>
  * Given：cache 里 applied、discarded、pending 三种条目，另有一条 pending 的
  *       stale（目标已被改）
  * When：POST prune；再带 older_than_days=365 对新建的已处理条目 prune
- * Then：第一次清掉已处理与 stale、留 pending（removed=3）；第二次阈值内条目保留
- * 防回归：prune 误删 pending 或时效阈值方向反了
+ * Then：第一次清掉已处理与 stale、留 pending（removed=3）；第二次阈值内条目
+ *       保留（removed=0），且刚落库的 applied 条目仍在磁盘 cache.jsonl 上
+ * 防回归：prune 误删 pending、时效阈值方向反了，或误清刚落库的审计条目
  */
 test('prune removes processed and stale, keeps pending; respects threshold', async () => {
   const root = project(store('0002') + record('0001', '基准'));
@@ -854,7 +855,11 @@ test('prune removes processed and stale, keeps pending; respects threshold', asy
     assert.equal(r2.body.removed, 0);
     const still = JSON.parse(runCli(root, 'cache', 'list'));
     assert.equal(still.count, 1);
-    assert.ok(!JSON.stringify(still).includes('存活的 pending') === false || still.count === 1);
+    // 恒真式断言已修：cache list 只吐 pending，applied 条目要用 cache show
+    // 直查磁盘上的那条，断言它未被 365 天阈值 prune 掉且状态为 applied。
+    const shown = JSON.parse(runCli(root, 'cache', 'show', fresh.event_id));
+    assert.equal(shown.status, 'applied');
+    assert.equal(shown.payload.content, '刚落库的新条目');
   } finally { await viewer.stop(); }
 });
 
