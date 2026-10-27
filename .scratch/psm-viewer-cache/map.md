@@ -40,6 +40,7 @@ Created: 2026-10-27
 - [02 server:快照 cache 节与三条 POST 路由](issues/02-server-cache-snapshot-and-routes.md):快照 cache 节按冻结 schema 落地(apply 响应增量多带 entry 字段);apply/discard/prune 照 patchRecord 安检链,锁序 cache.lock→memory.lock+evidence.lock 全非阻塞;9 类新用例,28/28 全绿、全套件 159 项无连带破坏。坑:appendEvent 自持阻塞锁与路由非阻塞锁死锁,内联复刻其幂等语义绕开。
 - [03 页面:暂存区面板](issues/03-page-staging-panel.md):工具栏「暂存区」按钮 + pending 徽标,按组渲染(修订原/新对照、失效双对照只给丢弃、证据网格),全 textContent 零 innerHTML;成功走 acceptSnapshot 整刷,失败保留草稿;38 项 DOM 断言 + 真浏览器截图冒烟通过。简化(工单允许):prune 不带天数、丢弃无确认、面板与编辑器并列不互斥。
 - [04 文档同步(AGENTS.md 清单)](issues/04-docs-sync.md):viewer.md 补三条路由与 cache 写入管线/并发语义;SKILL.md、skill README、根 README 各补暂存区一句;marketplace PSM 描述补暂存区、version 2.6.0→2.7.0;JSON.parse 与断链校验通过。偏差(以实现为准):prune 可选 older_than_days、discard 409/幂等 200 均按实现补写。
+- [05 产物行尾漂移](issues/05-artifact-eol-drift.md):构建器三处行尾归一化(模块源、入口模板、--check 比对),产物确定纯 LF;新增混合行尾源字节稳定用例;顺带修复 manifest 缺 HEAD 产物哈希导致 fresh checkout 误判本地修改的问题。全套件 160/160。
 
 ## Out of scope
 
