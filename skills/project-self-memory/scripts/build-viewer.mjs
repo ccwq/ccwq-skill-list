@@ -29,6 +29,7 @@ const MODULES = [
   ['lock', 'memory-lock.mjs'],
   ['ledger', 'evidence-ledger.mjs'],
   ['tags', 'memory-tags.mjs'],
+  ['cache', 'memory-cache.mjs'],
   ['server', 'viewer-server.mjs'],
   ['page', 'viewer-page.mjs'],
 ];
@@ -39,8 +40,18 @@ const IMPORTS = {
   'memory-lock.mjs': ['fs', 'path'],
   'evidence-ledger.mjs': ['crypto', 'fs', 'path'],
   'memory-tags.mjs': ['fs', 'path'],
+  'memory-cache.mjs': ['crypto', 'fs', 'path'],
   'viewer-server.mjs': [],
   'viewer-page.mjs': [],
+};
+
+/**
+ * 工厂体内需要从 deps 解构的绑定（跨项目模块导入）。
+ * memory-cache.mjs 的 `import { TYPES } from './memory-store.mjs'` 会被
+ * stripImports 剥掉，改由入口接线传 `cacheFactory({ TYPES: store.TYPES }, ...)`。
+ */
+const DEPS_DESTRUCTURE = {
+  'memory-cache.mjs': ['TYPES'],
 };
 
 function stripImports(source, file) {
@@ -73,15 +84,21 @@ function safeEmbed(source) {
 }
 
 function moduleFactory(name, file) {
-  const raw = fs.readFileSync(path.join(here, file), 'utf8').replace(/^#!.*\n/, '');
+  // \r?\n 兼容 CRLF 源：`/^#!.*\n/` 在 CRLF 文件上失配（`.` 不匹配 \r），
+  // shebang 会残留进工厂体，产物语法错误。
+  const raw = fs.readFileSync(path.join(here, file), 'utf8').replace(/^#!.*\r?\n/, '');
   const stripped = stripImports(raw, file);
   const { source, names } = rewriteExports(stripped, file);
   const nodeImports = IMPORTS[file] || [];
   const params = ['deps', ...nodeImports];
+  // 跨项目模块导入：在工厂体开头注入 `const { TYPES } = deps;`，
+  // 由入口接线传实际值（见 DEPS_DESTRUCTURE 注释）。
+  const depsBindings = (DEPS_DESTRUCTURE[file] || []).join(', ');
+  const depsLine = depsBindings ? `  const { ${depsBindings} } = deps;\n` : '';
   const destructure = names.length ? `  return { ${names.join(', ')} };` : '  return {};';
   const body = [
     `const ${name}Factory = (${params.join(', ')}) => {`,
-    source,
+    depsLine + source,
     destructure,
     '};',
   ].join('\n');
@@ -123,6 +140,7 @@ const store = storeFactory({});
 const lock = lockFactory({}, ${['fs', 'path'].join(', ')});
 const ledger = ledgerFactory({}, ${['crypto', 'fs', 'path'].join(', ')});
 const tags = tagsFactory({}, fs, path);
+const cache = cacheFactory({ TYPES: store.TYPES }, crypto, fs, path);
 const server = serverFactory({});
 const page = pageFactory({});
 

@@ -291,14 +291,21 @@ test('backup failure aborts the write', async () => {
 /**
  * Given：源码与产物
  * When：运行构建器两次并 --check
- * Then：两次产物字节一致（无可变信息）；--check 通过
- * 防回归：产物随时间漂移或不可审计
+ * Then：两次产物字节一致（无可变信息）；--check 通过；产物能被 node 解析
+ *       （仅首行一个 shebang，工厂体内无残留 `#!`）
+ * 防回归：CRLF 源上 shebang 剥离失配，坏产物字节级可复现却不可运行；
+ *         产物随时间漂移或不可审计
  */
 test('build is reproducible and drift-checkable', () => {
   const first = fs.readFileSync(dist);
   execFileSync(process.execPath, [builder], { encoding: 'utf8' });
   const second = fs.readFileSync(dist);
   assert.ok(first.equals(second));
+  // 产物可运行性防线：坏产物字节比对是盲的，必须让 node 自己做语法校验。
+  execFileSync(process.execPath, ['--check', dist]);
+  const artifact = fs.readFileSync(dist, 'utf8');
+  const shebangLines = artifact.split('\n').filter((line) => line.startsWith('#!'));
+  assert.equal(shebangLines.length, 1, 'shebang 只允许出现在产物第 1 行');
   const check = execFileSync(process.execPath, [builder, '--check'], { encoding: 'utf8' });
   assert.match(check, /PSM_VIEWER_CONSISTENT/);
 });
