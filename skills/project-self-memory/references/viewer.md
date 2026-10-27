@@ -22,7 +22,7 @@ node .project-self-memory/view-memoery.js
 | 路由 | 方法 | 说明 |
 |---|---|---|
 | `/` | GET | 单页 HTML；`Content-Security-Policy: default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'`，`Cache-Control: no-store`，`Referrer-Policy: no-referrer`，`X-Content-Type-Options: nosniff` |
-| `/api/snapshot` | GET | 返回 `{format, store_revision, read_only, diagnostics, groups, group_dimension, generated_at, taxonomy, records[]}`；`format` 为 `psm-viewer-snapshot-v2`；每条记录含只读派生 `tags`、投影后的 `positive`、`negative`、`event_count`、`score_event_count`、`freshness` 与当前 `record_version` |
+| `/api/snapshot` | GET | 返回 `{format, store_revision, read_only, diagnostics, groups, group_dimension, generated_at, taxonomy, records[]}`；`format` 为 `psm-viewer-snapshot-v2`；每条记录含只读派生 `tags`、投影后的 `positive`、`negative`、`event_count`、`score_event_count`、`freshness` 与当前 `record_version`；另带只读 `cache` 节 `{count, groups[]}`（pending 计数与分组），组字段 `key`/`kind`/`refid`/`stale`/`conflict`/`count`/`entries`/`current` |
 | `/api/records/<id>` | PATCH | 仅接受 `{store_revision, content, type, status}` 四字段；一次提交三字段原子生效 |
 | `/api/cache/<event_id>/apply` | POST | 编辑并入：把一条 pending 候选落库；可带改写后正文（仅 add/update 接受 `content`） |
 | `/api/cache/<event_id>/discard` | POST | 丢弃：pending → discarded；已 applied 拒绝（409），重复 discard 幂等 200 |
