@@ -268,6 +268,17 @@
         "viewer-server.mjs",
         "viewer-page.mjs"
       ]
+    },
+    "cdc43635bbaa01149747f145a0debdf6f0d6e58c3031d07ce6efa8d868a1b7df": {
+      "built_from": [
+        "memory-store.mjs",
+        "memory-lock.mjs",
+        "evidence-ledger.mjs",
+        "memory-tags.mjs",
+        "memory-cache.mjs",
+        "viewer-server.mjs",
+        "viewer-page.mjs"
+      ]
     }
   },
   "name": "view-memoery.js"
