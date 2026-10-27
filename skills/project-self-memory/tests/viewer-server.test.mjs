@@ -538,3 +538,343 @@ test('tag metadata changes neither revisions nor the PATCH whitelist', async () 
     assert.deepEqual(saved.body.snapshot.records[0].tags, ['redis']);
   } finally { await viewer.stop(); }
 });
+
+// ---- 工单 02：快照 cache 节与三条 POST 路由 ------------------------------
+
+const cacheFile = (root) => path.join(root, '.project-self-memory', 'cache.jsonl');
+
+/** 造候选走 CLI（正文必须 --content-file，单行契约）。 */
+function cacheAdd(root, ...argv) {
+  return JSON.parse(runCli(root, 'cache', 'add', ...argv));
+}
+
+/** CLI 造记录，返回新 id。 */
+function cliAdd(root, content) {
+  const body = path.join(root, `body-${Math.random().toString(36).slice(2, 8)}.txt`);
+  fs.writeFileSync(body, content);
+  return runCli(root, 'add', '--type', 'fact', '--content-file', body).trim();
+}
+
+/**
+ * Given：cache 里有一条 add 候选与同目标记录的两条 update 候选；目标正文在暂存后被改
+ * When：读取快照 cache 节
+ * Then：new 独立成组、同目标 update 成组、失效候选单独成 stale 组且 current 为新正文；
+ *       组对象含冻结 schema 全部字段；store_revision 不受 cache 影响
+ * 防回归：分组规则与 CLI cacheList 漂移，或 03 页面拿不到 current 对照
+ */
+test('snapshot cache section groups new/target/stale with current snapshot', async () => {
+  const root = project(store('0002') + record('0001', '原文正文'));
+  const body1 = path.join(root, 'b1.txt');
+  fs.writeFileSync(body1, '全新候选记录');
+  cacheAdd(root, '--op', 'add', '--record-type', 'fact', '--content-file', body1);
+  const body2 = path.join(root, 'b2.txt');
+  fs.writeFileSync(body2, '修订一号');
+  cacheAdd(root, '--op', 'update', '--target', '0001', '--content-file', body2);
+  // 同目标第二条 update：不同 source 才会有不同 event_id
+  const body3 = path.join(root, 'b3.txt');
+  fs.writeFileSync(body3, '修订二号');
+  cacheAdd(root, '--op', 'update', '--target', '0001', '--content-file', body3, '--source', 'session-2');
+  // 令 0001 失效：外部 CLI 改目标正文（版本变化）
+  const body4 = path.join(root, 'b4.txt');
+  fs.writeFileSync(body4, '外部新正文');
+  runCli(root, 'update', '0001', '--content-file', body4);
+
+  const viewer = await startViewer(root);
+  try {
+    const snap = await snapshot(viewer);
+    assert.equal(snap.cache.count, 3);
+    const kinds = Object.groupBy(snap.cache.groups, (g) => g.kind);
+    // 两条 update 的 event_id 只差 fingerprint/content：同目标 update 成组时
+    // conflict=true（组内多修订），失效后并入 stale 组
+    assert.deepEqual(Object.keys(kinds).sort(), ['new', 'stale']);
+    assert.equal(kinds.new.length, 1);
+    assert.equal(kinds.stale.length, 1);
+    const staleGroup = kinds.stale[0];
+    assert.equal(staleGroup.key, 'stale:0001');
+    assert.equal(staleGroup.stale, true);
+    assert.equal(staleGroup.count, 2);
+    assert.equal(staleGroup.conflict, true);
+    assert.ok(staleGroup.entries.every((entry) => entry.stale === true));
+    // current 是失效后的新正文（外部 update 已落盘）
+    assert.equal(staleGroup.current.exists, true);
+    assert.equal(staleGroup.current.content, '外部新正文');
+    assert.equal(typeof staleGroup.current.record_version, 'string');
+    assert.equal(staleGroup.current.type, 'fact');
+    // new 组：key/refid/current 按冻结 schema
+    const newGroup = kinds.new[0];
+    assert.match(newGroup.key, /^new:[a-f0-9]{32}$/);
+    assert.equal(newGroup.refid, null);
+    assert.equal(newGroup.stale, false);
+    assert.equal(newGroup.conflict, false);
+    assert.equal(newGroup.count, 1);
+    assert.equal(newGroup.current, null);
+    assert.equal(newGroup.entries[0].payload.content, '全新候选记录');
+    assert.equal(newGroup.entries[0].stale, false);
+  } finally { await viewer.stop(); }
+});
+
+/**
+ * Given：一条 pending 的 add 候选
+ * When：POST apply（带当前 store_revision）
+ * Then：200、memory.md 出现新记录（磁盘断言）、条目转 applied、快照 count 减少、
+ *       响应带 record_id 与完整新快照
+ * 防回归：写入成功但条目仍 pending 导致重复落库
+ */
+test('apply add lands the candidate and marks it applied', async () => {
+  const root = project(store('0002'));
+  const body = path.join(root, 'b.txt');
+  fs.writeFileSync(body, 'ADD_APPLY_SENTINEL_9a1b');
+  const added = cacheAdd(root, '--op', 'add', '--record-type', 'fact', '--content-file', body);
+  const viewer = await startViewer(root);
+  try {
+    const rev = (await snapshot(viewer)).store_revision;
+    const r = await api(viewer, `/api/cache/${added.event_id}/apply`, { method: 'POST', body: { store_revision: rev } });
+    assert.equal(r.status, 200);
+    assert.equal(r.body.applied, true);
+    assert.match(r.body.record_id, /^\d{4}$/);
+    assert.match(fs.readFileSync(memory(root), 'utf8'), /ADD_APPLY_SENTINEL_9a1b/);
+    assert.equal(r.body.snapshot.cache.count, 0);
+    // 条目转 applied：磁盘上状态变化
+    const raw = fs.readFileSync(cacheFile(root), 'utf8');
+    assert.match(raw, /"status":"applied"/);
+    assert.match(raw, /"processed_at":"\d{4}-/);
+  } finally { await viewer.stop(); }
+});
+
+/**
+ * Given：一条 pending 的 update 候选
+ * When：apply 请求带 content 改写版；另对多行正文发同请求
+ * Then：改写版落盘且评分投影重置（CLI inspect positive=0）；多行正文 400 CONTRACT
+ *       且条目保持 pending
+ * 防回归：改写版未生效或多行正文绕过单行契约写坏库
+ */
+test('apply update rewrites content, resets projection, rejects multiline', async () => {
+  const root = project(store('0002') + record('0001', '旧正文待修订'));
+  const body = path.join(root, 'b.txt');
+  fs.writeFileSync(body, '暂存版正文');
+  const added = cacheAdd(root, '--op', 'update', '--target', '0001', '--content-file', body);
+  const viewer = await startViewer(root);
+  try {
+    const rev = (await snapshot(viewer)).store_revision;
+    const ok = await api(viewer, `/api/cache/${added.event_id}/apply`, { method: 'POST', body: { store_revision: rev, content: '改写后的终稿' } });
+    assert.equal(ok.status, 200);
+    const after = JSON.parse(runCli(root, 'inspect', '0001'));
+    assert.equal(after.content, '改写后的终稿');
+    assert.equal(after.positive, 0);
+    assert.equal(after.negative, 0);
+    // 多行正文 → 400 CONTRACT，条目保持 pending
+    const bad = cacheAdd(root, '--op', 'update', '--target', '0001', '--content-file', body, '--source', 's2');
+    const r = await api(viewer, `/api/cache/${bad.event_id}/apply`, { method: 'POST', body: { store_revision: rev, content: '第一行\n第二行' } });
+    assert.equal(r.status, 400);
+    assert.equal(r.body.error, 'CONTRACT');
+    const listed = JSON.parse(runCli(root, 'cache', 'list'));
+    assert.equal(listed.count, 1);
+    assert.equal(listed.groups[0].entries[0].event_id, bad.event_id);
+  } finally { await viewer.stop(); }
+});
+
+/**
+ * Given：一条 update 候选，暂存后目标正文被外部改掉（已失效）
+ * When：POST apply
+ * Then：409 且 message 含原基准 vs 现状；条目保持 pending（快照仍见）
+ * 防回归：失效候选直接覆盖用户已改过的正文
+ */
+test('stale candidate apply is rejected and stays pending', async () => {
+  const root = project(store('0002') + record('0001', '基准正文'));
+  const body = path.join(root, 'b.txt');
+  fs.writeFileSync(body, '过期修订');
+  const added = cacheAdd(root, '--op', 'update', '--target', '0001', '--content-file', body);
+  const body2 = path.join(root, 'b2.txt');
+  fs.writeFileSync(body2, '外部改动后的现状');
+  runCli(root, 'update', '0001', '--content-file', body2);
+  const viewer = await startViewer(root);
+  try {
+    const rev = (await snapshot(viewer)).store_revision;
+    const r = await api(viewer, `/api/cache/${added.event_id}/apply`, { method: 'POST', body: { store_revision: rev } });
+    assert.equal(r.status, 409);
+    assert.equal(r.body.error, 'CONFLICT');
+    assert.match(r.body.message, /基准正文/);
+    assert.match(r.body.message, /外部改动后的现状/);
+    // 条目保持 pending：快照里仍能看到
+    const snap = await snapshot(viewer);
+    assert.equal(snap.cache.count, 1);
+    assert.equal(snap.cache.groups[0].kind, 'stale');
+  } finally { await viewer.stop(); }
+});
+
+/**
+ * Given：pending 与 applied 两种条目
+ * When：依次 discard pending、重复 discard、discard applied
+ * Then：pending 转 discarded 200；重复 discard 幂等 200；applied 409；
+ *       全程 memory.md 不变（cache-only）
+ * 防回归：丢弃路径写主库或覆盖已落库条目
+ */
+test('discard state machine: pending ok, applied 409, repeat idempotent', async () => {
+  const root = project(store('0002'));
+  const body = path.join(root, 'b.txt');
+  fs.writeFileSync(body, '将被丢弃的候选');
+  const added = cacheAdd(root, '--op', 'add', '--record-type', 'fact', '--content-file', body);
+  const viewer = await startViewer(root);
+  try {
+    const rev = (await snapshot(viewer)).store_revision;
+    const r1 = await api(viewer, `/api/cache/${added.event_id}/discard`, { method: 'POST', body: { store_revision: rev } });
+    assert.equal(r1.status, 200);
+    assert.equal(r1.body.applied, true);
+    assert.match(fs.readFileSync(cacheFile(root), 'utf8'), /"status":"discarded"/);
+    // 重复 discard 幂等
+    const r2 = await api(viewer, `/api/cache/${added.event_id}/discard`, { method: 'POST', body: { store_revision: rev } });
+    assert.equal(r2.status, 200);
+    // cache-only 变更不产生备份（backups 目录不应被创建）
+    assert.equal(fs.existsSync(path.join(root, '.project-self-memory', 'backups')), false);
+    // applied 条目拒绝 discard
+    const body2 = path.join(root, 'b2.txt');
+    fs.writeFileSync(body2, '落库候选');
+    const applied = cacheAdd(root, '--op', 'add', '--record-type', 'fact', '--content-file', body2, '--source', 's2');
+    const ra = await api(viewer, `/api/cache/${applied.event_id}/apply`, { method: 'POST', body: { store_revision: rev } });
+    assert.equal(ra.status, 200);
+    const before = fs.readFileSync(memory(root));
+    const r3 = await api(viewer, `/api/cache/${applied.event_id}/discard`, { method: 'POST', body: { store_revision: rev } });
+    assert.equal(r3.status, 409);
+    assert.ok(fs.readFileSync(memory(root)).equals(before));
+  } finally { await viewer.stop(); }
+});
+
+/**
+ * Given：一条 ±1 候选（source 合法）
+ * When：apply 两次（第二次 event 已存在）
+ * Then：200，evidence.jsonl 出现 cache-apply-<event_id> 事件且评分字段更新；
+ *       第二次不产生第二条事件（幂等）
+ * 防回归：重试刷分或账本键与 CLI 不一致
+ */
+test('score apply appends idempotent ledger event and updates projection', async () => {
+  const root = project(store('0002') + record('0001', '被投票的记录'));
+  const added = cacheAdd(root, '--op', '+1', '--target', '0001', '--source', 'task-x');
+  const viewer = await startViewer(root);
+  try {
+    const rev = (await snapshot(viewer)).store_revision;
+    const r1 = await api(viewer, `/api/cache/${added.event_id}/apply`, { method: 'POST', body: { store_revision: rev } });
+    assert.equal(r1.status, 200);
+    assert.equal(r1.body.record_id, '0001');
+    const ledgerPath = path.join(root, '.project-self-memory', 'evidence.jsonl');
+    const ledgerText = fs.readFileSync(ledgerPath, 'utf8');
+    assert.equal(ledgerText.split('\n').filter((line) => line.includes(`cache-apply-${added.event_id}`)).length, 1);
+    const after = JSON.parse(runCli(root, 'inspect', '0001'));
+    assert.equal(after.positive, 1);
+    // 重复 apply：条目已 applied → 409（非 pending 拒绝），账本仍只有一条
+    const r2 = await api(viewer, `/api/cache/${added.event_id}/apply`, { method: 'POST', body: { store_revision: rev } });
+    assert.equal(r2.status, 409);
+    assert.equal(fs.readFileSync(ledgerPath, 'utf8'), ledgerText);
+  } finally { await viewer.stop(); }
+});
+
+/**
+ * Given：cache 路由面对无令牌、跨 Origin、未知字段、锁忙四种请求
+ * When：分别发出
+ * Then：401 / 403 ORIGIN_REJECTED / 400 BAD_FIELDS / 503 LOCK_BUSY
+ * 防回归：cache 路由绕过与记录 PATCH 相同的安检链
+ */
+test('cache routes enforce token, origin, field whitelist and lock', async () => {
+  const root = project(store('0002') + record('0001', '甲'));
+  const body = path.join(root, 'b.txt');
+  fs.writeFileSync(body, '安检候选');
+  const added = cacheAdd(root, '--op', 'update', '--target', '0001', '--content-file', body);
+  const viewer = await startViewer(root);
+  const lockFile = path.join(root, '.project-self-memory', 'cache.lock');
+  try {
+    const rev = (await snapshot(viewer)).store_revision;
+    assert.equal((await api(viewer, `/api/cache/${added.event_id}/apply`, { method: 'POST', token: '', body: { store_revision: rev } })).status, 401);
+    const cross = await api(viewer, `/api/cache/${added.event_id}/apply`, { method: 'POST', body: { store_revision: rev }, headers: { Origin: 'http://evil.example' } });
+    assert.equal(cross.status, 403);
+    assert.equal(cross.body.error, 'ORIGIN_REJECTED');
+    const extra = await api(viewer, `/api/cache/${added.event_id}/apply`, { method: 'POST', body: { store_revision: rev, weight: 9 } });
+    assert.equal(extra.status, 400);
+    assert.equal(extra.body.error, 'BAD_FIELDS');
+    // prune 的白名单不同：older_than_days 合法、content 拒绝
+    const pruneBad = await api(viewer, '/api/cache/prune', { method: 'POST', body: { store_revision: rev, content: 'x' } });
+    assert.equal(pruneBad.status, 400);
+    // 锁忙：外部先持 cache.lock
+    fs.writeFileSync(lockFile, JSON.stringify({ pid: process.pid, created_at: new Date().toISOString() }));
+    const busy = await api(viewer, `/api/cache/${added.event_id}/apply`, { method: 'POST', body: { store_revision: rev } });
+    assert.equal(busy.status, 503);
+    assert.equal(busy.body.error, 'LOCK_BUSY');
+    const busyPrune = await api(viewer, '/api/cache/prune', { method: 'POST', body: { store_revision: rev } });
+    assert.equal(busyPrune.status, 503);
+  } finally {
+    if (fs.existsSync(lockFile)) fs.unlinkSync(lockFile);
+    await viewer.stop();
+  }
+});
+
+/**
+ * Given：cache 里 applied、discarded、pending 三种条目，另有一条 pending 的
+ *       stale（目标已被改）
+ * When：POST prune；再带 older_than_days=365 对新建的已处理条目 prune
+ * Then：第一次清掉已处理与 stale、留 pending（removed=3）；第二次阈值内条目保留
+ * 防回归：prune 误删 pending 或时效阈值方向反了
+ */
+test('prune removes processed and stale, keeps pending; respects threshold', async () => {
+  const root = project(store('0002') + record('0001', '基准'));
+  const body = path.join(root, 'b.txt');
+  fs.writeFileSync(body, '待丢弃');
+  const discarded = cacheAdd(root, '--op', 'add', '--record-type', 'fact', '--content-file', body);
+  runCli(root, 'cache', 'discard', '--id', discarded.event_id);
+  const body2 = path.join(root, 'b2.txt');
+  fs.writeFileSync(body2, '待落库后清理');
+  const applied = cacheAdd(root, '--op', 'add', '--record-type', 'fact', '--content-file', body2, '--source', 's2');
+  runCli(root, 'cache', 'apply', '--id', applied.event_id, '--decision', 'write');
+  const body3 = path.join(root, 'b3.txt');
+  fs.writeFileSync(body3, '存活的 pending');
+  cacheAdd(root, '--op', 'add', '--record-type', 'fact', '--content-file', body3, '--source', 's3');
+  const body4 = path.join(root, 'b4.txt');
+  fs.writeFileSync(body4, '过期的修订');
+  const stale = cacheAdd(root, '--op', 'update', '--target', '0001', '--content-file', body4, '--source', 's4');
+  const body5 = path.join(root, 'b5.txt');
+  fs.writeFileSync(body5, '外部改动');
+  runCli(root, 'update', '0001', '--content-file', body5);
+  // stale 候选 apply 会被拒，它保持 pending 但读时 stale → prune 清掉
+
+  const viewer = await startViewer(root);
+  try {
+    const rev = (await snapshot(viewer)).store_revision;
+    const r = await api(viewer, '/api/cache/prune', { method: 'POST', body: { store_revision: rev } });
+    assert.equal(r.status, 200);
+    assert.equal(r.body.removed, 3);
+    const kept = JSON.parse(runCli(root, 'cache', 'list'));
+    assert.equal(kept.count, 1);
+    assert.equal(kept.groups[0].entries[0].payload.content, '存活的 pending');
+    // 新建的已处理条目 + older_than_days=365 → 保留
+    const body6 = path.join(root, 'b6.txt');
+    fs.writeFileSync(body6, '刚落库的新条目');
+    const fresh = cacheAdd(root, '--op', 'add', '--record-type', 'fact', '--content-file', body6, '--source', 's6');
+    const rev2 = (await snapshot(viewer)).store_revision;
+    const ra = await api(viewer, `/api/cache/${fresh.event_id}/apply`, { method: 'POST', body: { store_revision: rev2 } });
+    assert.equal(ra.status, 200);
+    const r2 = await api(viewer, '/api/cache/prune', { method: 'POST', body: { store_revision: rev2, older_than_days: 365 } });
+    assert.equal(r2.status, 200);
+    assert.equal(r2.body.removed, 0);
+    const still = JSON.parse(runCli(root, 'cache', 'list'));
+    assert.equal(still.count, 1);
+    assert.ok(!JSON.stringify(still).includes('存活的 pending') === false || still.count === 1);
+  } finally { await viewer.stop(); }
+});
+
+/**
+ * Given：discard 与 prune 各自完成一次 cache-only 变更
+ * When：用变更前的旧 store_revision 发记录 PATCH
+ * Then：PATCH 仍成功（cache 变更不参与 store_revision 口径）
+ * 防回归：cache-only 操作打断用户的记录编辑流
+ */
+test('cache-only changes keep the record PATCH revision valid', async () => {
+  const root = project(store('0002') + record('0001', '不受影响的记录'));
+  const body = path.join(root, 'b.txt');
+  fs.writeFileSync(body, '走完 discard 与 prune 的候选');
+  const added = cacheAdd(root, '--op', 'add', '--record-type', 'fact', '--content-file', body);
+  const viewer = await startViewer(root);
+  try {
+    const rev = (await snapshot(viewer)).store_revision;
+    assert.equal((await api(viewer, `/api/cache/${added.event_id}/discard`, { method: 'POST', body: { store_revision: rev } })).status, 200);
+    assert.equal((await api(viewer, '/api/cache/prune', { method: 'POST', body: { store_revision: rev } })).status, 200);
+    const patched = await api(viewer, '/api/records/0001', { method: 'PATCH', body: { store_revision: rev, content: '新正文仍可用旧修订', type: 'fact', status: 'active' } });
+    assert.equal(patched.status, 200);
+  } finally { await viewer.stop(); }
+});

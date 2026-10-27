@@ -180,7 +180,7 @@ const scriptDir = path.dirname(path.resolve(process.argv[1] || '.'));
 const projectRoot = path.basename(scriptDir) === '.project-self-memory' ? path.dirname(scriptDir) : scriptDir;
 const token = crypto.randomBytes(32).toString('hex');
 const { server: httpServer } = server.createViewerServer({
-  fs, path, crypto, http, store, lock, ledger, tags,
+  fs, path, crypto, http, store, lock, ledger, tags, cache,
   projectRoot, token, pageHtml: page.VIEWER_PAGE_HTML,
 });
 httpServer.listen(port, '127.0.0.1', () => {
