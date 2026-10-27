@@ -1238,30 +1238,8 @@ function createViewerServer(deps) {
 
   /** Restricted single-record update with optimistic whole-store concurrency. */
   async function patchRecord(req, res, id) {
-    // Origin: cross-origin browser writes are refused; same-origin fetch sends
-    // a matching Origin, non-browser clients may omit it.
-    const origin = req.headers.origin;
-    if (origin !== undefined) {
-      let originHost = '';
-      try { originHost = new URL(origin).host; } catch { originHost = ''; }
-      if (originHost !== String(req.headers.host || '')) return json(res, 403, { error: 'ORIGIN_REJECTED', message: '拒绝跨源写入' });
-    }
-    if (String(req.headers['content-type'] || '').split(';')[0].trim() !== 'application/json') {
-      return json(res, 415, { error: 'UNSUPPORTED_MEDIA_TYPE', message: '只接受 application/json' });
-    }
-    let body;
-    try { body = await readBody(req); } catch (error) {
-      return json(res, error.code === 'TOO_LARGE' ? 413 : 400, { error: 'BAD_BODY', message: error.message });
-    }
-    let payload;
-    try { payload = JSON.parse(body.toString('utf8')); } catch {
-      return json(res, 400, { error: 'BAD_JSON', message: '请求体不是合法 JSON' });
-    }
-    const allowed = new Set(['store_revision', 'content', 'type', 'status']);
-    if (!payload || typeof payload !== 'object' || Array.isArray(payload)
-      || Object.keys(payload).some((key) => !allowed.has(key))) {
-      return json(res, 400, { error: 'BAD_FIELDS', message: '只允许 store_revision、content、type、status 字段' });
-    }
+    const payload = await readJsonPostBody(req, res, ['store_revision', 'content', 'type', 'status']);
+    if (!payload) return;
     const guardErrors = store.editGuard({ content: payload.content, type: payload.type, status: payload.status });
     if (typeof payload.store_revision !== 'string' || guardErrors.length) {
       return json(res, 400, { error: 'VALIDATION', message: guardErrors.join('；') || '缺少 store_revision' });
@@ -1333,12 +1311,12 @@ function createViewerServer(deps) {
   }
 
   /**
-   * 三条 cache 路由共用的安检链，与 patchRecord 完全同构：写方法先过 Origin
+   * 写路由共用的安检链（patchRecord 与三条 cache 路由同构）：写方法先过 Origin
    * 同源（403 ORIGIN_REJECTED），再 Content-Type（415）、限长读体（413/400
-   * BAD_BODY）、JSON 合法（400 BAD_JSON）、字段白名单（400 BAD_FIELDS）。
-   * 返回解析后的 payload；已应答时返回 null。
+   * BAD_BODY）、JSON 合法（400 BAD_JSON）、字段白名单（400 BAD_FIELDS，白名单
+   * 按传入顺序拼接进错误文案）。返回解析后的 payload；已应答时返回 null。
    */
-  async function readCachePostBody(req, res, allowedFields) {
+  async function readJsonPostBody(req, res, allowedFields) {
     const origin = req.headers.origin;
     if (origin !== undefined) {
       let originHost = '';
@@ -1528,7 +1506,7 @@ function createViewerServer(deps) {
    * cacheApply 一致：库写入全部成功后才标 applied + processed_at 并写 cache。
    */
   async function applyCacheEntry(req, res, eventId) {
-    const payload = await readCachePostBody(req, res, ['store_revision', 'content']);
+    const payload = await readJsonPostBody(req, res, ['store_revision', 'content']);
     if (!payload) return;
     if (typeof payload.store_revision !== 'string' || !payload.store_revision) {
       return json(res, 400, { error: 'VALIDATION', message: '缺少 store_revision' });
@@ -1621,7 +1599,7 @@ function createViewerServer(deps) {
    * 锁内重读防竞态；applied 409；重复 discard 幂等 200。只写 cache.jsonl。
    */
   async function discardCacheEntry(req, res, eventId) {
-    const payload = await readCachePostBody(req, res, ['store_revision']);
+    const payload = await readJsonPostBody(req, res, ['store_revision']);
     if (!payload) return;
     if (typeof payload.store_revision !== 'string' || !payload.store_revision) {
       return json(res, 400, { error: 'VALIDATION', message: '缺少 store_revision' });
@@ -1653,7 +1631,7 @@ function createViewerServer(deps) {
    * stale 条目，时效起点 processed_at||created_at，持 cache.lock。
    */
   async function pruneCacheEntries(req, res) {
-    const payload = await readCachePostBody(req, res, ['store_revision', 'older_than_days']);
+    const payload = await readJsonPostBody(req, res, ['store_revision', 'older_than_days']);
     if (!payload) return;
     if (typeof payload.store_revision !== 'string' || !payload.store_revision) {
       return json(res, 400, { error: 'VALIDATION', message: '缺少 store_revision' });
