@@ -45,7 +45,7 @@ $project-self-memory -l      # 显式读取
 node <project-root>/.project-self-memory/view-memoery.js
 ```
 
-它只监听 127.0.0.1 并输出带 `#token=` 的地址，并自动用系统默认浏览器打开。关闭自动打开等启动参数见[根 README](../../README.md#project-self-memory)。写入与 CLI 共用锁、备份与乐观并发。部署、HTTP 契约与安全模型见 [viewer.md](references/viewer.md)。
+它只监听 127.0.0.1 并输出带 `#token=` 的地址，并自动用系统默认浏览器打开。关闭自动打开等启动参数见[根 README](../../README.md#project-self-memory)。写入与 CLI 共用锁、备份与乐观并发。暂存区可在查看器中查看、编辑并入、丢弃、清理。部署、HTTP 契约与安全模型见 [viewer.md](references/viewer.md)。
 
 `self-memory/` 是只读 legacy 来源，只能通过 `legacy` 命令迁移，不能直接编辑。
 

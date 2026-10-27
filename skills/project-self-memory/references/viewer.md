@@ -24,12 +24,16 @@ node .project-self-memory/view-memoery.js
 | `/` | GET | 单页 HTML；`Content-Security-Policy: default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'`，`Cache-Control: no-store`，`Referrer-Policy: no-referrer`，`X-Content-Type-Options: nosniff` |
 | `/api/snapshot` | GET | 返回 `{format, store_revision, read_only, diagnostics, groups, group_dimension, generated_at, taxonomy, records[]}`；`format` 为 `psm-viewer-snapshot-v2`；每条记录含只读派生 `tags`、投影后的 `positive`、`negative`、`event_count`、`score_event_count`、`freshness` 与当前 `record_version` |
 | `/api/records/<id>` | PATCH | 仅接受 `{store_revision, content, type, status}` 四字段；一次提交三字段原子生效 |
+| `/api/cache/<event_id>/apply` | POST | 编辑并入：把一条 pending 候选落库；可带改写后正文（仅 add/update 接受 `content`） |
+| `/api/cache/<event_id>/discard` | POST | 丢弃：pending → discarded；已 applied 拒绝（409），重复 discard 幂等 200 |
+| `/api/cache/prune` | POST | 清理：清 applied、discarded 与读时已失效条目，可选 `older_than_days` 非负整数 |
 
 请求规则：
 
 - 除 `/` 外必须带 `Authorization: Bearer <token>`，否则 401。
 - Host 必须在白名单（127.0.0.1 / localhost，任意端口），否则 403。
 - 写请求带 `Origin` 时必须同源，否则 403；`Content-Type` 必须是 `application/json`，否则 415；正文 ≤256KB；未知字段 400。
+- cache 路由同样要求 Bearer 令牌（401）、Host 白名单、Origin 同源、JSON 限长与字段白名单（apply `{store_revision, content?}`、discard `{store_revision}`、prune `{store_revision, older_than_days?}`）。
 - 不提供任意文件服务；未知路径 404。
 
 ## 标签筛选与分组
@@ -49,6 +53,12 @@ PATCH 依次执行：字段白名单 → `editGuard`（拒绝结构标记、非�
 
 损坏的库（未知结构元素、账本校验失败）自动进入 `read_only`，PATCH 一律拒绝，原文件逐字节不变。
 
+### cache 写入管线
+
+`apply`（编辑并入）走两条锁：非阻塞先取 `cache.lock`（忙即 503），持锁后重读确认条目仍 pending（非 pending 409）；再取 `memory.lock + evidence.lock`（忙即 503）。库损坏一律 422 只读，条目保持 pending。改写正文在落库这一刻过单行契约（400 `CONTRACT`）；落库前做失效守卫——目标记录不存在或 `record_version` 与候选基准不一致（原基准 vs 现状）时拒绝直写（409）。请求携带的 `store_revision` 陈旧同样 409。±1 候选写账本走幂等键 `cache-apply-<event_id>`；库写入全部成功后才把条目标为 `applied`，此前条目保持 pending。
+
+`discard` 与 `prune` 只写 `cache.jsonl`、只持 `cache.lock`，不触碰记忆库与账本。cache-only 变更（discard、prune）不改变 `store_revision`（其口径仍只哈希 `memory.md` 与 `evidence.jsonl`），因此不会触发其他写方的记录编辑 409。
+
 ## 部署与升级契约
 
 - `init` 首次部署查看器；重复 `init` 保留现状，不升级。
@@ -63,6 +73,6 @@ PATCH 依次执行：字段白名单 → `editGuard`（拒绝结构标记、非�
 
 ## 并发限制
 
-- 查看器与当前 CLI 共用 `memory.lock`/`evidence.lock`，写操作互斥；CLI 侧有限等待，HTTP 侧立即 503。
+- 查看器与当前 CLI 共用 `memory.lock`/`evidence.lock`，写操作互斥；CLI 侧有限等待，HTTP 侧立即 503。cache 路由同样非阻塞取锁，`cache.lock` 或库锁被占时立即 503。
 - 旧版外部工具若直接编辑 `memory.md` 不经过锁，查看器无法感知；保存时的 `store_revision` 比对（409）是最后防线。
 - 评分事件绑定当前 `record_version`：编辑正文/类型/状态后旧评分不再投影，记录显示「未评分」，这是设计行为。

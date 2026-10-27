@@ -37,7 +37,7 @@ node <skill-path>/scripts/memory.mjs <command> [options]
 node .project-self-memory/view-memoery.js
 ```
 
-它只监听 127.0.0.1，输出带 `#token=` 的地址，并自动用系统默认浏览器打开。关闭自动打开等启动参数见[根 README](../../README.md#project-self-memory)。写入走与 CLI 相同的锁、备份、原子替换和乐观并发。部署与升级契约、HTTP 接口和安全模型见 [viewer.md](references/viewer.md)。
+它只监听 127.0.0.1，输出带 `#token=` 的地址，并自动用系统默认浏览器打开。关闭自动打开等启动参数见[根 README](../../README.md#project-self-memory)。写入走与 CLI 相同的锁、备份、原子替换和乐观并发。暂存区可在查看器中查看、编辑并入、丢弃、清理。部署与升级契约、HTTP 接口和安全模型见 [viewer.md](references/viewer.md)。
 
 正文使用 `--content-file <path>` 或标准输入，避免 shell 转义。常用命令（`<skill-path>` 是本 Skill 自身目录）：
 

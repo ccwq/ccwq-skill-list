@@ -818,7 +818,7 @@ node <skill-path>/scripts/memory.mjs tags set 0001 --add component:api --remove 
 node .project-self-memory/view-memoery.js
 ```
 
-输出带 `#token=` 的本机地址；只监听 127.0.0.1；令牌只在进程与页面内存中；默认自动用系统默认浏览器打开（`--no-open` 可禁止）。写入带备份、原子替换与乐观并发。详见 [viewer.md](skills/project-self-memory/references/viewer.md)。
+输出带 `#token=` 的本机地址；只监听 127.0.0.1；令牌只在进程与页面内存中；默认自动用系统默认浏览器打开（`--no-open` 可禁止）。写入带备份、原子替换与乐观并发。暂存区可在查看器中查看、编辑并入、丢弃、清理。详见 [viewer.md](skills/project-self-memory/references/viewer.md)。
 
 | 查看器参数 / 环境变量 | 说明 | 默认值 |
 |------|------|--------|
