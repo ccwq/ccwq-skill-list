@@ -84,9 +84,13 @@ function safeEmbed(source) {
 }
 
 function moduleFactory(name, file) {
-  // \r?\n 兼容 CRLF 源：`/^#!.*\n/` 在 CRLF 文件上失配（`.` 不匹配 \r），
-  // shebang 会残留进工厂体，产物语法错误。
-  const raw = fs.readFileSync(path.join(here, file), 'utf8').replace(/^#!.*\r?\n/, '');
+  // 行尾归一化：autocrlf 环境磁盘源是 CRLF、Linux 是 LF，统一成 LF 后
+  // 产物字节与 checkout 行尾无关，跨环境 --check 不再报假漂移（工单 05）。
+  const raw = fs.readFileSync(path.join(here, file), 'utf8')
+    .replace(/\r\n/g, '\n')
+    // \r?\n 兼容 CRLF 源：`/^#!.*\n/` 在 CRLF 文件上失配（`.` 不匹配 \r），
+    // shebang 会残留进工厂体，产物语法错误。
+    .replace(/^#!.*\r?\n/, '');
   const stripped = stripImports(raw, file);
   const { source, names } = rewriteExports(stripped, file);
   const nodeImports = IMPORTS[file] || [];
@@ -198,7 +202,9 @@ httpServer.listen(port, '127.0.0.1', () => {
 `;
 
   // 入口不依赖 require（ESM 宿主没有 require），脚本目录用 process.argv[1] 解析。
-  return entry;
+  // 入口模板是本文件里的多行字面量，构建器自身的磁盘行尾（autocrlf 下为
+  // CRLF）会原样进入产物，统一归一化为 LF，保证产物全程 LF（工单 05）。
+  return entry.replace(/\r\n/g, '\n');
 }
 
 function sha(text) { return crypto.createHash('sha256').update(text, 'utf8').digest('hex'); }
@@ -208,7 +214,9 @@ function main() {
   const output = build();
   if (check) {
     if (!fs.existsSync(distFile)) { console.error('PSM_VIEWER_DRIFT: 产物缺失'); process.exit(1); }
-    const current = fs.readFileSync(distFile, 'utf8');
+    // 产物在 autocrlf 环境检出时磁盘行尾是 CRLF（仓库内为 LF），比对按内容
+    // 归一化，只对真实内容漂移报警（工单 05）。
+    const current = fs.readFileSync(distFile, 'utf8').replace(/\r\n/g, '\n');
     if (current !== output) {
       console.error('PSM_VIEWER_DRIFT: 产物与源码不一致；运行 node scripts/build-viewer.mjs 重新生成');
       process.exit(1);

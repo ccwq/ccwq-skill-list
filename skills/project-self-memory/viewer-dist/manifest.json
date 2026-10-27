@@ -290,6 +290,17 @@
         "viewer-server.mjs",
         "viewer-page.mjs"
       ]
+    },
+    "9e2cf0e401e3cfd0c5b9ca445bb3af01d2db6465c7b1ce15380b97c9479a9780": {
+      "built_from": [
+        "memory-store.mjs",
+        "memory-lock.mjs",
+        "evidence-ledger.mjs",
+        "memory-tags.mjs",
+        "memory-cache.mjs",
+        "viewer-server.mjs",
+        "viewer-page.mjs"
+      ]
     }
   },
   "name": "view-memoery.js"
