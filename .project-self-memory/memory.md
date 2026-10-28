@@ -1,4 +1,4 @@
-<!-- <psm-store version="1" next_id="0020" group_dimension="" /> -->
+<!-- <psm-store version="1" next_id="0023" group_dimension="" /> -->
 <!-- <psm id="0001" type="pitfall" status="active" positive="0" negative="0" created_at="2026-08-11T15:41:36Z" last_scored_at="" /> -->
 `.env` 的反斜杠续行必须在执行 `KEY=value` 校验前合并物理行。对逗号分隔的清单，续行处仍需保留分隔符，例如 `aria-filedown,\` 后接下一行；否则会拼成错误的单个名称（如 `aria-filedowndeep-investigation`）。
 
@@ -55,4 +55,13 @@ Windows 下若初始化契约要求生成文件与模板字节完全一致，优
 
 <!-- <psm id="0019" type="experience" status="active" positive="0" negative="0" created_at="2026-10-22T03:18:56Z" last_scored_at="" /> -->
 设计破坏性浏览器操作时，先在浏览器 runner 初始化前验证必要参数和执行授权，再对页面提取的账号进行规范化、去重及唯一精确匹配；缺失、歧义或不匹配均应拒绝继续，审计中避免保留原始账号标识。用纯函数离线测试覆盖这些拒绝分支及脱敏，但不要把 mock 通过当作真实 DOM、账号提取或删除闭环已验证。尤其不能将 dry-run 等同于离线或无副作用：必须核对它跳过的是哪一步。来源：findings.md；静态核验 skills/gemin-mirror/scripts/session-safety.mjs、delete-current-account-sessions.mjs 及 test-space/gemin-mirror/delete-current-account-sessions.test.mjs；当前 dry-run 仍操作浏览器、进入删除菜单并写审计，仅跳过最终确认。此次未运行浏览器或测试。
+
+<!-- <psm id="0020" type="fact" status="active" positive="0" negative="0" created_at="2026-10-28T02:05:44Z" last_scored_at="" /> -->
+已验证：2026-10-28 将 `skill-zips/handoff-portable.zip`（双模式交接给普通聊天 AI）纳入 ccwq-skill-list 并完成加固。目录 `skills/handoff-portable`，含 SKILL.md、agents/openai.yaml、assets/icon.svg、references/package-format.md、references/ste-description.md、scripts/portable.py 与 CHANGELOG.md，纳入时六个文件 SHA-256 与源 zip 逐一一致；加固后脚本改为结构解析并新增 `check` 子命令，版本升到 1.1.0，目录共 7 个文件。同步根 README 的「可用 Skill」索引行与「参数速查」小节，并在 `.claude-plugin/marketplace.json` 添加 `name`/`source: ./skills/handoff-portable`/`description`/`version`/`category: collaboration`；未加入 `.env` 的 `MAIN_LIST`，因此 `plugin.json` 不变且 `node scripts/sync-main-skill-manifest.mjs --check` 仍输出 `MAIN_SKILL_MANIFEST_VALID`。交接文件的产出格式与 manifest 输入契约不变：同一份 manifest 用加固前后两版脚本生成的字节完全一致，加固前生成的交接文件仍能通过新校验，样本见 test-space/handoff-portable/fixtures/。回归测试见 test-space/handoff-portable/run_tests.py。`npm run test:package-skills` 失败与本技能无关：根因是 Windows 下 Node `os.tmpdir()` 返回 8.3 短名而 PowerShell 展开长名，测试用 `Substring` 截取前缀时偏移 4–5 字符，属已知历史缺陷。
+
+<!-- <psm id="0021" type="fact" status="active" positive="0" negative="0" created_at="2026-10-28T03:22:26Z" last_scored_at="" /> -->
+已验证：2026-10-28 完成 handoff-portable 脚本加固（规格见 .scratch/handoff-portable-hardening/spec.md）。`verify` 从纯子串匹配改为按行结构解析：六个必需段落必须成对、顺序固定、内容非空，`<skill>` 元素必须配对，模式行须与标签形态一致，代码围栏内的同名文本不再算标签；校验前把 CRLF 归一化为 LF 并接受 `\r?\n` 收尾的 footer；STE 规范改用 `<!-- ste-policy:start -->` / `<!-- ste-policy:end -->` 显式锚点提取，缺标记直接报错。新增 `check` 子命令做语义体检（portable 下技能列表为空、skill name 下约束正文被丢弃、声明范围含全文/完整但正文明显更短、源文件 mtime 晚于 captured_at、正文疑似未脱敏凭据），`build` 渲染前自动调用，警告走 stderr 不阻断产出。退出码统一为 0 成功无警告 / 2 成功有警告 / 1 失败；`build` 有警告仍退出 0。交接文件格式与 manifest 契约不变：同一份 manifest 用加固前后两版脚本生成的字节完全一致，加固前生成的交接文件仍能通过新校验（样本见 test-space/handoff-portable/fixtures/legacy-handoff.md）。回归测试 30 例见 test-space/handoff-portable/run_tests.py；仓库内 `npm run test:git-history-cleaner` 因本机缺 git-filter-repo 失败，与本次无关。
+
+<!-- <psm id="0022" type="fact" status="active" positive="0" negative="0" created_at="2026-10-28T03:22:26Z" last_scored_at="" /> -->
+已验证：2026-10-28 发现 `scripts/package-skills.mjs` 在 Windows 上经 PowerShell/.NET 的 ZipFile.CreateFromDirectory 打包，zip 条目名使用反斜杠作分隔符（如 `scripts\portable.py`、`references\package-format.md`），不是 POSIX 正斜杠。仓库现存全部 skill-zips/*.zip 都是这个形态（git-up.zip 同样如此），按 POSIX 路径匹配的解压器在 Linux/macOS 上会找不到这些条目。这是跨平台分发风险，与仓库既有的 `npm run test:package-skills` 失败（Windows 8.3 短名导致 Substring 偏移）是两个不同问题，本次未修。
 

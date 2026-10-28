@@ -52,6 +52,7 @@ npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code --
 | `gemin-mirror` | Gemini 兼容镜像站的账号探针、账号切换与安全会话删除 | [速查](#gemin-mirror) · [README](skills/gemin-mirror/README.md) |
 | `git-history-cleaner` | 清理 Git 历史中的特定文件或目录 | [速查](#git-history-cleaner) · [SKILL](skills/git-history-cleaner/SKILL.md) |
 | `git-up` | Git 提交与 `.gitignore` 维护，支持规划、讨论、委派与一步提交 | [速查](#git-up) · [README](skills/git-up/README.md) |
+| `handoff-portable` | 把当前任务交接给普通聊天 AI，生成可粘贴的单个 Markdown 文件并做结构校验与语义体检 | [速查](#handoff-portable) · [SKILL](skills/handoff-portable/SKILL.md) |
 | `joint-debugging` | 手动协调技术联调、故障诊断、验证与修复 | [速查](#joint-debugging) · [SKILL](skills/joint-debugging/SKILL.md) |
 | `lite-team` | 轻量多 Agent 协作，用协作板在不同 Agent / session 间手动交接 | [速查](#lite-team) · [README](skills/lite-team/README.md) |
 | `nano-prompt` | AI 图像提示词生成，输出分层 YAML 结构 | [速查](#nano-prompt) · [SKILL](skills/nano-prompt/SKILL.md) |
@@ -541,6 +542,53 @@ $git-history-cleaner --repo /path/to/repo --path "*.log" --auto
 </details>
 
 详情见 [README.md](skills/git-up/README.md)。
+
+---
+
+### handoff-portable
+
+把当前任务交接给普通聊天窗口，生成单个可上传或粘贴的 Markdown 文件。
+
+默认 `portable` 模式：提炼与任务相关的技能约束、全局规则和项目规则，并内嵌接续所需的资料。
+
+```text
+$handoff-portable 把当前任务的上下文交接给普通聊天窗口
+$handoff-portable 用 skill name 模式交接，只列技能名
+```
+
+```text
+python <skill-dir>/scripts/portable.py build manifest.json --output HANDOFF.md
+python <skill-dir>/scripts/portable.py verify HANDOFF.md
+python <skill-dir>/scripts/portable.py check manifest.json
+```
+
+接收方先核对理解，再等待用户指示。接收方不会自动继续原任务。
+
+`build` 自动跑一次语义体检，`check` 可单独预检。退出码：`0` 成功无警告；`2` 成功但有警告，需人眼判断；`1` 失败。`build` 有警告仍退出 `0`（文件已产出），`verify` 与 `check` 有警告退出 `2`。
+
+<details>
+<summary>参数</summary>
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `[模式]` | `portable` 提炼任务相关约束正文；`skill name` 只列技能名 | `portable` |
+| `[输出路径]` | 交接文件保存位置 | 系统临时目录下的独立目录 |
+| `[语言]` | 交接描述语言 | 中文 |
+
+表里是调用 skill 时的选择项；脚本的命令行参数见 [格式与脚本接口](skills/handoff-portable/references/package-format.md)，其中 `--output` 为必填。
+
+- `portable` 模式保留强制要求、条件、例外、授权边界和适用范围。摘录精炼结果，不复制技能原文。
+- `skill name` 模式只输出 `<skill name="…" />`。接收方无法据此恢复约束正文，缺失会明确写出。
+- `verify` 解析段落配对、顺序、内容与技能标签形态。代码围栏内的同名文本不算标签。CRLF 行尾自动归一化。
+- `build` 只在 manifest 硬校验不通过时拒绝产出。产出结构自检只发警告，文件照常写出，由 `verify` 决定是否放行。
+- 脚本只做结构与一致性检查并检测意外改动。不证明语义正确、来源穷尽或脱敏充分。
+- 语义体检只警告不阻断：技能列表为空、被丢弃的约束正文、声明范围与正文长度不符、源文件比采集时间新、疑似未脱敏凭据。
+- 凭证和不必要个人信息替换为 `[REDACTED:原因]`。
+- 平台隐藏的系统提示词和隐藏推理不提取、不重构。
+
+</details>
+
+详情见 [SKILL.md](skills/handoff-portable/SKILL.md)。
 
 ---
 

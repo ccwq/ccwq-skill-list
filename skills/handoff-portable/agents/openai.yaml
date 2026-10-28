@@ -1,0 +1,14 @@
+interface:
+  display_name: Handoff Portable
+  short_description: 双模式交接：精炼任务约束或仅列技能名，生成供聊天 AI 阅读的文件
+  default_prompt: 使用 $handoff-portable 以默认 portable 模式导出当前任务。保留任务相关的精炼约束、关键历史和必要资料。接收
+    AI 核对理解后等待我的指示。
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg
+policy:
+  products:
+  - chatgpt
+  - codex
+  - api
+  - atlas
+  allow_implicit_invocation: true

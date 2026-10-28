@@ -48,3 +48,5 @@ __tmp*
 /*.port
 /*.stream
 /.planning
+/.scratch
+/.project-self-memory/backups/

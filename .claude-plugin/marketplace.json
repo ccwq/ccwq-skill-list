@@ -212,6 +212,13 @@
       "category": "devtools"
     },
     {
+      "name": "handoff-portable",
+      "source": "./skills/handoff-portable",
+      "description": "把当前任务交接给普通聊天 AI：portable 模式提炼任务相关技能约束、全局与项目规则并内嵌必要资料，skill name 模式只列技能名；生成单个 Markdown 交接文件，校验段落配对与顺序并做语义体检，接收方核对理解后等待指示",
+      "version": "1.1.0",
+      "category": "collaboration"
+    },
+    {
       "name": "wechat-headlines",
       "source": "./skills/wechat-headlines",
       "description": "根据文章正文、简短要点、链接或文件生成与优化微信公众号标题，默认六条不同方向候选并首推一条，兼顾点击吸引力与事实边界，支持按反馈迭代",
