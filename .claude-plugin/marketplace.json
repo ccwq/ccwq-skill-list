@@ -11,8 +11,8 @@
     {
       "name": "git-up",
       "source": "./git-up",
-      "description": "Git 提交与 .gitignore 维护工具：-pc/-pcP 对简单安全单提交自动走快车道，复杂改动回退 YAML 规划；支持会话内讨论/修改、受控 push、完全子智能体委派与 zh/en 输出。",
-      "version": "2.6.0",
+      "description": "Git 提交与 .gitignore 维护工具：-pc/-pcP 对简单安全单提交自动走快车道；同一文件含多个语义目的时按语义组拆成多个可独立回滚的提交并校验最终状态；支持会话内讨论/修改、受控 push、完全子智能体委派与 zh/en 输出。",
+      "version": "2.7.0",
       "category": "git"
     },
     {

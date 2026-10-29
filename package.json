@@ -12,7 +12,8 @@
     "test:agent-human-debug": "node test-space/agent-human-debug/run_tests.mjs",
     "test:package-skills": "node test-space/package-skills/run_tests.mjs",
     "test:handoff-portable": "python test-space/handoff-portable/run_tests.py",
-    "test": "python test-space/git-up-commit-plan-tests/run_tests.py",
+    "test": "node test-space/git-up-commit-plan-tests/run_tests.mjs",
+    "test:git-up-semantic": "node test-space/git-up-semantic-tests/run_tests.mjs",
     "test:git-history-cleaner": "python test-space/git-history-cleaner/run_tests.py"
   },
   "ntl": {
@@ -25,7 +26,8 @@
       "test:agent-human-debug": "运行 agent-human-debug 跨平台诊断契约的离线回归测试。",
       "test:package-skills": "运行 Skill ZIP 打包脚本的离线回归测试。",
       "test:handoff-portable": "运行 handoff-portable 交接脚本的离线回归测试。",
-      "test": "运行 git-up commit plan 执行器的 Python 回归测试。",
+      "test": "运行 git-up 提交计划执行器的 Node 回归测试。",
+      "test:git-up-semantic": "运行 git-up 语义拆分提交的 Node 回归测试。",
       "test:git-history-cleaner": "运行 git-history-cleaner skill 的隔离回归测试。"
     }
   },
