@@ -31,6 +31,16 @@ $git-up -i                         # 增量维护 .gitignore
 
 必须先确认暂存内容的归属，再重新生成或执行计划。不得扩大文件范围以绕过保护。
 
+## 语义拆分提交
+
+同一文件包含多个语义目的的改动时，改用语义模式。每一步用 `changes` 声明自己的补丁，同一文件可以进入多个提交。
+
+语义模式的执行器按依赖顺序逐步把补丁写入 index，不改动工作区。执行结束后，它比较最终 HEAD 与执行前保存的目标工作区。不一致时返回失败，不报告成功。
+
+语义模式不支持二进制补丁、重命名和复制格式。这些情况必须显式失败。
+
+完整格式、补丁模式、错误码和快车道回退条件见 [references/semantic-commit.md](references/semantic-commit.md)。
+
 ## 模式选择
 
 根据任务选择模式：
@@ -59,15 +69,17 @@ $git-up -i                         # 增量维护 .gitignore
 ## 脚本入口
 
 ```powershell
-python skills/git-up/scripts/commit_plan.py --help
-python skills/git-up/scripts/gitignore_manager.py --cwd . --dry-run
+node skills/git-up/scripts/commit_plan.mjs --help
+node skills/git-up/scripts/inspect_fast_path.mjs --cwd .
+node skills/git-up/scripts/split_patch.mjs --diff .scratch/git-up/full.patch --out .scratch/git-up/patches
+node skills/git-up/scripts/gitignore_manager.mjs --cwd . --dry-run
 ```
 
-Windows PowerShell 5.1 提交包含中文或 emoji 的计划时，使用 UTF-8 `--plan-file`，不要直接把 here-string 通过管道传给 Python：
+Windows PowerShell 5.1 提交包含中文或 emoji 的计划时，使用 UTF-8 `--plan-file`，不要直接把 here-string 通过管道传给 Node：
 
 ```powershell
 [IO.File]::WriteAllText($planFile, $plan, [Text.UTF8Encoding]::new($false))
-python skills/git-up/scripts/commit_plan.py commit --cwd . --plan-file $planFile
+node skills/git-up/scripts/commit_plan.mjs commit --cwd . --plan-file $planFile
 ```
 
-完整 YAML 格式、快车道判定、提交消息规范、push 重试规则及委派契约见 [SKILL.md](SKILL.md)。
+完整 YAML 格式、快车道判定、语义拆分、提交消息规范、push 重试规则及委派契约见 [SKILL.md](SKILL.md)。

@@ -51,7 +51,7 @@ npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code --
 | `ffmpeg-video-processing` | 用 ffmpeg / ffprobe 压缩、转码、裁剪、抽取音频与检查媒体 | [速查](#ffmpeg-video-processing) · [SKILL](skills/ffmpeg-video-processing/SKILL.md) |
 | `gemin-mirror` | Gemini 兼容镜像站的账号探针、账号切换与安全会话删除 | [速查](#gemin-mirror) · [README](skills/gemin-mirror/README.md) |
 | `git-history-cleaner` | 清理 Git 历史中的特定文件或目录 | [速查](#git-history-cleaner) · [SKILL](skills/git-history-cleaner/SKILL.md) |
-| `git-up` | Git 提交与 `.gitignore` 维护，支持规划、讨论、委派与一步提交 | [速查](#git-up) · [README](skills/git-up/README.md) |
+| `git-up` | Git 提交与 `.gitignore` 维护，支持规划、讨论、委派、一步提交与语义拆分提交 | [速查](#git-up) · [README](skills/git-up/README.md) |
 | `handoff-portable` | 把当前任务交接给普通聊天 AI，生成可粘贴的单个 Markdown 文件并做结构校验与语义体检 | [速查](#handoff-portable) · [SKILL](skills/handoff-portable/SKILL.md) |
 | `joint-debugging` | 手动协调技术联调、故障诊断、验证与修复 | [速查](#joint-debugging) · [SKILL](skills/joint-debugging/SKILL.md) |
 | `lite-team` | 轻量多 Agent 协作，用协作板在不同 Agent / session 间手动交接 | [速查](#lite-team) · [README](skills/lite-team/README.md) |
@@ -495,11 +495,13 @@ $git-history-cleaner --repo /path/to/repo --path "*.log" --auto
 
 简单、安全的 `-pc/-pcP` 任务自动采用快车道。
 
+同一个文件含多个语义目的的改动时，按语义组拆成多个可独立回滚的提交。
+
 ```text
 /git-up --plan, -p      # 分析 diff，在会话中输出 YAML 提交计划
 /git-up --discuss, -d   # 轻量讨论提交计划，最多 1-3 个关键问题
 /git-up --modify <内容>  # 根据反馈调整计划并重新输出
-/git-up --commit, -c    # 优先用 Python fast path 执行会话中的计划
+/git-up --commit, -c    # 优先用 Node.js fast path 执行会话中的计划
 /git-up --sub-agent, -s 仅提交 skills/git-up  # 委派一个子智能体执行 git-up -pc
 /git-up --ignore, -i       # 自动识别技术栈，直接创建或增量维护 .gitignore
 /git-up -l en --plan     # 使用英文输出计划、讨论问题和 commit message
@@ -538,6 +540,30 @@ $git-history-cleaner --repo /path/to/repo --path "*.log" --auto
 - 网络或传输失败时，push 最多重试 3 次。
 - 认证、权限、无 upstream 或 non-fast-forward 错误不重试。
 - `-l/--lang` 影响计划说明、讨论问题、commit subject/body 和最终汇报；type/scope/emoji、文件路径和命令保持原样。
+
+</details>
+
+<details>
+<summary>语义拆分提交</summary>
+
+同一文件含多个语义目的的改动时，计划步骤改用 `changes` 声明自己的补丁。
+
+```yaml
+- step: 1
+  subject: "build(deps): ✨安装依赖"
+  reason: "依赖必须先于脚本提交"
+  changes:
+    - path: package.json
+      patch_mode: content
+      patch_file: .scratch/git-up/state-1.json
+```
+
+- 一个路径可以出现在多个步骤。
+- `depends_on` 声明提交顺序。依赖成环时停止。
+- `patch_mode` 取 `patch`、`3way` 或 `content`。`content` 用中间状态文件写入完整内容。
+- 语义模式下每一步都必须声明 `changes`，且不得声明 `files`。执行器不回退到文件级暂存。
+- 执行后比较最终 HEAD 与执行前的目标工作区。不一致时返回失败。
+- 二进制补丁、重命名和复制格式显式失败，不做猜测。
 
 </details>
 

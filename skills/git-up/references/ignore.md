@@ -9,8 +9,8 @@
 - `--clean` 只预览 Git-up 管理区块的重复规则；仅 `--clean --apply` 删除，且不删除手写规则。
 
 ```powershell
-python skills/git-up/scripts/gitignore_manager.py --cwd .
-python skills/git-up/scripts/gitignore_manager.py --cwd . node python
-python skills/git-up/scripts/gitignore_manager.py --cwd . --add "tmp/" --reason "本地调试输出"
-python skills/git-up/scripts/gitignore_manager.py --cwd . --clean
+node skills/git-up/scripts/gitignore_manager.mjs --cwd .
+node skills/git-up/scripts/gitignore_manager.mjs --cwd . node python
+node skills/git-up/scripts/gitignore_manager.mjs --cwd . --add "tmp/" --reason "本地调试输出"
+node skills/git-up/scripts/gitignore_manager.mjs --cwd . --clean
 ```

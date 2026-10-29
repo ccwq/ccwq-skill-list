@@ -4,12 +4,44 @@ All notable changes to this skill will be documented in this file.
 
 ## Unreleased
 
+## [2.7.0] - 2026-10-29
+
+### 新增
+- 新增语义拆分提交模式：计划步骤可声明 `reason`、`depends_on` 和 `changes`。同一文件可以进入多个提交，每个提交只含自己声明的语义改动。
+- 新增精确补丁暂存层：用 `git apply --cached` 或 index 直写把独立补丁写入 index，不触碰工作区，不依赖交互式 `git add -p`。
+- 新增 `patch_mode: content`：用 Agent 生成的中间状态文件写入 index，使 JSON、YAML 等结构化文件的相邻改动仍可按语义拆分。
+- 新增目标快照层与最终校验层：执行前保存范围路径的目标树，执行后比较最终 HEAD 与目标树，并检查范围内的工作区和暂存区。不一致时返回 `target_verification_failure`。
+- 新增依赖排序：按 `depends_on` 做拓扑排序，依赖成环时返回 `dependency_cycle` 并停止。
+- 新增机器可读错误码：`staged_changes_present`、`invalid_plan`、`patch_apply_failure`、`patch_scope_mismatch`、`dependency_cycle`、`unsupported_operation`、`commit_failure`、`target_verification_failure`。
+- 新增 `scripts/split_patch.mjs`：把 unified diff 按 hunk 边界拆成独立补丁文件，并输出源文件到补丁的 JSON 清单，使同一文件的多处改动可按语义分组。
+- 新增 `references/semantic-commit.md`：语义计划格式、补丁模式、执行语义、错误码和快车道回退条件。
+
+### 变更
+- 脚本从 Python 改写为 Node.js（ESM，`.mjs`）：`commit_plan.mjs`、`gitignore_manager.mjs`、`inspect_fast_path.mjs`，新增核心层 `gitup_semantic.mjs`。CLI 参数与 JSON 输出契约保持不变。
+- 快车道检查器新增 `--plan-file`：计划含 `changes`、路径被多个步骤共享、存在依赖、存在补丁或中间状态文件、含不支持的操作时，回退快车道并报告原因。
+- 语义模式下每个步骤都必须声明 `changes`。含 `files` 的步骤被拒绝，语义模式不回退到文件级暂存。
+
+### 约束
+- 执行器不运行 `git add .`、`git commit -a`、`git reset --hard` 或 checkout 清理。工作区文件在整个流程中保持不变。
+- 二进制补丁、重命名和复制格式显式失败，不做猜测。
+- 补丁必须由 `git diff` 生成，使上下文使用 index 表示的内容。
+- 回归测试用 `GIT_TRACE2_EVENT` 追踪执行器实际运行的每条 git 命令，并比对执行前后的工作区文件哈希。安全约束由测试证明，不只由文档声明。
+
+### 修复
+- 语义计划的路径按字面量处理。Git 对非 ASCII 路径的八进制转义不再被误判为越界路径，中文文件名可用于语义拆分。文件名含通配符字符时不再被 pathspec 展开。
+- `depends_on` 写成标量时不再被静默丢弃。执行器返回 `invalid_plan`，避免依赖顺序失效后按书写顺序提交。
+- 任一步失败时把 index 恢复到 HEAD。中途失败不再把计划外内容留在暂存区。
+- `git diff --cached` 执行失败时不再被当成"没有差异"。读取失败会中止执行并返回 `git_failed`。
+- hunk 正文里的 `--- a/x`、`+++ b/x` 这类行不再被误当成补丁文件头。
+- `clearIndex` 的兜底改用 `git read-tree HEAD`。旧兜底会删除 index 条目，而不是把 index 恢复到 HEAD。
+- 提交后核对本次提交触碰的路径。钩子自行暂存计划外文件时会被检出。
+
 ### 性能
 - `-pc/-pcP` 新增自适应快车道：一次聚合只读检查通过后，简单单提交不再回显完整 YAML；执行结果提供 `fast_path_used`，回退时提供 `fallback_reasons`。
 - 主 `SKILL.md` 改为按模式渐进披露，将 Windows、push、ignore 的低频细节移到 `references/`，降低常用调用的上下文载入量。
 
 ### 修复
-- `commit_plan.py` 新增 UTF-8 `--plan-file` 入口，避免 Windows PowerShell 5.1 原生管道将中文和 emoji 替换为 `?`。
+- `commit_plan.mjs` 提供 UTF-8 `--plan-file` 入口，避免 Windows PowerShell 5.1 原生管道将中文和 emoji 替换为 `?`。
 - 补充 Windows 提交计划的编码使用说明和回归测试。
 
 ## [2.5.0] - 2026-08-04
