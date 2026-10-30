@@ -713,8 +713,8 @@ function testEmptyPatchIsReportedAsSkipped() {
     assertTrue(result.status === 0, `${result.stdout}${result.stderr}`);
     assertTrue(payload.skipped_steps.length === 1, '应报告一个跳过的步骤');
     assertTrue(
-      payload.skipped_steps[0].reason.includes('empty.patch'),
-      `跳过原因应指出补丁文件，实际 ${payload.skipped_steps[0].reason}`,
+      payload.skipped_steps[0].skip_reason.includes('empty.patch'),
+      `跳过原因应指出补丁文件，实际 ${payload.skipped_steps[0].skip_reason}`,
     );
   });
 }
@@ -844,6 +844,39 @@ function testFailedExecutionReportsOnlyRealCommits() {
     assertTrue(payload.completed_steps[0].sha.length > 0, '已完成步骤应带 SHA');
     const head = git(repo, 'rev-parse', 'HEAD').stdout.trim();
     assertTrue(head === payload.completed_steps[0].sha, 'HEAD 应与报告的最后一次提交一致');
+  });
+}
+
+function testResultEchoesPlanReason() {
+  /**
+   * Given：语义步骤声明 reason，且该步骤没有产生差异而被跳过。
+   * When：执行语义计划并读取结果。
+   * Then：已提交与被跳过的结果都回显计划的 reason，跳过原因另用 skip_reason。
+   防回归：规格用户故事 16 要求结果可审计。reason 与跳过原因混用同一个字段会丢失审阅信息。
+   */
+  return withRepo('git-up-sem-echo-', (work, repo) => {
+    writeFile(path.join(repo, 'a.txt'), 'one\n');
+    git(repo, 'add', 'a.txt');
+    git(repo, 'commit', '-m', 'init');
+    const patch = path.join(work, 'empty.patch');
+    writeFile(patch, '');
+    const yamlText = semanticPlan([
+      {
+        step: 1,
+        subject: 'feat: skipped group',
+        reason: 'PLAN_REASON_MARKER',
+        changes: [{ path: 'a.txt', patch_file: patch }],
+      },
+    ]);
+    const result = runPlan('commit', yamlText, repo);
+    const payload = parseJson(result);
+    assertTrue(result.status === 0, `${result.stdout}${result.stderr}`);
+    const skipped = payload.skipped_steps[0];
+    assertTrue(skipped.reason === 'PLAN_REASON_MARKER', '被跳过的步骤应回显计划 reason');
+    assertTrue(
+      typeof skipped.skip_reason === 'string' && skipped.skip_reason.includes('no effective change'),
+      `跳过原因应单独放在 skip_reason，实际 ${skipped.skip_reason}`,
+    );
   });
 }
 
@@ -2193,6 +2226,7 @@ const TESTS = [
   testPackageJsonSplitsIntoThreeCommits,
   testRelatedFilesAttachToTheirSemanticGroup,
   testResultContractSupportsDelegationAudit,
+  testResultEchoesPlanReason,
   testReasonIsNotWrittenIntoCommitMessage,
   testFailedExecutionReportsOnlyRealCommits,
 ];
