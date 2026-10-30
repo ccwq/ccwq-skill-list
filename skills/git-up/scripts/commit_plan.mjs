@@ -20,7 +20,9 @@ import process from 'node:process';
 
 import {
   CODE_INVALID_PLAN,
+  CODE_VERIFICATION,
   PlanError,
+  captureTargetSnapshot,
   clearIndex,
   collectScope,
   ensureCleanIndex,
@@ -34,7 +36,9 @@ import {
   stagedPaths,
   stepMessage,
   stepToDict,
+  topologicalOrder,
   validateSemanticPlan,
+  verifyTarget,
 } from './gitup_semantic.mjs';
 
 /** 读取 stdin 的全部内容。 */
@@ -65,11 +69,36 @@ export function executeFilePlan(steps, cwd, fastPathUsed = false) {
   const preflight = ensureCleanIndex(cwd);
   if (preflight !== null) return preflight;
 
+  let ordered;
+  let scope;
+  let snapshot;
+  try {
+    // depends_on 是计划模型的共享字段。文件级模式同样按依赖排序并校验。
+    ordered = topologicalOrder(steps);
+    scope = [...new Set(steps.flatMap((item) => item.files))].sort();
+    snapshot = captureTargetSnapshot(cwd, scope);
+  } catch (error) {
+    if (error instanceof PlanError) return error.toDict();
+    throw error;
+  }
+
   const completed = [];
   const skipped = [];
   const commits = [];
 
-  for (const item of steps) {
+  for (const item of ordered) {
+    // 每步先清空并复查暂存区，避免上一步的残留混入本次提交。
+    const [cleared, clearMessage] = clearIndex(cwd);
+    if (!cleared) {
+      return {
+        ok: false,
+        code: 'git_failed',
+        step: item.step,
+        message: `failed to clear the index before step ${item.step}: ${clearMessage.trim()}`,
+        completed_steps: completed,
+      };
+    }
+
     const addResult = runGit(['add', '--', ...item.files.map(literalPathspec)], cwd);
     if (addResult.status !== 0) {
       clearIndex(cwd);
@@ -130,6 +159,19 @@ export function executeFilePlan(steps, cwd, fastPathUsed = false) {
     });
   }
 
+  const verification = verifyTarget(cwd, snapshot);
+  if (!verification.ok) {
+    return {
+      ok: false,
+      code: CODE_VERIFICATION,
+      message: `target verification failed: ${verification.reason}`,
+      step: null,
+      verification,
+      completed_steps: completed,
+      skipped_steps: skipped,
+    };
+  }
+
   const logCount = Math.max(completed.length, 1);
   const logResult = runGit(['log', '--oneline', `-${logCount}`], cwd);
   if (logResult.status !== 0) {
@@ -140,9 +182,14 @@ export function executeFilePlan(steps, cwd, fastPathUsed = false) {
     ok: true,
     mode: 'file',
     fast_path_used: fastPathUsed,
+    base_head: snapshot.base_head,
+    final_head: runGit(['rev-parse', 'HEAD'], cwd).stdout.trim(),
+    target_tree: snapshot.target_tree,
+    final_tree: verification.final_tree,
     completed_steps: completed,
     skipped_steps: skipped,
     commits,
+    verification,
     git_log: logResult.stdout.trim(),
   };
 }

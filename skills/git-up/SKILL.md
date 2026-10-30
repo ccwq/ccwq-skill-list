@@ -29,6 +29,8 @@ description: |
 
 每个提交使用明确 `files` 路径，按类型、模块和依赖顺序拆分。一个提交必须业务完整且可独立回滚。计划 YAML 是 `scripts/commit_plan.mjs` 的 YAML Lite：每步具备递增 `step`、`subject` 与非空 `files`。
 
+两种模式都支持 `depends_on` 声明前置步骤。执行器按依赖拓扑排序，成环时停止。
+
 ```yaml
 - step: 1
   subject: "feat(scope): ✨主题"
@@ -74,7 +76,7 @@ description: |
 
 快车道只属于 `-pc/-pcP`；`-p` 始终输出完整 YAML，`-s/-sP` 保持既有委派契约。
 
-1. 一次调用 `scripts/inspect_fast_path.mjs --cwd . --plan-file <计划文件>` 做硬条件筛选。
+1. 一次调用 `scripts/inspect_fast_path.mjs --cwd .` 做仓库级硬条件筛选。改动明显需要拆分时，先产出计划，再加 `--plan-file <计划文件>` 复检，确认回退原因。
 2. 只有 `eligible=true`，并且当前改动确实是**一个明确的语义目的、一个 commit**时才命中快车道。
 3. 快车道在内存生成单步 YAML，调用 `commit_plan.mjs commit --fast-path`；不向用户回显完整 YAML。
 4. 最终紧凑汇报 `fast_path_used`、commit subject、files、completed/skipped steps、git log；`-pcP` 另报 push 结果。

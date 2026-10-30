@@ -28,6 +28,8 @@ All notable changes to this skill will be documented in this file.
 - 回归测试用 `GIT_TRACE2_EVENT` 追踪执行器实际运行的每条 git 命令，并比对执行前后的工作区文件哈希。安全约束由测试证明，不只由文档声明。
 
 ### 修复
+- 文件级模式此前无视 `depends_on`，按计划书写顺序提交。两种模式现在都按依赖拓扑排序，成环时返回 `dependency_cycle` 并停止。
+- 文件级模式现在逐步清空并复查暂存区，执行后比较最终 HEAD 与执行前的目标快照。结果新增 `verification`、`base_head`、`final_head`、`target_tree`、`final_tree`，两种模式的结果契约一致。
 - 模式变更的补丁在暂存前被拒绝，返回 `unsupported_operation`。此前补丁会先落地，再因目标快照无法表达纯索引的 mode 变更而报 `target_verification_failure`，提交已进历史却报告失败。
 - 语义计划的路径按字面量处理。Git 对非 ASCII 路径的八进制转义不再被误判为越界路径，中文文件名可用于语义拆分。文件名含通配符字符时不再被 pathspec 展开。
 - `depends_on` 写成标量时不再被静默丢弃。执行器返回 `invalid_plan`，避免依赖顺序失效后按书写顺序提交。
