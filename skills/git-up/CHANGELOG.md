@@ -4,6 +4,9 @@ All notable changes to this skill will be documented in this file.
 
 ## Unreleased
 
+### 文档
+- 补充语义模式的委派契约：子 Agent 读同一份 SKILL.md，适用同一套补丁暂存、目标快照校验与错误码。委派只改变执行者，不改变提交边界。
+
 ## [2.7.0] - 2026-10-29
 
 ### 新增

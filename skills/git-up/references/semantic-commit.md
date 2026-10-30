@@ -164,6 +164,14 @@ node skills/git-up/scripts/split_patch.mjs --diff .scratch/git-up/full.patch --o
 
 语义模式的 `completed_steps` 与 `skipped_steps` 元素都带 `reason`，它回显计划里声明的语义组理由。被跳过的步骤另用 `skip_reason` 说明跳过原因。
 
+## 委派
+
+`-s` / `-sP` 委派时，子 Agent 在当前工作目录执行 `git-up -pc`，读同一份 SKILL.md。语义模式的补丁暂存、目标快照校验与错误码对委派执行完全一致。
+
+委派只改变执行者，不改变提交边界。父 Agent 不重复 Git 调查、规划、暂存、提交或 push。子 Agent 失败后，父 Agent 只报告，不接管 Git 操作。
+
+委派契约的测试只落在计划与结果的边界上，不复制子 Agent 内部行为。
+
 ## 快车道
 
 以下任一条件成立时快车道必须回退，并在 `fallback_reasons` 中报告原因：

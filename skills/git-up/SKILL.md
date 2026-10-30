@@ -96,6 +96,8 @@ Windows PowerShell 含中文或 emoji 的计划必须使用 UTF-8 `--plan-file`�
 
 `-s/-sP`：父 Agent 只创建一个子 Agent 并等待；自然语言约束是硬提交边界。子 Agent 失败、边界不满足或 commit 未成功时，父 Agent 只报告，不能接管 Git 操作。
 
+子 Agent 在当前工作目录执行 `git-up -pc`，读同一份 SKILL.md，因此适用同一套语义模式与安全规则：同样的补丁暂存、同样的目标快照校验、同样的错误码。委派只改变执行者，不改变提交边界。父 Agent 不重复 Git 调查、规划、暂存、提交或 push。
+
 `-i`：调用 `gitignore_manager.mjs` 管理可再生规则；默认不加入 `.env`，`--clean` 先预览、仅 `--clean --apply` 删除 Git-up 管理区块的重复规则。完整规则和命令见 [references/ignore.md](references/ignore.md)。
 
 ## 输出
