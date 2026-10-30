@@ -14,7 +14,7 @@
 
 ## 计划格式
 
-计划 YAML 仍是 YAML Lite。语义步骤用 `changes` 声明补丁，用 `depends_on` 声明顺序。
+计划 YAML 仍是 YAML Lite。共享字段（`step` `subject` `body` `foot` `reason` `depends_on`）与缩进规则见 [plan-format.md](plan-format.md)。语义步骤用 `changes` 声明补丁，用 `depends_on` 声明顺序。
 
 ```yaml
 - step: 1
@@ -37,14 +37,10 @@
       patch_file: .scratch/git-up/state-2.json
 ```
 
-字段含义：
+语义专属字段：
 
 | 字段 | 说明 |
 |---|---|
-| `step` | 步骤号。`depends_on` 引用这个号。 |
-| `subject` | 提交标题。 |
-| `reason` | 该语义组存在的理由。只用于审阅，不进入提交信息。 |
-| `depends_on` | 前置步骤号列表。执行器按此做拓扑排序。必须写成列表，例如 `depends_on: [1]`。 |
 | `changes` | 该步骤的补丁清单。语义模式下每个步骤都必须声明它。 |
 | `changes[].path` | 该补丁允许触碰的仓库相对路径。 |
 | `changes[].patch_mode` | `patch`、`3way` 或 `content`。 |

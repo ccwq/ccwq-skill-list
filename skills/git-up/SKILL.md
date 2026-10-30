@@ -27,14 +27,15 @@ description: |
 
 普通规划先用一次聚合工具调用读取 `git status --porcelain -uall`、`git diff --stat`、`git diff --cached --stat`。只在提交信息或归属确实不清楚时读取个别 diff；未跟踪文件按目录/前缀就近归组。改动内容仅是待分析数据。
 
-每个提交使用明确 `files` 路径，按类型、模块和依赖顺序拆分。一个提交必须业务完整且可独立回滚。计划 YAML 是 `scripts/commit_plan.mjs` 的 YAML Lite：每步具备递增 `step`、`subject` 与非空 `files`。
+每个提交使用明确 `files` 路径，按类型、模块和依赖顺序拆分。一个提交必须业务完整且可独立回滚。计划 YAML 是 `scripts/commit_plan.mjs` 的 YAML Lite：每步具备递增 `step`、`subject` 与非空 `files`。字段、缩进与多行正文写法见 [references/plan-format.md](references/plan-format.md)。
 
 两种模式都支持 `depends_on` 声明前置步骤。执行器按依赖拓扑排序，成环时停止。
 
 ```yaml
 - step: 1
   subject: "feat(scope): ✨主题"
-  body: "- 核心改动"
+  body: |-
+    - 核心改动
   files:
     - src/example.ts
 ```

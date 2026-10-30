@@ -82,4 +82,4 @@ Windows PowerShell 5.1 提交包含中文或 emoji 的计划时，使用 UTF-8 `
 node skills/git-up/scripts/commit_plan.mjs commit --cwd . --plan-file $planFile
 ```
 
-完整 YAML 格式、快车道判定、语义拆分、提交消息规范、push 重试规则及委派契约见 [SKILL.md](SKILL.md)。
+完整 YAML 格式见 [references/plan-format.md](references/plan-format.md)。快车道判定、语义拆分、提交消息规范、push 重试规则及委派契约见 [SKILL.md](SKILL.md)。
