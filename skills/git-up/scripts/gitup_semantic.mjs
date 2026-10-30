@@ -746,6 +746,10 @@ export function scanPatch(text) {
       unsupported.push('rename');
     } else if (line.startsWith('copy from ') || line.startsWith('copy to ')) {
       unsupported.push('copy');
+    } else if (!inHunk && (line.startsWith('old mode ') || line.startsWith('new mode '))) {
+      // 模式变更只存在于 index，无法从工作区推导目标树。必须在提交前拒绝，
+      // 否则补丁会先落地，再因目标树不匹配而报失败。
+      unsupported.push('mode');
     }
   }
 

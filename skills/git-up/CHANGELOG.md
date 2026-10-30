@@ -28,6 +28,7 @@ All notable changes to this skill will be documented in this file.
 - 回归测试用 `GIT_TRACE2_EVENT` 追踪执行器实际运行的每条 git 命令，并比对执行前后的工作区文件哈希。安全约束由测试证明，不只由文档声明。
 
 ### 修复
+- 模式变更的补丁在暂存前被拒绝，返回 `unsupported_operation`。此前补丁会先落地，再因目标快照无法表达纯索引的 mode 变更而报 `target_verification_failure`，提交已进历史却报告失败。
 - 语义计划的路径按字面量处理。Git 对非 ASCII 路径的八进制转义不再被误判为越界路径，中文文件名可用于语义拆分。文件名含通配符字符时不再被 pathspec 展开。
 - `depends_on` 写成标量时不再被静默丢弃。执行器返回 `invalid_plan`，避免依赖顺序失效后按书写顺序提交。
 - 任一步失败时把 index 恢复到 HEAD。中途失败不再把计划外内容留在暂存区。

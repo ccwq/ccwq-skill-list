@@ -138,11 +138,13 @@ node skills/git-up/scripts/split_patch.mjs --diff .scratch/git-up/full.patch --o
 
 ## 不支持的操作
 
-以下情况执行器显式失败，不做猜测：
+以下情况执行器在暂存前就显式失败，返回 `unsupported_operation`，不做猜测：
 
 - 二进制补丁。需要提交二进制内容时用 `content` 模式。
 - 重命名和复制。Git 的重命名格式无法用 `git apply` 表达。可以用 `content` 模式分别写删除和新增。
-- 模式变更（可执行位、符号链接）。
+- 模式变更（可执行位、符号链接）。mode 只存在于 index，目标快照从工作区推导，表达不了它。
+
+拒绝发生在提交之前。补丁不会被应用，暂存区保持为空，也不会产生提交。
 
 ## 快车道
 
