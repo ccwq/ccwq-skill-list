@@ -18,11 +18,11 @@ Label: wayfinder:map
 ## Decisions so far
 
 - [四个能力缺口的取舍判定](issues/01-capability-gap-tradeoff.md)：二进制、复制、重命名三项能力已由 `content` 模式与删除加新增覆盖，不补实现；模式变更不补能力，但要提前报错时机。
-- [模式变更的报错时机](issues/02-mode-change-error-timing.md)：待定。补丁已能应用，但目标快照无法表达纯索引的 mode 变更，导致提交成功后报失败。
+- [模式变更的报错时机](issues/02-mode-change-error-timing.md)：改为提交前拒绝。扫描补丁时识别 `old mode`/`new mode`，返回 `unsupported_operation`，不落地提交。
 
 ## Not yet specified
 
-- 目标快照从工作区推导这一假设的边界：任何只存在于 index 的变更（mode、intent-to-add、skip-worktree）都无法表达。是否需要在快照层另立表示方式，等模式变更那项落地后再看。
+- 目标快照从工作区推导这一假设的边界：任何只存在于 index 的变更（mode、intent-to-add、skip-worktree）都无法表达。mode 已改为提交前拒绝，快照层是否另立表示方式留待后续实际需要时再定。
 - 显式失败与实际能力之间的落差如何对外说明。规格写的是"除非显式支持否则停止"，实际有三条路径能力已具备，只是写法不同。是否需要在文档里补一张"能力对照表"，尚未决定。
 
 ## Out of scope
@@ -31,4 +31,4 @@ Label: wayfinder:map
 - 其余 7 个 skill 的 Python→Node.js 迁移，约 5200 行。
 - `skills-lock.json` 的 git-up 哈希。该文件上次同步是 2026-08-11，git-up 此后已改动三次，属既有状态，仓库无工具校验。
 - 推送分支到 `origin`。
-- 修改 `gitup_semantic.mjs` 的实现能力。本图只判定，不实施。
+- 补齐模式变更的提交能力。mode 只存在于 index，`content` 模式不提供 mode 参数，人工处理即可。
