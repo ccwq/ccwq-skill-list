@@ -1962,6 +1962,119 @@ function testPackageJsonSplitsIntoThreeCommits() {
   });
 }
 
+function testRelatedFilesAttachToTheirSemanticGroup() {
+  /**
+   * Given：package.json 含依赖、格式、脚本三类改动，另有 lockfile、测试文件与配置文件。
+   * When：lockfile 归入依赖组，测试与配置归入脚本组。
+   * Then：每个提交只含所属语义组的文件，最终 HEAD 树与执行前目标一致。
+   防回归：规格目标场景要求相关 lockfile、测试与配置与所属语义组一起提交。
+   */
+  return withRepo('git-up-sem-groups-', (work, repo) => {
+    const basePkg = '{\n  "name": "demo",\n  "version": "1.0.0"\n}\n';
+    const finalPkg =
+      '{\n  "name":  "demo",\n  "version": "1.0.0",\n' +
+      '  "dependencies": {\n    "lodash": "^4.17.21"\n  },\n' +
+      '  "scripts": {\n    "build": "tsc"\n  }\n}\n';
+    const baseLock = '{"lockfileVersion": 3, "packages": {}}\n';
+    const finalLock = '{"lockfileVersion": 3, "packages": {"node_modules/lodash": {}}}\n';
+    const baseConfig = '{\n  "strict": true\n}\n';
+    const finalConfig = '{\n  "strict": true,\n  "noUncheckedIndexedAccess": true\n}\n';
+
+    writeFile(path.join(repo, 'package.json'), basePkg);
+    writeFile(path.join(repo, 'package-lock.json'), baseLock);
+    writeFile(path.join(repo, 'tsconfig.json'), baseConfig);
+    git(repo, 'add', 'package.json', 'package-lock.json', 'tsconfig.json');
+    git(repo, 'commit', '-m', 'init');
+    const baseHead = git(repo, 'rev-parse', 'HEAD').stdout.trim();
+
+    // 工作区放目标状态：三个文件改动加一个新测试文件。
+    writeFile(path.join(repo, 'package.json'), finalPkg);
+    writeFile(path.join(repo, 'package-lock.json'), finalLock);
+    writeFile(path.join(repo, 'tsconfig.json'), finalConfig);
+    writeFile(path.join(repo, 'build.test.ts'), 'test("build", () => {});\n');
+
+    const stateDeps = path.join(work, 'state-deps.json');
+    const stateFormat = path.join(work, 'state-format.json');
+    const stateScripts = path.join(work, 'state-scripts.json');
+    const stateLock = path.join(work, 'state-lock.json');
+    const stateConfig = path.join(work, 'state-config.json');
+    const stateTest = path.join(work, 'state-test.ts');
+    writeFile(
+      stateDeps,
+      '{\n  "name": "demo",\n  "version": "1.0.0",\n  "dependencies": {\n    "lodash": "^4.17.21"\n  }\n}\n',
+    );
+    writeFile(
+      stateFormat,
+      '{\n  "name":  "demo",\n  "version": "1.0.0",\n  "dependencies": {\n    "lodash": "^4.17.21"\n  }\n}\n',
+    );
+    writeFile(stateScripts, finalPkg);
+    writeFile(stateLock, finalLock);
+    writeFile(stateConfig, finalConfig);
+    writeFile(stateTest, 'test("build", () => {});\n');
+
+    const yamlText = semanticPlan([
+      {
+        step: 1,
+        subject: 'build(deps): ✨安装依赖',
+        reason: 'lockfile 与依赖同组',
+        changes: [
+          { path: 'package.json', patch_mode: 'content', patch_file: stateDeps },
+          { path: 'package-lock.json', patch_mode: 'content', patch_file: stateLock },
+        ],
+      },
+      {
+        step: 2,
+        subject: 'style(format): ✨统一格式',
+        reason: '格式调整与依赖无关',
+        depends_on: [1],
+        changes: [{ path: 'package.json', patch_mode: 'content', patch_file: stateFormat }],
+      },
+      {
+        step: 3,
+        subject: 'build(scripts): ✨增加构建脚本',
+        reason: '测试与配置跟随脚本',
+        depends_on: [2],
+        changes: [
+          { path: 'package.json', patch_mode: 'content', patch_file: stateScripts },
+          { path: 'build.test.ts', patch_mode: 'content', patch_file: stateTest },
+          { path: 'tsconfig.json', patch_mode: 'content', patch_file: stateConfig },
+        ],
+      },
+    ]);
+    const planPath = path.join(work, 'plan.yaml');
+    writeFile(planPath, yamlText);
+
+    const scope = ['package.json', 'package-lock.json', 'build.test.ts', 'tsconfig.json'];
+    const expectedTree = targetTreeOf(repo, baseHead, scope);
+    const result = runPlanFile('commit', planPath, repo);
+    const payload = parseJson(result);
+    assertTrue(result.status === 0, `${result.stdout}${result.stderr}`);
+    assertTrue(payload.completed_steps.length === 3, '应产生三个提交');
+
+    const pathsOf = (index) =>
+      git(repo, 'show', '--name-only', '--format=', '-z', `${'HEAD~' + (3 - index)}`)
+        .stdout.split('\0')
+        .filter(Boolean)
+        .sort();
+
+    assertTrue(
+      pathsOf(1).join(',') === 'package-lock.json,package.json',
+      `依赖组应含 package.json 与 lockfile，实际 ${pathsOf(1).join(',')}`,
+    );
+    assertTrue(pathsOf(2).join(',') === 'package.json', `格式组应只含 package.json，实际 ${pathsOf(2).join(',')}`);
+    assertTrue(
+      pathsOf(3).join(',') === 'build.test.ts,package.json,tsconfig.json',
+      `脚本组应含 package.json、测试与配置，实际 ${pathsOf(3).join(',')}`,
+    );
+
+    const finalTree = git(repo, 'rev-parse', 'HEAD^{tree}').stdout.trim();
+    assertTrue(finalTree === expectedTree, '最终 HEAD 树应与执行前的工作区目标一致');
+    assertTrue(payload.verification.ok === true, '最终校验应通过');
+    const status = git(repo, 'status', '--porcelain').stdout.trim();
+    assertTrue(status === '', `执行后工作区应干净，实际 ${status}`);
+  });
+}
+
 function testResultContractSupportsDelegationAudit() {
   /**
    * Given：语义计划执行成功。
@@ -2041,6 +2154,7 @@ const TESTS = [
   testFastPathBypassedForEverySemanticCondition,
   testFastPathAllowsSimpleSingleStepPlan,
   testPackageJsonSplitsIntoThreeCommits,
+  testRelatedFilesAttachToTheirSemanticGroup,
   testResultContractSupportsDelegationAudit,
   testReasonIsNotWrittenIntoCommitMessage,
   testFailedExecutionReportsOnlyRealCommits,
