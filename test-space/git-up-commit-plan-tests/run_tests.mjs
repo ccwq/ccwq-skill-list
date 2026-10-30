@@ -402,6 +402,165 @@ function testMissingFilesFails() {
   assertTrue(payload.code === 'missing_files', '错误码应可被 LLM 识别');
 }
 
+function testParseLiteralBlockChompingVariants() {
+  /**
+   * Given：计划用 `|`、`|-`、`|+` 三种字面量块标量写多行 body。
+   * When：commit_plan.mjs parse 解析这三份计划。
+   * Then：三者解析出的 body 相同，尾部换行差异不被保留。
+   * 防回归：解析器此前只认 `|` 一种写法，`|-` 与 `|+` 会退化成字面量字符串。
+   */
+  const variants = ['|', '|-', '|+'];
+  const bodies = [];
+  for (const variant of variants) {
+    const yamlText = `- step: 1
+  subject: "feat(core): block scalar"
+  body: ${variant}
+    第一行
+    第二行
+  files:
+    - a.txt
+`;
+    const result = runPlan('parse', yamlText);
+    const payload = parseJson(result);
+    assertTrue(result.status === 0, `${variant} 应解析成功：${result.stderr || result.stdout}`);
+    bodies.push(payload.steps[0].body);
+  }
+  assertTrue(bodies[0] === '第一行\n第二行', `body 应保留多行，实际 ${JSON.stringify(bodies[0])}`);
+  assertTrue(bodies[1] === bodies[0], '|- 与 | 应解析出相同 body');
+  assertTrue(bodies[2] === bodies[0], '|+ 与 | 应解析出相同 body');
+}
+
+function testParseRejectsFoldedBlockScalar() {
+  /**
+   * Given：计划用折叠块标量 `>` 写 body。
+   * When：commit_plan.mjs parse 解析该计划。
+   * Then：返回 code=invalid_plan，消息写明折叠块不支持，行号指向首行。
+   * 防回归：折叠块此前被当成普通标量或报出无关的缩进错误。
+   */
+  const yamlText = `- step: 1
+  subject: "feat(core): folded block"
+  body: >
+    第一行
+  files:
+    - a.txt
+`;
+  const result = runPlan('parse', yamlText);
+  const payload = parseJson(result);
+  assertTrue(result.status === 2, '折叠块应返回解析错误码 2');
+  assertTrue(payload.code === 'invalid_plan', `错误码应为 invalid_plan，实际 ${payload.code}`);
+  assertTrue(String(payload.message).includes('folded'), `消息应写明折叠块不支持，实际 ${payload.message}`);
+  assertTrue(payload.line === 3, `行号应指向首行，实际 ${payload.line}`);
+}
+
+function testParseRejectsMalformedBlockHeader() {
+  /**
+   * Given：计划的 body 首行写成 `|x`，既不是合法首行也不是普通标量。
+   * When：commit_plan.mjs parse 解析该计划。
+   * Then：返回 code=invalid_plan，不把 `|x` 当成字面量字符串。
+   * 防回归：畸形首行此前被静默当作普通标量，提交信息会带进 `|x`。
+   */
+  const yamlText = `- step: 1
+  subject: "feat(core): malformed header"
+  body: |x
+    第一行
+  files:
+    - a.txt
+`;
+  const result = runPlan('parse', yamlText);
+  const payload = parseJson(result);
+  assertTrue(result.status === 2, '畸形首行应返回解析错误码 2');
+  assertTrue(payload.code === 'invalid_plan', `错误码应为 invalid_plan，实际 ${payload.code}`);
+  assertTrue(String(payload.message).includes('|x'), `消息应写明收到的首行，实际 ${payload.message}`);
+}
+
+function testParseRejectsBlockScalarOnListField() {
+  /**
+   * Given：计划把 files 写成块标量 `|`。
+   * When：commit_plan.mjs parse 解析该计划。
+   * Then：返回 code=invalid_plan，而不是静默变成空列表。
+   * 防回归：列表字段收到块标量时此前被读成字符串，files 变空后报出无关的 missing_files。
+   */
+  const yamlText = `- step: 1
+  subject: "feat(core): list field"
+  files: |
+    a.txt
+`;
+  const result = runPlan('parse', yamlText);
+  const payload = parseJson(result);
+  assertTrue(result.status === 2, '列表字段用块标量应返回解析错误码 2');
+  assertTrue(payload.code === 'invalid_plan', `错误码应为 invalid_plan，实际 ${payload.code}`);
+  assertTrue(String(payload.message).includes('files'), `消息应写明是 files 字段，实际 ${payload.message}`);
+}
+
+function testParseSubjectBlockWithoutContentFails() {
+  /**
+   * Given：计划的 subject 写成 `|-` 且后面没有内容块。
+   * When：commit_plan.mjs parse 解析该计划。
+   * Then：返回 code=missing_field，subject 为空，不产生字面量 `|-`。
+   * 防回归：此前 `|-` 被当成普通标量，通过 subject 非空校验后产出一条标题为 `|-` 的提交。
+   */
+  const yamlText = `- step: 1
+  subject: |-
+  files:
+    - a.txt
+`;
+  const result = runPlan('parse', yamlText);
+  const payload = parseJson(result);
+  assertTrue(result.status === 2, '空 subject 应返回解析错误码 2');
+  assertTrue(payload.code === 'missing_field', `错误码应为 missing_field，实际 ${payload.code}`);
+}
+
+function testParseReportsMisindentedBlockContent() {
+  /**
+   * Given：计划的 body 块内容缩进三空格，不足四空格。
+   * When：commit_plan.mjs parse 解析该计划。
+   * Then：返回 code=indent，行号指向内容行。
+   * 防回归：三空格内容行此前静默跳出块，随后在外层报 syntax 与「expected '<key>: <value>'」，归因错误。
+   */
+  const yamlText = `- step: 1
+  subject: "feat(core): misindented block"
+  body: |
+   第一行
+  files:
+    - a.txt
+`;
+  const result = runPlan('parse', yamlText);
+  const payload = parseJson(result);
+  assertTrue(result.status === 2, '缩进不足应返回解析错误码 2');
+  assertTrue(payload.code === 'indent', `错误码应为 indent，实际 ${payload.code}`);
+  assertTrue(payload.line === 4, `行号应指向内容行，实际 ${payload.line}`);
+}
+
+function testCommitWritesMultiLineBodyFromChompedBlock() {
+  /**
+   * Given：计划用 `body: |-` 写多行正文并提交。
+   * When：commit_plan.mjs commit 执行该计划。
+   * Then：生成的提交信息包含全部正文行。
+   * 防回归：`-` 写法此前无法解析，Agent 只能改写缩进并陷入错误循环。
+   */
+  return withTempRepo('git-up-block-', (repo) => {
+    fs.mkdirSync(repo, { recursive: true });
+    initRepo(repo);
+    fs.writeFileSync(path.join(repo, 'planned.txt'), 'planned\n', 'utf8');
+    const yamlText = `- step: 1
+  subject: "feat(core): chomped block body"
+  body: |-
+    - 第一项改动
+    - 第二项改动
+  files:
+    - planned.txt
+`;
+    const result = runPlan('commit', yamlText, repo);
+    const payload = parseJson(result);
+    assertTrue(result.status === 0, result.stdout || result.stderr);
+    assertTrue(payload.ok === true, '提交应成功');
+    const message = runCommand(['git', 'log', '-1', '--format=%B'], repo).stdout;
+    assertTrue(message.includes('第一项改动'), '提交信息应含第一行正文');
+    assertTrue(message.includes('第二项改动'), '提交信息应含第二行正文');
+    assertTrue(message.includes('feat(core): chomped block body'), '提交信息应含主题');
+  });
+}
+
 function testPlanFilePreservesUtf8PlanVariants() {
   /**
    * Given: a UTF-8 plan file contains Chinese text and emoji.
@@ -781,6 +940,13 @@ const TESTS = [
   testFastPathRejectsNestedGitBoundary,
   testParseFullPlan,
   testParseOptionalBodyAndFoot,
+  testParseLiteralBlockChompingVariants,
+  testParseRejectsFoldedBlockScalar,
+  testParseRejectsMalformedBlockHeader,
+  testParseRejectsBlockScalarOnListField,
+  testParseSubjectBlockWithoutContentFails,
+  testParseReportsMisindentedBlockContent,
+  testCommitWritesMultiLineBodyFromChompedBlock,
   testMissingFilesFails,
   testPlanFilePreservesUtf8PlanVariants,
   testPowershellPipePreservesUtf8PlanVariants,

@@ -166,7 +166,49 @@ function splitKeyValue(text, lineNo) {
   return [key, text.slice(index + 1).trim()];
 }
 
-/** 读取 `key: |` 之后的四空格缩进块。 */
+/**
+ * 解析块标量首行标记。
+ *
+ * 只认未加引号的值。加引号是写普通字符串的方式，`body: "|"` 是字面量竖线。
+ * 支持 `|`、`|-`、`|+` 三种字面量写法。折叠写法 `>` 与显式缩进指示符（`|2`）不实现。
+ *
+ * @param {string} rawValue 冒号后的原始值
+ * @param {number} lineNo 首行所在行号
+ * @returns {null | {style: 'literal'}} null 表示该值不是块标量首行
+ */
+function parseBlockHeader(rawValue, lineNo) {
+  const value = rawValue.trim();
+  if (value === '') return null;
+  if (value[0] === '"' || value[0] === "'") return null;
+  if (value[0] !== '|' && value[0] !== '>') return null;
+  if (!/^[|>][-+]?$/.test(value)) {
+    throw new PlanError(
+      CODE_INVALID_PLAN,
+      `unsupported block scalar header "${value}"; supported headers are |, |- and |+`,
+      lineNo,
+    );
+  }
+  if (value[0] === '>') {
+    throw new PlanError(
+      CODE_INVALID_PLAN,
+      `folded block scalar "${value}" is not supported; use |, |- or |+`,
+      lineNo,
+    );
+  }
+  return { style: 'literal' };
+}
+
+/**
+ * 两空格缩进且形似字段的行。用于区分「下一个字段」与「缩进不足的块内容」。
+ */
+const STEP_FIELD_PATTERN = /^ {2}[^\s:]+:/;
+
+/**
+ * 读取 `key: |` 之后的四空格缩进块。
+ *
+ * 块内容必须缩进四空格。缩进不足的内容行抛 `indent` 并指向该行，
+ * 避免它被当成下一个字段后报出无关的语法错误。
+ */
 function readBlockScalar(lines, index) {
   const block = [];
   let i = index;
@@ -182,7 +224,12 @@ function readBlockScalar(lines, index) {
       i += 1;
       continue;
     }
-    if (raw.startsWith('  ') || raw.startsWith('- ')) break;
+    // 无缩进的 `- ` 开头是下一个步骤，结束块。
+    if (raw.startsWith('- ')) break;
+    // 恰好两空格缩进：形似字段则结束块，否则是缩进不足的块内容。
+    if (raw.startsWith('  ') && !raw.startsWith('   ')) {
+      if (STEP_FIELD_PATTERN.test(raw)) break;
+    }
     throw new PlanError('indent', 'block scalar lines must use four-space indentation', i + 1);
   }
   return [block.join('\n').replace(/\s+$/, ''), i];
@@ -276,7 +323,15 @@ function parseInlineIntList(value, lineNo) {
 /** 读取一个字段的值，返回 [值, 下一个行索引]。 */
 function readValue(lines, index, key, rawValue, lineNo) {
   const value = rawValue.trim();
-  if (value === '|') return readBlockScalar(lines, index);
+  // 块标量首行判定必须早于列表字段的分支。
+  // 列表字段收到块标量时不能静默变成空列表或错值。
+  const header = parseBlockHeader(rawValue, lineNo);
+  if (header) {
+    if (key === 'files' || key === 'depends_on' || key === 'changes') {
+      throw new PlanError(CODE_INVALID_PLAN, `${key} must not use a block scalar`, lineNo);
+    }
+    return readBlockScalar(lines, index);
+  }
   if (key === 'files') {
     if (value === '') return readScalarList(lines, index, 'files');
     return [parseScalar(value), index];
