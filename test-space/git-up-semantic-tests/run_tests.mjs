@@ -1619,6 +1619,91 @@ function testExecutionKeepsUnrelatedFilesOutOfCommits() {
   });
 }
 
+function testRenameRecordsBothDeletedAndAddedPaths() {
+  /**
+   * Given：工作区把 old.txt 重命名为 new.txt，计划用「删除 old.txt + 新增 new.txt」表达。
+   * When：commit_plan.mjs commit 执行语义计划。
+   * Then：提交记录的 paths 同时包含 old.txt 与 new.txt。
+   * 防回归：Git 默认把重命名折叠成一条新路径记录，被删除的旧路径会从枚举里消失，
+   *         计划外的删除一旦折进重命名就逃过范围检查。
+   */
+  return withRepo('git-up-sem-rename-', (work, repo) => {
+    writeFile(path.join(repo, 'old.txt'), 'stable content\n');
+    git(repo, 'add', 'old.txt');
+    git(repo, 'commit', '-m', 'init');
+
+    // 工作区重命名。内容不变，Git 才会识别为 R100。
+    fs.renameSync(path.join(repo, 'old.txt'), path.join(repo, 'new.txt'));
+
+    const delPatch = path.join(work, 'del.patch');
+    writeFile(delPatch, git(repo, 'diff', '--', 'old.txt').stdout);
+    const addState = path.join(work, 'new.state');
+    writeFile(addState, 'stable content\n');
+
+    const yamlText = semanticPlan([
+      {
+        step: 1,
+        subject: 'refactor: rename old.txt to new.txt',
+        changes: [
+          { path: 'old.txt', patch_file: delPatch },
+          { path: 'new.txt', patch_mode: 'content', patch_file: addState },
+        ],
+      },
+    ]);
+    const result = runPlan('commit', yamlText, repo);
+    const payload = parseJson(result);
+    assertTrue(result.status === 0, `${result.stdout}${result.stderr}`);
+    const paths = payload.completed_steps[0].paths;
+    assertTrue(paths.includes('new.txt'), `提交路径应含新路径，实际 ${JSON.stringify(paths)}`);
+    assertTrue(paths.includes('old.txt'), `提交路径应含被删除的旧路径，实际 ${JSON.stringify(paths)}`);
+  });
+}
+
+function testHookStagedOutOfScopeDeletionIsDetected() {
+  /**
+   * Given：提交钩子删掉一个计划外的文件，其内容与计划内的新文件相同，
+   *        Git 会把它与新文件识别成一次重命名。
+   * When：commit_plan.mjs commit 执行语义计划。
+   * Then：返回 patch_scope_mismatch，并指出计划外的路径。
+   * 防回归：重命名折叠曾让计划外的删除藏进范围检查，最终只报「树不匹配」，
+   *         真实原因被掩盖，且提交已进历史。
+   */
+  return withRepo('git-up-sem-rename-hook-', (work, repo) => {
+    writeFile(path.join(repo, 'old.txt'), 'identical content\n');
+    writeFile(path.join(repo, 'other.txt'), 'identical content\n');
+    git(repo, 'add', 'old.txt', 'other.txt');
+    git(repo, 'commit', '-m', 'init');
+
+    // 钩子在提交前删掉计划外的 other.txt。
+    const hookPath = path.join(repo, '.git', 'hooks', 'pre-commit');
+    writeFile(hookPath, '#!/bin/sh\nrm -f other.txt\ngit add -A other.txt\nexit 0\n', 'utf8');
+    if (process.platform !== 'win32') fs.chmodSync(hookPath, 0o755);
+
+    fs.renameSync(path.join(repo, 'old.txt'), path.join(repo, 'new.txt'));
+    const addState = path.join(work, 'new.state');
+    writeFile(addState, 'identical content\n');
+
+    const yamlText = semanticPlan([
+      {
+        step: 1,
+        subject: 'refactor: rename old.txt to new.txt',
+        changes: [{ path: 'new.txt', patch_mode: 'content', patch_file: addState }],
+      },
+    ]);
+    const result = runPlan('commit', yamlText, repo);
+    const payload = parseJson(result);
+    assertTrue(result.status === 1, `计划外的删除应被检出，实际 ${result.stdout}`);
+    assertTrue(
+      payload.code === 'patch_scope_mismatch',
+      `错误码应为 patch_scope_mismatch，实际 ${payload.code}`,
+    );
+    assertTrue(
+      (payload.out_of_scope_paths ?? []).includes('other.txt'),
+      `应指出计划外的路径，实际 ${JSON.stringify(payload.out_of_scope_paths)}`,
+    );
+  });
+}
+
 function testExecutionReportsCommitFailure() {
   /**
    * Given：仓库的 pre-commit 钩子拒绝任何提交。
@@ -2215,6 +2300,8 @@ const TESTS = [
   testExecutionFollowsDependencyOrder,
   testExecutionRejectsNonEmptyIndex,
   testExecutionKeepsUnrelatedFilesOutOfCommits,
+  testRenameRecordsBothDeletedAndAddedPaths,
+  testHookStagedOutOfScopeDeletionIsDetected,
   testExecutionReportsCommitFailure,
   testVerificationCoversTrackedModification,
   testVerificationCoversUntrackedAddition,

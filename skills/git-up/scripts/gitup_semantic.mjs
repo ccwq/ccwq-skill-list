@@ -916,10 +916,14 @@ export function clearIndex(cwd) {
 /**
  * 返回暂存区中与 HEAD 不同的路径。
  *
+ * 必须用 `--no-renames`。Git 默认启用重命名探测，`--name-only` 会把
+ * 「删除旧路径 + 新增新路径」折叠成一条新路径记录，旧路径因此从枚举里消失。
+ * 计划外的删除一旦被折叠进一次重命名，范围检查就看不到它。
+ *
  * 出错时返回错误信息，调用方必须把它当作失败，不能当成空列表。
  */
 export function stagedPaths(cwd) {
-  const result = runGit(['diff', '--cached', '--name-only', '-z'], cwd);
+  const result = runGit(['diff', '--cached', '--name-only', '--no-renames', '-z'], cwd);
   if (result.status !== 0) {
     return { paths: [], error: result.stderr.trim() };
   }
@@ -1364,9 +1368,14 @@ export function executeSemanticPlan(steps, cwd) {
   };
 }
 
-/** 读取最近一次提交触碰的路径。 */
+/**
+ * 读取最近一次提交触碰的路径。
+ *
+ * 必须用 `--no-renames`，理由同 `stagedPaths`：重命名折叠会让被删除的旧路径
+ * 从枚举里消失，提交后的范围复核就看不到计划外的删除。
+ */
 export function commitPaths(cwd) {
-  const result = runGit(['show', '--name-only', '--format=', '-z', 'HEAD'], cwd);
+  const result = runGit(['show', '--name-only', '--no-renames', '--format=', '-z', 'HEAD'], cwd);
   if (result.status !== 0) return [];
   return splitNul(result.stdout);
 }
