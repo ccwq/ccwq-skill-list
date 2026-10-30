@@ -532,6 +532,108 @@ function testCommitReportsFastPathUsage() {
   });
 }
 
+function testFilePlanFollowsDependencyOrder() {
+  /**
+   * Given：文件级计划把后置步骤写在前面，并用 depends_on 声明前置步骤。
+   * When：commit_plan.mjs commit 执行该计划。
+   * Then：提交顺序遵循 depends_on，而不是计划里的书写顺序。
+   * 防回归：depends_on 是计划模型的共享字段，文件级模式此前无视它。
+   */
+  return withTempRepo('git-up-plan-order-', (repo) => {
+    fs.mkdirSync(repo, { recursive: true });
+    initRepo(repo);
+    fs.writeFileSync(path.join(repo, 'a.txt'), 'a\n', 'utf8');
+    fs.writeFileSync(path.join(repo, 'b.txt'), 'b\n', 'utf8');
+    runCommand(['git', 'add', 'a.txt', 'b.txt'], repo);
+    runCommand(['git', 'commit', '-m', 'init'], repo);
+    fs.writeFileSync(path.join(repo, 'a.txt'), 'A\n', 'utf8');
+    fs.writeFileSync(path.join(repo, 'b.txt'), 'B\n', 'utf8');
+    const yamlText = `- step: 2
+  subject: "feat: second"
+  depends_on:
+    - 1
+  files:
+    - b.txt
+- step: 1
+  subject: "feat: first"
+  files:
+    - a.txt
+`;
+    const result = runPlan('commit', yamlText, repo);
+    const payload = parseJson(result);
+    assertTrue(result.status === 0, result.stdout || result.stderr);
+    const steps = payload.completed_steps;
+    assertTrue(steps.join(',') === '1,2', `提交顺序应遵循依赖，实际 ${steps.join(',')}`);
+    const log = runCommand(['git', 'log', '--oneline', '-2'], repo).stdout.split(/\r\n|\n|\r/).filter(Boolean);
+    assertTrue(log[1].includes('feat: first'), '较早的提交应是前置步骤');
+  });
+}
+
+function testFilePlanRejectsDependencyCycle() {
+  /**
+   * Given：文件级计划的两个步骤互相依赖。
+   * When：commit_plan.mjs commit 执行该计划。
+   * Then：返回 dependency_cycle，且不创建提交。
+   * 防回归：依赖成环时不得按任意顺序提交。
+   */
+  return withTempRepo('git-up-plan-cycle-', (repo) => {
+    fs.mkdirSync(repo, { recursive: true });
+    initRepo(repo);
+    fs.writeFileSync(path.join(repo, 'a.txt'), 'a\n', 'utf8');
+    runCommand(['git', 'add', 'a.txt'], repo);
+    runCommand(['git', 'commit', '-m', 'init'], repo);
+    fs.writeFileSync(path.join(repo, 'a.txt'), 'A\n', 'utf8');
+    const yamlText = `- step: 1
+  subject: "feat: one"
+  depends_on:
+    - 2
+  files:
+    - a.txt
+- step: 2
+  subject: "feat: two"
+  depends_on:
+    - 1
+  files:
+    - a.txt
+`;
+    const before = runCommand(['git', 'rev-parse', 'HEAD'], repo).stdout.trim();
+    const result = runPlan('commit', yamlText, repo);
+    const payload = parseJson(result);
+    const after = runCommand(['git', 'rev-parse', 'HEAD'], repo).stdout.trim();
+    assertTrue(result.status === 1, '依赖成环应返回失败');
+    assertTrue(payload.code === 'dependency_cycle', `错误码应为 dependency_cycle，实际 ${payload.code}`);
+    assertTrue(before === after, '依赖成环时不应创建提交');
+  });
+}
+
+function testFilePlanReportsVerification() {
+  /**
+   * Given：文件级计划只提交计划内文件，仓库另有未跟踪文件。
+   * When：commit_plan.mjs commit 执行该计划。
+   * Then：结果包含 verification，状态为 verified，且最终树与目标树一致。
+   * 防回归：执行结果契约要求两种模式都带最终一致性结论。
+   */
+  return withTempRepo('git-up-plan-verify-', (repo) => {
+    fs.mkdirSync(repo, { recursive: true });
+    initRepo(repo);
+    fs.writeFileSync(path.join(repo, 'planned.txt'), 'planned\n', 'utf8');
+    fs.writeFileSync(path.join(repo, 'untracked.txt'), 'untracked\n', 'utf8');
+    const yamlText = `- step: 1
+  subject: "test(plan): verification"
+  files:
+    - planned.txt
+`;
+    const result = runPlan('commit', yamlText, repo);
+    const payload = parseJson(result);
+    assertTrue(result.status === 0, result.stdout || result.stderr);
+    assertTrue(payload.verification, '结果应包含 verification');
+    assertTrue(payload.verification.status === 'verified', '校验状态应为 verified');
+    assertTrue(payload.verification.tree_match === true, '最终树应与目标树一致');
+    assertTrue(payload.final_tree === payload.target_tree, '报告的树应一致');
+    assertTrue(payload.base_head && payload.final_head, '结果应记录基线与最终 HEAD');
+  });
+}
+
 function testIgnoreAutoDetectsNodeAndCreatesDocumentedRules() {
   /**
    * Given：一个尚未创建 .gitignore 的 Node.js 项目根目录。
@@ -657,6 +759,9 @@ const TESTS = [
   testCommitPlanExecutesOnlyPlannedFiles,
   testCommitRefusesPreStagedChanges,
   testCommitReportsFastPathUsage,
+  testFilePlanFollowsDependencyOrder,
+  testFilePlanRejectsDependencyCycle,
+  testFilePlanReportsVerification,
   testIgnoreAutoDetectsNodeAndCreatesDocumentedRules,
   testIgnoreSelectedStackDoesNotExpandOtherDetectedStack,
   testIgnoreCustomRuleIsDocumentedAndIdempotent,
