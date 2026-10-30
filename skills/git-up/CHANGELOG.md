@@ -4,6 +4,9 @@ All notable changes to this skill will be documented in this file.
 
 ## Unreleased
 
+### 修复
+- 路径枚举关闭重命名探测。`stagedPaths` 与 `commitPaths` 此前用 `--name-only`，Git 默认把重命名折叠成一条新路径记录，被删除的旧路径从枚举里消失。计划外的删除一旦折进一次重命名就逃过范围检查，最终只报「树不匹配」，真实原因被掩盖，且提交已进历史。现在返回 `patch_scope_mismatch` 并指出计划外的路径。
+
 ### 文档
 - 补充语义模式的委派契约：子 Agent 读同一份 SKILL.md，适用同一套补丁暂存、目标快照校验与错误码。委派只改变执行者，不改变提交边界。
 
