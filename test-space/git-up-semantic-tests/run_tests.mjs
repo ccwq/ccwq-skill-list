@@ -1143,6 +1143,42 @@ function testSemanticCommitKeepsMessageBodyAndFoot() {
   });
 }
 
+function testModeChangeIsRejectedBeforeCommitting() {
+  /**
+   * Given：一个只改文件模式的补丁，mode 只存在于 index，无法从工作区推导。
+   * When：执行语义计划。
+   * Then：返回 unsupported_operation，且不创建提交。
+   防回归：模式变更曾先落地再报 target_verification_failure。规格要求不支持的操作安全停止。
+   */
+  return withRepo('git-up-sem-mode-', (work, repo) => {
+    writeFile(path.join(repo, 'run.sh'), '#!/bin/sh\necho hi\n');
+    git(repo, 'add', 'run.sh');
+    git(repo, 'commit', '-m', 'init');
+    git(repo, 'update-index', '--chmod=+x', 'run.sh');
+    const patch = path.join(work, 'mode.patch');
+    writeFile(patch, git(repo, 'diff', 'HEAD', '--', 'run.sh').stdout);
+    git(repo, 'reset', '-q');
+
+    const yamlText = semanticPlan([
+      {
+        step: 1,
+        subject: 'chore: set executable bit',
+        changes: [{ path: 'run.sh', patch_file: patch }],
+      },
+    ]);
+    const before = git(repo, 'rev-parse', 'HEAD').stdout.trim();
+    const result = runPlan('commit', yamlText, repo);
+    const payload = parseJson(result);
+    const after = git(repo, 'rev-parse', 'HEAD').stdout.trim();
+    assertTrue(result.status === 1, `模式变更应返回失败，实际 ${result.stdout}`);
+    assertTrue(payload.code === 'unsupported_operation', `错误码应为 unsupported_operation，实际 ${payload.code}`);
+    assertTrue(payload.message.includes('mode'), `错误信息应指出 mode，实际 ${payload.message}`);
+    assertTrue(before === after, '模式变更不应创建提交');
+    const staged = git(repo, 'diff', '--cached', '--name-only').stdout.trim();
+    assertTrue(staged === '', `拒绝后暂存区应为空，实际 ${staged}`);
+  });
+}
+
 function testStageAppliesThreeWayPatch() {
   /**
    * Given：第二个补丁的上下文已被第一个提交改动，普通应用无法匹配。
@@ -2142,6 +2178,7 @@ const TESTS = [
   testStageReportsEmptyGroupAsSkipped,
   testStageRejectsOutOfScopePatch,
   testStageRejectsUnsupportedOperations,
+  testModeChangeIsRejectedBeforeCommitting,
   testExecutionFollowsDependencyOrder,
   testExecutionRejectsNonEmptyIndex,
   testExecutionKeepsUnrelatedFilesOutOfCommits,
