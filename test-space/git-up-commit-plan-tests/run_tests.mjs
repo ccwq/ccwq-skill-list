@@ -78,10 +78,39 @@ function powershellPath() {
   throw new TestFailure('找不到 Windows PowerShell，无法验证 PowerShell 管道输入');
 }
 
+/**
+ * 定位真正的 Git Bash。
+ *
+ * 不能直接用 PATH 上的 `bash`：Windows 的 `C:\Windows\System32\bash.exe` 是 WSL 启动器，
+ * 它不保证透传环境变量，输出的是 WSL 提示文本而不是管道内容。
+ */
 function gitBashPath() {
-  const found = findOnPath('bash');
-  if (!found) throw new TestFailure('找不到 Git Bash，无法验证 printf 管道输入');
-  return found;
+  const candidates = [];
+
+  // 由 git 可执行文件反推 Git 安装根目录，避免依赖固定的安装路径。
+  const git = findOnPath('git');
+  if (git) {
+    const gitDir = path.dirname(git); // ...\Git\cmd 或 ...\Git\bin
+    candidates.push(path.join(path.dirname(gitDir), 'bin', 'bash.exe'));
+  }
+
+  candidates.push(
+    'C:\\Program Files\\Git\\bin\\bash.exe',
+    'C:\\Program Files (x86)\\Git\\bin\\bash.exe',
+    path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Git', 'bin', 'bash.exe'),
+  );
+
+  for (const candidate of candidates) {
+    if (!candidate || !fs.existsSync(candidate)) continue;
+    // Git Bash 必须能执行内建 printf。WSL 启动器在这里会被排除。
+    const probe = spawnSync(candidate, ['-lc', 'printf "%s" ok'], {
+      encoding: 'utf8',
+      windowsHide: true,
+    });
+    if (probe.status === 0 && probe.stdout === 'ok') return candidate;
+  }
+
+  throw new TestFailure('找不到可用的 Git Bash，无法验证 printf 管道输入');
 }
 
 function findOnPath(name) {
