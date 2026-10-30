@@ -8,6 +8,7 @@ All notable changes to this skill will be documented in this file.
 - 路径枚举关闭重命名探测。`stagedPaths` 与 `commitPaths` 此前用 `--name-only`，Git 默认把重命名折叠成一条新路径记录，被删除的旧路径从枚举里消失。计划外的删除一旦折进一次重命名就逃过范围检查，最终只报「树不匹配」，真实原因被掩盖，且提交已进历史。现在返回 `patch_scope_mismatch` 并指出计划外的路径。
 - 块标量首行按语法识别。此前只认 `|` 一种写法，`|-` 与 `|+` 退化成字面量字符串：`subject: |-` 会通过非空校验，产出一条标题为 `|-` 的提交，`verification` 仍报 `verified`。现在 `|` `|-` `|+` 都受支持，折叠写法 `>` 与畸形首行（如 `|x`）显式返回 `invalid_plan`。
 - 块标量报错指向正确位置。缩进不足的内容行此前静默跳出块，随后在外层报 `syntax` / 「expected '<key>: <value>'」，Agent 依提示改缩进会陷入循环。现在返回 `indent` 并指向内容行。
+- 列表条目缩进不足时显式失败。`changes` 条目缩进少于四空格时，列表此前被静默截断，`changes` 变空后计划降级成文件级模式，语义拆分意图被无声丢弃并直接提交。现在返回 `indent` 并指向该条目行。
 
 ### 新增
 - 新增 `references/plan-format.md`：提交计划格式的唯一权威说明，含字段表、缩进规则、多行正文写法与解析错误码。
