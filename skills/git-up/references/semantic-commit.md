@@ -146,6 +146,24 @@ node skills/git-up/scripts/split_patch.mjs --diff .scratch/git-up/full.patch --o
 
 拒绝发生在提交之前。补丁不会被应用，暂存区保持为空，也不会产生提交。
 
+## 结果契约
+
+两种模式返回同一组字段，便于审计：
+
+| 字段 | 含义 |
+|---|---|
+| `ok` | 是否成功 |
+| `mode` | `semantic` 或 `file` |
+| `completed_steps` | 已完成的步骤。语义模式是对象数组，文件级模式是步骤号数组 |
+| `skipped_steps` | 被跳过的步骤。语义模式是对象数组，文件级模式是步骤号数组 |
+| `commits` | 每个提交的 step、sha、subject、reason、paths、status |
+| `base_head` / `final_head` | 执行前后的提交号 |
+| `target_tree` / `final_tree` | 目标树与最终树。相等表示工作区目标被完整提交 |
+| `verification` | 最终一致性结论。`status` 为 `verified` 或 `failed` |
+| `git_log` | 最近若干条提交的一行摘要 |
+
+语义模式的 `completed_steps` 与 `skipped_steps` 元素都带 `reason`，它回显计划里声明的语义组理由。被跳过的步骤另用 `skip_reason` 说明跳过原因。
+
 ## 快车道
 
 以下任一条件成立时快车道必须回退，并在 `fallback_reasons` 中报告原因：

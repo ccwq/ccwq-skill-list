@@ -1290,8 +1290,9 @@ export function executeSemanticPlan(steps, cwd) {
       skipped.push({
         step: step.step,
         subject: step.subject,
+        reason: step.reason,
         status: 'skipped',
-        reason:
+        skip_reason:
           emptyChanges.length > 0
             ? `no effective change in this group; patch files without diff content: ${emptyChanges.join(', ')}`
             : 'no effective change in this group',
@@ -1401,6 +1402,7 @@ function commitStep(step, cwd, paths) {
     step: step.step,
     sha: currentHead(cwd),
     subject: step.subject,
+    reason: step.reason,
     paths: [...paths],
     status: 'committed',
   };

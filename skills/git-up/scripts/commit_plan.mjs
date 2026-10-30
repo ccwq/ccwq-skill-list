@@ -154,6 +154,7 @@ export function executeFilePlan(steps, cwd, fastPathUsed = false) {
       step: item.step,
       sha: runGit(['rev-parse', 'HEAD'], cwd).stdout.trim(),
       subject: item.subject,
+      reason: item.reason,
       paths,
       status: 'committed',
     });

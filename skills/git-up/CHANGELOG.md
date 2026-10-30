@@ -8,13 +8,14 @@ All notable changes to this skill will be documented in this file.
 
 ### 新增
 - 新增语义拆分提交模式：计划步骤可声明 `reason`、`depends_on` 和 `changes`。同一文件可以进入多个提交，每个提交只含自己声明的语义改动。
+- 语义实现分三层交付：语义计划解析、精确补丁暂存、目标快照与最终一致性证明。每层独立可测，执行器组合三层。
 - 新增精确补丁暂存层：用 `git apply --cached` 或 index 直写把独立补丁写入 index，不触碰工作区，不依赖交互式 `git add -p`。
 - 新增 `patch_mode: content`：用 Agent 生成的中间状态文件写入 index，使 JSON、YAML 等结构化文件的相邻改动仍可按语义拆分。
 - 新增目标快照层与最终校验层：执行前保存范围路径的目标树，执行后比较最终 HEAD 与目标树，并检查范围内的工作区和暂存区。不一致时返回 `target_verification_failure`。
 - 新增依赖排序：按 `depends_on` 做拓扑排序，依赖成环时返回 `dependency_cycle` 并停止。
 - 新增机器可读错误码：`staged_changes_present`、`invalid_plan`、`patch_apply_failure`、`patch_scope_mismatch`、`dependency_cycle`、`unsupported_operation`、`commit_failure`、`target_verification_failure`。
 - 新增 `scripts/split_patch.mjs`：把 unified diff 按 hunk 边界拆成独立补丁文件，并输出源文件到补丁的 JSON 清单，使同一文件的多处改动可按语义分组。
-- 新增 `references/semantic-commit.md`：语义计划格式、补丁模式、执行语义、错误码和快车道回退条件。
+- 新增 `references/semantic-commit.md`：语义计划格式、补丁模式、执行语义、错误码、结果契约和快车道回退条件。
 
 ### 变更
 - 脚本从 Python 改写为 Node.js（ESM，`.mjs`）：`commit_plan.mjs`、`gitignore_manager.mjs`、`inspect_fast_path.mjs`，新增核心层 `gitup_semantic.mjs`。CLI 参数与 JSON 输出契约保持不变。
