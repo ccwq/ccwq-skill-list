@@ -57,15 +57,53 @@ function runShellPipe(shell, producerScript, yamlText) {
     consumerErr += chunk;
   });
 
-  return new Promise((resolve) => {
-    producer.on('close', (producerCode) => {
-      consumer.on('close', (consumerCode) => {
-        resolve({
-          status: consumerCode !== 0 ? consumerCode : producerCode,
-          stdout: consumerOut,
-          stderr: consumerErr,
-        });
-      });
+  return new Promise((resolve, reject) => {
+    // 子进程 spawn 失败只发 error 不发 close。不监听时 Promise 永不落定，
+    // 事件循环清空后 Node 以 exit 13 截断套件，已跑完的用例仍全部 PASS。
+    const fail = (error) => reject(new TestFailure(`管道子进程启动失败: ${error?.message ?? error}`));
+    producer.on('error', fail);
+    consumer.on('error', fail);
+    // Windows 偶发：producer 进程已 close 但 consumer 未收到 stdin end，
+    // Promise 永不落定。stdout 'close'（数据冲刷完成）是更可靠的时序锚点，
+    // 再配一个总超时兜底，保证 Promise 必然落定。
+    let result = null;
+    const settle = () => {
+      if (result) resolve(result);
+    };
+    const timer = setTimeout(() => {
+      reject(new TestFailure(`管道子进程 60 秒未结束: producer=${producer.pid} consumer=${consumer.pid}`));
+    }, 60_000);
+    timer.unref();
+    const record = (producerCode, consumerCode) => {
+      result = {
+        status: consumerCode !== 0 ? consumerCode : producerCode,
+        stdout: consumerOut,
+        stderr: consumerErr,
+      };
+      clearTimeout(timer);
+      settle();
+    };
+    let producerStatus = null;
+    let consumerStatus = null;
+    const tryFinish = () => {
+      if (producerStatus !== null && consumerStatus !== null) record(producerStatus, consumerStatus);
+    };
+    producer.on('close', (code) => {
+      producerStatus = code;
+      tryFinish();
+    });
+    consumer.on('close', (code) => {
+      consumerStatus = code;
+      tryFinish();
+    });
+    producer.stdout.on('close', () => {
+      // producer 的输出已全部冲刷。consumer 若仍未退出，给一秒宽限。
+      if (consumerStatus === null) {
+        const grace = setTimeout(() => {
+          if (consumerStatus === null && producerStatus !== null) record(producerStatus, null);
+        }, 1000);
+        grace.unref();
+      }
     });
   });
 }
