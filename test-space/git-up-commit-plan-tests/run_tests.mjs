@@ -561,6 +561,39 @@ function testCommitWritesMultiLineBodyFromChompedBlock() {
   });
 }
 
+function testParseRejectsMisindentedListEntry() {
+  /**
+   * Given：计划的 changes 条目缩进三空格，并且同一步骤还声明了 files。
+   * When：commit_plan.mjs commit 执行该计划。
+   * Then：返回 code=indent，不静默把 changes 读成空列表。
+   * 防回归：缩进不足的条目行此前静默结束列表，changes 变空后计划降级成
+   *         文件级模式，语义拆分意图被无声丢弃并直接提交。
+   */
+  return withTempRepo('git-up-list-entry-', (repo) => {
+    fs.mkdirSync(repo, { recursive: true });
+    initRepo(repo);
+    fs.writeFileSync(path.join(repo, 'planned.txt'), 'planned\n', 'utf8');
+    const stateFile = path.join(repo, '..', 'state.txt');
+    fs.writeFileSync(stateFile, 'planned\n', 'utf8');
+    const yamlText = `- step: 1
+  subject: "feat(core): intended semantic split"
+  changes:
+   - path: planned.txt
+      patch_mode: content
+      patch_file: ${stateFile}
+  files:
+    - planned.txt
+`;
+    const before = runCommand(['git', 'rev-parse', 'HEAD'], repo).stdout.trim();
+    const result = runPlan('commit', yamlText, repo);
+    const payload = parseJson(result);
+    const after = runCommand(['git', 'rev-parse', 'HEAD'], repo).stdout.trim();
+    assertTrue(result.status === 2, '缩进错误的条目行应返回解析错误码 2');
+    assertTrue(payload.code === 'indent', `错误码应为 indent，实际 ${payload.code}`);
+    assertTrue(before === after, '解析失败时不应创建提交');
+  });
+}
+
 function testPlanFilePreservesUtf8PlanVariants() {
   /**
    * Given: a UTF-8 plan file contains Chinese text and emoji.
@@ -946,6 +979,7 @@ const TESTS = [
   testParseRejectsBlockScalarOnListField,
   testParseSubjectBlockWithoutContentFails,
   testParseReportsMisindentedBlockContent,
+  testParseRejectsMisindentedListEntry,
   testCommitWritesMultiLineBodyFromChompedBlock,
   testMissingFilesFails,
   testPlanFilePreservesUtf8PlanVariants,

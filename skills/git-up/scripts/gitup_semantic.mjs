@@ -235,6 +235,16 @@ function readBlockScalar(lines, index) {
   return [block.join('\n').replace(/\s+$/, ''), i];
 }
 
+/**
+ * 判断一行是否是缩进错误的列表条目。
+ *
+ * 列表条目必须缩进四空格并以 `- ` 开头。缩进不足的条目行会被误当成
+ * 下一个字段，让列表被静默截断。
+ */
+function isMisindentedListEntry(raw) {
+  return /^\s+- /.test(raw) && !raw.startsWith('    - ');
+}
+
 /** 读取四空格缩进的 `- item` 列表。 */
 function readScalarList(lines, index, key) {
   const items = [];
@@ -255,6 +265,10 @@ function readScalarList(lines, index, key) {
       items.push(item);
       i += 1;
       continue;
+    }
+    // 缩进不足的条目行。静默结束列表会让 depends_on 等字段丢失声明的值。
+    if (isMisindentedListEntry(raw)) {
+      throw new PlanError('indent', `${key} entries must use four-space list indentation`, itemLineNo);
     }
     if (raw.startsWith('  ') || raw.startsWith('- ')) break;
     throw new PlanError('indent', `${key} entries must use four-space list indentation`, itemLineNo);
@@ -295,6 +309,10 @@ function readChangeList(lines, index) {
       }
       entries.push(entry);
       continue;
+    }
+    // 缩进不足的条目行。静默结束列表会让 changes 变空，计划降级成文件级模式。
+    if (isMisindentedListEntry(raw)) {
+      throw new PlanError('indent', 'changes entries must use four-space list indentation', itemLineNo);
     }
     if (raw.startsWith('  ') || raw.startsWith('- ')) break;
     throw new PlanError('indent', 'changes entries must use four-space list indentation', itemLineNo);
