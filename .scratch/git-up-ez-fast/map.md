@@ -28,12 +28,19 @@ Label: wayfinder:map
 
 ## Not yet specified
 
+无。九张工单全部已决，实现轮已完成。
+
 - ~~ez-fast 下 Agent 如何判别并声明 `suppressed_split`~~ → 已决，见 [工单 07](issues/07-suppressed-split-detection.md)。
 - ~~ez-fast 章节位置、文档同步面~~ → 已决，见 [工单 09](issues/09-doc-sync-surface.md)。ez-fast 术语不写入根 `CONTEXT.md`（沿用先例）。
 
+## 实施状态
+
+实现轮已完成。工单 08 的脚本改动面与工单 09 的文档同步面均已落地，实施记录见各工单末尾的「实施记录」一节。git-up 版本走 2.8.0。
+
+验证结论：commit-plan 套件 45 例通过、semantic 套件 49 例通过、ez-fast 独立机器验收脚本 19 项通过。
+
 ## Out of scope
 
-- ez-fast 的实现代码。本图只出契约与规格。
 - 自动 JSON/YAML 语义分解。规格明确列为 v1 之后的增强，归 Agent 层。
 - 其余 7 个 skill 的 Python→Node.js 迁移，约 5200 行。
 - `skills-lock.json` 的 git-up 哈希。该文件上次同步是 2026-08-11，git-up 此后已改动，属既有状态，仓库无工具校验。

@@ -81,3 +81,14 @@ Blocked by: 04-ez-fast-script-enforcement.md
 ## 备注
 
 前置工单 04、05、07 均已 resolved，本清单是三者的机械展开，无遗留决策点。实现轮完成后按「新增 / 修改 skill 同步清单」进工单 09。
+
+## 实施记录
+
+实现轮已完成（提交 `a6b8d58`）。三张逐函数清单全部落地，15 项回归用例全部加入 `test-space/git-up-commit-plan-tests/run_tests.mjs`。
+
+两处实施期的发现：
+
+- 用例 #7 的 fixture 最初让 step 2 声明了不属于自身 `files` 的路径，被新增的归属校验正确拦下。工单要求每条路径属于该步骤自己的 `files`，fixture 已改为步骤内重复项以验证去重。
+- 工单 03 的分类表把「无改动」列在规划质量级，工单 08 把它归入 Git 级条件。实现按工单 08 执行（`no_changes` 不绕），文档分类已对齐（提交 `8954279`）。
+
+`stepToDict()` 按工单第 23 行无条件输出 `suppressed_split`，因此 `parse` 输出的 steps 在所有模式下都带该键。「两个键都不出现」的约束出自工单第 35 行，指执行结果顶层，非 ez-fast 场景执行结果保持字节级不变。
