@@ -6,10 +6,26 @@ PowerShell 5.1 原生管道可能把中文和 emoji 替换为 `?`。包含非 AS
 $planFile = Join-Path $env:TEMP "git-up-plan-$PID.yaml"
 [IO.File]::WriteAllText($planFile, $plan, [Text.UTF8Encoding]::new($false))
 try {
-  node skills/git-up/scripts/commit_plan.mjs commit --cwd . --plan-file $planFile
+  node "$env:USERPROFILE\.claude\skills\git-up\scripts\commit_plan.mjs" commit --cwd . --plan-file $planFile
 } finally {
   Remove-Item -LiteralPath $planFile -Force -ErrorAction SilentlyContinue
 }
+```
+
+用文件写入工具直接落 UTF-8 文件再传 `--plan-file` 更可靠。避免在 PowerShell 里拼接多行字符串。
+
+## 执行位置
+
+所有命令在仓库根目录执行。切换工具时 shell 工作目录会保留，PowerShell 里的相对路径可能落到子目录而找不到脚本。先切换目录：
+
+```powershell
+Set-Location "E:\path\to\repo"
+```
+
+bash 的 `for ... do ... done` 循环在 PowerShell 里是语法错误。PowerShell 用 `ForEach-Object`：
+
+```powershell
+Get-ChildItem -Directory reports | ForEach-Object { python .agents/skills/weekly-report/scripts/validate_report.py $_.FullName }
 ```
 
 `commit_plan.mjs` 只支持 Git-up 生成的 YAML Lite，不依赖任何 YAML 库。`--plan-file` 按 UTF-8（可含 BOM）读取；POSIX 可从 stdin 输入。

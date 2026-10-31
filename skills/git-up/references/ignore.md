@@ -9,8 +9,10 @@
 - `--clean` 只预览 Git-up 管理区块的重复规则；仅 `--clean --apply` 删除，且不删除手写规则。
 
 ```powershell
-node skills/git-up/scripts/gitignore_manager.mjs --cwd .
-node skills/git-up/scripts/gitignore_manager.mjs --cwd . node python
-node skills/git-up/scripts/gitignore_manager.mjs --cwd . --add "tmp/" --reason "本地调试输出"
-node skills/git-up/scripts/gitignore_manager.mjs --cwd . --clean
+node "$env:USERPROFILE\.claude\skills\git-up\scripts\gitignore_manager.mjs" --cwd .
+node "$env:USERPROFILE\.claude\skills\git-up\scripts\gitignore_manager.mjs" --cwd . node python
+node "$env:USERPROFILE\.claude\skills\git-up\scripts\gitignore_manager.mjs" --cwd . --add "tmp/" --reason "本地调试输出"
+node "$env:USERPROFILE\.claude\skills\git-up\scripts\gitignore_manager.mjs" --cwd . --clean
 ```
+
+脚本是 Node.js ESM 文件，扩展名为 `.mjs`。用 `python` 调用会报 `No such file or directory`。
