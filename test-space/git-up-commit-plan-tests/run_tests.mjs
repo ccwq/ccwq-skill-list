@@ -236,8 +236,10 @@ function runIgnore(args, cwd) {
   return runCommand([process.execPath, IGNORE_SCRIPT, '--cwd', cwd, ...args], PROJECT_ROOT);
 }
 
-function runFastPath(cwd) {
-  return runCommand([process.execPath, FAST_PATH_SCRIPT, '--cwd', cwd], PROJECT_ROOT);
+function runFastPath(cwd, extraArgs = null) {
+  const args = [process.execPath, FAST_PATH_SCRIPT, '--cwd', cwd];
+  if (extraArgs) args.push(...extraArgs);
+  return runCommand(args, PROJECT_ROOT);
 }
 
 function initRepo(repo) {
@@ -1036,6 +1038,512 @@ function testIgnoreCleanPreviewsBeforeApply() {
   });
 }
 
+// ---------------------------------------------------------------------------
+// ez-fast 模式
+// ---------------------------------------------------------------------------
+
+function testEzFastParseAcceptsFilePlan() {
+  /**
+   * Given：一个文件级计划，步骤同时声明 files 与 suppressed_split。
+   * When：commit_plan.mjs parse 带上 --ez-fast 解析该计划。
+   * Then：返回 ok=true、plan_mode=file，步骤回显 suppressed_split 字段。
+   * 防回归：-zp 场景要先校验计划，ez-fast 的文件级计划必须能被正常解析。
+   */
+  const yamlText = `- step: 1
+  subject: "build(deps): install"
+  files:
+    - package.json
+  suppressed_split:
+    - package.json
+`;
+  const result = runPlan('parse', yamlText, null, ['--ez-fast']);
+  const payload = parseJson(result);
+  assertTrue(result.status === 0, result.stderr || result.stdout);
+  assertTrue(payload.ok === true, 'ez-fast 的文件级计划应解析成功');
+  assertTrue(payload.plan_mode === 'file', 'ez-fast 计划应保持文件级模式');
+  assertTrue(
+    Array.isArray(payload.steps[0].suppressed_split)
+      && payload.steps[0].suppressed_split.includes('package.json'),
+    '步骤应回显 suppressed_split 字段',
+  );
+}
+
+function testEzFastParseRejectsSemanticPlan() {
+  /**
+   * Given：一个声明 changes 的语义计划。
+   * When：commit_plan.mjs parse 带上 --ez-fast 解析该计划。
+   * Then：返回 exit 2 与 invalid_plan，消息写明是 ez-fast 拒绝语义计划。
+   * 防回归：ez-fast 禁止语义拆分，parse 必须与 commit 用同一条规则拒绝。
+   */
+  const yamlText = `- step: 1
+  subject: "feat(core): semantic split"
+  changes:
+    - path: a.txt
+      patch_mode: content
+      patch_file: state.txt
+`;
+  const result = runPlan('parse', yamlText, null, ['--ez-fast']);
+  const payload = parseJson(result);
+  assertTrue(result.status === 2, 'ez-fast 拒绝语义计划应返回错误码 2');
+  assertTrue(payload.code === 'invalid_plan', `错误码应为 invalid_plan，实际 ${payload.code}`);
+  assertTrue(
+    String(payload.message).includes('--ez-fast'),
+    `消息应写明是 ez-fast 拒绝，实际 ${payload.message}`,
+  );
+}
+
+function testEzFastRejectsSemanticPlanBeforeIndexTouch() {
+  /**
+   * Given：仓库 index 里已有用户预暂存的文件，同时传入一个语义计划。
+   * When：commit_plan.mjs commit 带上 --ez-fast 执行。
+   * Then：返回 invalid_plan（不是 staged_changes_present），HEAD 不变，预暂存内容原样保留。
+   * 防回归：拒绝必须发生在任何 Git 写操作之前，index 不能被触碰或清空。
+   */
+  return withTempRepo('git-up-ezfast-semantic-', (repo) => {
+    fs.mkdirSync(repo, { recursive: true });
+    initRepo(repo);
+    fs.writeFileSync(path.join(repo, 'staged.txt'), 'staged\n', 'utf8');
+    runCommand(['git', 'add', 'staged.txt'], repo);
+    const before = runCommand(['git', 'rev-parse', 'HEAD'], repo).stdout.trim();
+    const yamlText = `- step: 1
+  subject: "feat(core): semantic split"
+  changes:
+    - path: a.txt
+      patch_mode: content
+      patch_file: state.txt
+`;
+    const result = runPlan('commit', yamlText, repo, ['--ez-fast']);
+    const payload = parseJson(result);
+    const after = runCommand(['git', 'rev-parse', 'HEAD'], repo).stdout.trim();
+    const staged = runCommand(['git', 'diff', '--cached', '--name-only'], repo).stdout;
+    assertTrue(result.status === 1, 'ez-fast 拒绝语义计划应返回失败');
+    assertTrue(payload.code === 'invalid_plan', `错误码应为 invalid_plan，实际 ${payload.code}`);
+    assertTrue(
+      payload.code !== 'staged_changes_present',
+      '拒绝原因不得被报成暂存区冲突',
+    );
+    assertTrue(before === after, '拒绝执行时不应创建提交');
+    assertTrue(staged.includes('staged.txt'), '拒绝时不得清空用户已有暂存内容');
+  });
+}
+
+function testEzFastCommitAcceptsFilePlan() {
+  /**
+   * Given：仓库里同时存在计划内文件和计划外未跟踪文件。
+   * When：commit_plan.mjs commit 带上 --ez-fast 执行文件级计划。
+   * Then：提交成功并标记语义拆分已禁用，计划外文件仍保持未跟踪。
+   * 防回归：ez-fast 只放宽检查，不放宽「只提交计划内文件」的安全约束。
+   */
+  return withTempRepo('git-up-ezfast-commit-', (repo) => {
+    fs.mkdirSync(repo, { recursive: true });
+    initRepo(repo);
+    fs.writeFileSync(path.join(repo, 'planned.txt'), 'planned\n', 'utf8');
+    fs.writeFileSync(path.join(repo, 'unplanned.txt'), 'unplanned\n', 'utf8');
+    const yamlText = `- step: 1
+  subject: "feat(core): ez fast commit"
+  files:
+    - planned.txt
+`;
+    const result = runPlan('commit', yamlText, repo, ['--ez-fast']);
+    const payload = parseJson(result);
+    const status = runCommand(['git', 'status', '--short'], repo);
+    const committed = runCommand(['git', 'show', '--name-only', '--format=', 'HEAD'], repo);
+    assertTrue(result.status === 0, result.stdout || result.stderr);
+    assertTrue(payload.ok === true, 'ez-fast 文件级计划应提交成功');
+    assertTrue(payload.semantic_split_disabled === true, '结果应标记本次禁用了语义拆分');
+    assertTrue(payload.fast_path_used === false, 'ez-fast 不隐含快车道');
+    assertTrue(committed.stdout.includes('planned.txt'), '计划内文件应进入提交');
+    assertTrue(status.stdout.includes('?? unplanned.txt'), '计划外文件应保持未跟踪');
+  });
+}
+
+function testEzFastKeepsDependencyOrder() {
+  /**
+   * Given：文件级计划把后置步骤写在前面，并用 depends_on 声明前置步骤。
+   * When：commit_plan.mjs commit 带上 --ez-fast 执行该计划。
+   * Then：提交顺序仍遵循 depends_on，而不是计划里的书写顺序。
+   * 防回归：ez-fast 保留 depends_on，依赖排序由文件级执行器处理。
+   */
+  return withTempRepo('git-up-ezfast-order-', (repo) => {
+    fs.mkdirSync(repo, { recursive: true });
+    initRepo(repo);
+    fs.writeFileSync(path.join(repo, 'a.txt'), 'a\n', 'utf8');
+    fs.writeFileSync(path.join(repo, 'b.txt'), 'b\n', 'utf8');
+    runCommand(['git', 'add', 'a.txt', 'b.txt'], repo);
+    runCommand(['git', 'commit', '-m', 'init'], repo);
+    fs.writeFileSync(path.join(repo, 'a.txt'), 'A\n', 'utf8');
+    fs.writeFileSync(path.join(repo, 'b.txt'), 'B\n', 'utf8');
+    const yamlText = `- step: 2
+  subject: "feat: second"
+  depends_on:
+    - 1
+  files:
+    - b.txt
+- step: 1
+  subject: "feat: first"
+  files:
+    - a.txt
+`;
+    const result = runPlan('commit', yamlText, repo, ['--ez-fast']);
+    const payload = parseJson(result);
+    assertTrue(result.status === 0, result.stdout || result.stderr);
+    const steps = payload.completed_steps;
+    assertTrue(steps.join(',') === '1,2', `提交顺序应遵循依赖，实际 ${steps.join(',')}`);
+    const log = runCommand(['git', 'log', '--oneline', '-2'], repo).stdout.split(/\r\n|\n|\r/).filter(Boolean);
+    assertTrue(log[1].includes('feat: first'), '较早的提交应是前置步骤');
+  });
+}
+
+function testEzFastRejectsDependencyCycle() {
+  /**
+   * Given：文件级计划的两个步骤互相依赖。
+   * When：commit_plan.mjs commit 带上 --ez-fast 执行该计划。
+   * Then：返回 dependency_cycle，且不创建提交。
+   * 防回归：ez-fast 放宽的是检查条件，依赖成环仍必须拒绝。
+   */
+  return withTempRepo('git-up-ezfast-cycle-', (repo) => {
+    fs.mkdirSync(repo, { recursive: true });
+    initRepo(repo);
+    fs.writeFileSync(path.join(repo, 'a.txt'), 'a\n', 'utf8');
+    runCommand(['git', 'add', 'a.txt'], repo);
+    runCommand(['git', 'commit', '-m', 'init'], repo);
+    fs.writeFileSync(path.join(repo, 'a.txt'), 'A\n', 'utf8');
+    const yamlText = `- step: 1
+  subject: "feat: one"
+  depends_on:
+    - 2
+  files:
+    - a.txt
+- step: 2
+  subject: "feat: two"
+  depends_on:
+    - 1
+  files:
+    - a.txt
+`;
+    const before = runCommand(['git', 'rev-parse', 'HEAD'], repo).stdout.trim();
+    const result = runPlan('commit', yamlText, repo, ['--ez-fast']);
+    const payload = parseJson(result);
+    const after = runCommand(['git', 'rev-parse', 'HEAD'], repo).stdout.trim();
+    assertTrue(result.status === 1, '依赖成环应返回失败');
+    assertTrue(payload.code === 'dependency_cycle', `错误码应为 dependency_cycle，实际 ${payload.code}`);
+    assertTrue(before === after, '依赖成环时不应创建提交');
+  });
+}
+
+function testEzFastResultFields() {
+  /**
+   * Given：一个跨两个步骤声明 suppressed_split 的文件级计划，其中一个路径重复声明。
+   * When：commit_plan.mjs commit 带上 --ez-fast 执行该计划。
+   * Then：结果里 semantic_split_disabled=true，suppressed_split 是去重排序的并集；
+   *       另一份没有声明的计划得到的是空数组。
+   * 防回归：结果字段要能自证「本次禁用了语义拆分」以及被压掉的是哪些路径。
+   */
+  return withTempRepo('git-up-ezfast-fields-', (repo) => {
+    fs.mkdirSync(repo, { recursive: true });
+    initRepo(repo);
+    fs.writeFileSync(path.join(repo, 'a.txt'), 'a\n', 'utf8');
+    fs.writeFileSync(path.join(repo, 'b.txt'), 'b\n', 'utf8');
+    fs.writeFileSync(path.join(repo, 'c.txt'), 'c\n', 'utf8');
+    runCommand(['git', 'add', 'a.txt', 'b.txt', 'c.txt'], repo);
+    runCommand(['git', 'commit', '-m', 'init'], repo);
+    fs.writeFileSync(path.join(repo, 'a.txt'), 'A\n', 'utf8');
+    fs.writeFileSync(path.join(repo, 'b.txt'), 'B\n', 'utf8');
+    fs.writeFileSync(path.join(repo, 'c.txt'), 'C\n', 'utf8');
+    const yamlText = `- step: 1
+  subject: "feat: one"
+  files:
+    - a.txt
+    - b.txt
+  suppressed_split:
+    - b.txt
+- step: 2
+  subject: "feat: two"
+  files:
+    - b.txt
+    - c.txt
+  suppressed_split:
+    - b.txt
+    - c.txt
+`;
+    const result = runPlan('commit', yamlText, repo, ['--ez-fast']);
+    const payload = parseJson(result);
+    assertTrue(result.status === 0, result.stdout || result.stderr);
+    assertTrue(payload.semantic_split_disabled === true, '结果应标记禁用了语义拆分');
+    assertTrue(
+      Array.isArray(payload.suppressed_split)
+        && payload.suppressed_split.join(',') === 'b.txt,c.txt',
+      `suppressed_split 应是去重排序的并集，实际 ${JSON.stringify(payload.suppressed_split)}`,
+    );
+
+    fs.writeFileSync(path.join(repo, 'd.txt'), 'd\n', 'utf8');
+    const plainYaml = `- step: 1
+  subject: "feat: three"
+  files:
+    - d.txt
+`;
+    const plainResult = runPlan('commit', plainYaml, repo, ['--ez-fast']);
+    const plainPayload = parseJson(plainResult);
+    assertTrue(plainResult.status === 0, plainResult.stdout || plainResult.stderr);
+    assertTrue(plainPayload.semantic_split_disabled === true, '无声明时也应标记禁用了语义拆分');
+    assertTrue(
+      Array.isArray(plainPayload.suppressed_split) && plainPayload.suppressed_split.length === 0,
+      `无声明时 suppressed_split 应为空数组，实际 ${JSON.stringify(plainPayload.suppressed_split)}`,
+    );
+  });
+}
+
+function testNonEzFastResultKeepsContract() {
+  /**
+   * Given：同一份声明了 suppressed_split 的文件级计划。
+   * When：commit_plan.mjs commit 不带 --ez-fast 执行该计划。
+   * Then：结果顶层既没有 semantic_split_disabled 也没有 suppressed_split 键。
+   * 防回归：防止 ez-fast 的结果字段泄漏到普通执行路径，破坏既有结果契约。
+   */
+  return withTempRepo('git-up-ezfast-contract-', (repo) => {
+    fs.mkdirSync(repo, { recursive: true });
+    initRepo(repo);
+    fs.writeFileSync(path.join(repo, 'a.txt'), 'a\n', 'utf8');
+    runCommand(['git', 'add', 'a.txt'], repo);
+    runCommand(['git', 'commit', '-m', 'init'], repo);
+    fs.writeFileSync(path.join(repo, 'a.txt'), 'A\n', 'utf8');
+    const yamlText = `- step: 1
+  subject: "feat: one"
+  files:
+    - a.txt
+  suppressed_split:
+    - a.txt
+`;
+    const result = runPlan('commit', yamlText, repo);
+    const payload = parseJson(result);
+    assertTrue(result.status === 0, result.stdout || result.stderr);
+    assertTrue(payload.ok === true, '普通执行应成功');
+    assertTrue(
+      !('semantic_split_disabled' in payload),
+      '非 ez-fast 结果不得出现 semantic_split_disabled 键',
+    );
+    assertTrue(
+      !('suppressed_split' in payload),
+      '非 ez-fast 结果不得出现 suppressed_split 键',
+    );
+  });
+}
+
+function testEzFastWithFastPathCombo() {
+  /**
+   * Given：一个文件级计划，调用方同时处于 ez-fast 与快车道上下文。
+   * When：commit_plan.mjs commit 同时带上 --ez-fast 与 --fast-path。
+   * Then：结果里 fast_path_used=true 且 semantic_split_disabled=true。
+   * 防回归：两个 flag 相互独立但可以正交组合，-zpc 场景必须同时生效。
+   */
+  return withTempRepo('git-up-ezfast-combo-', (repo) => {
+    fs.mkdirSync(repo, { recursive: true });
+    initRepo(repo);
+    fs.writeFileSync(path.join(repo, 'planned.txt'), 'planned\n', 'utf8');
+    const yamlText = `- step: 1
+  subject: "feat(core): combo"
+  files:
+    - planned.txt
+`;
+    const result = runPlan('commit', yamlText, repo, ['--ez-fast', '--fast-path']);
+    const payload = parseJson(result);
+    assertTrue(result.status === 0, result.stdout || result.stderr);
+    assertTrue(payload.ok === true, '组合使用应提交成功');
+    assertTrue(payload.fast_path_used === true, '结果应标记命中快车道');
+    assertTrue(payload.semantic_split_disabled === true, '结果应标记禁用了语义拆分');
+  });
+}
+
+function testSuppressedSplitPathNotInFilesRejected() {
+  /**
+   * Given：一个文件级计划在 suppressed_split 里声明了不属于本步骤 files 的路径。
+   * When：commit_plan.mjs parse 校验该计划。
+   * Then：返回 invalid_plan，消息写明该路径未在 files 中声明。
+   * 防回归：归属校验放在解析层，任何子命令都要拒绝自相矛盾的计划。
+   */
+  const yamlText = `- step: 1
+  subject: "feat(core): bad ownership"
+  files:
+    - a.txt
+  suppressed_split:
+    - b.txt
+`;
+  const result = runPlan('parse', yamlText);
+  const payload = parseJson(result);
+  assertTrue(result.status === 2, '归属错误应返回解析错误码 2');
+  assertTrue(payload.code === 'invalid_plan', `错误码应为 invalid_plan，实际 ${payload.code}`);
+  assertTrue(String(payload.message).includes('b.txt'), `消息应写明出问题的路径，实际 ${payload.message}`);
+  assertTrue(
+    String(payload.message).includes('not declared in files'),
+    `消息应写明归属关系错误，实际 ${payload.message}`,
+  );
+}
+
+function testSuppressedSplitInSemanticModeRejected() {
+  /**
+   * Given：一个语义计划在步骤里声明了 suppressed_split。
+   * When：commit_plan.mjs parse 校验该计划。
+   * Then：返回 invalid_plan，消息写明语义模式不接受该字段。
+   * 防回归：suppressed_split 只对文件级计划有意义，语义模式下必须显式拒绝。
+   */
+  const yamlText = `- step: 1
+  subject: "feat(core): semantic with suppressed"
+  changes:
+    - path: a.txt
+      patch_mode: content
+      patch_file: state.txt
+  suppressed_split:
+    - a.txt
+`;
+  const result = runPlan('parse', yamlText);
+  const payload = parseJson(result);
+  assertTrue(result.status === 2, '语义模式声明 suppressed_split 应返回解析错误码 2');
+  assertTrue(payload.code === 'invalid_plan', `错误码应为 invalid_plan，实际 ${payload.code}`);
+  assertTrue(
+    String(payload.message).includes('suppressed_split'),
+    `消息应写明是 suppressed_split 字段，实际 ${payload.message}`,
+  );
+}
+
+function testSuppressedSplitBlockScalarRejected() {
+  /**
+   * Given：文件级计划把 suppressed_split 写成块标量 `|`。
+   * When：commit_plan.mjs parse 校验该计划。
+   * Then：返回 invalid_plan，而不是静默变成空列表。
+   * 防回归：列表字段收到块标量时必须显式失败，否则声明会被无声丢弃。
+   */
+  const yamlText = `- step: 1
+  subject: "feat(core): block scalar list"
+  files:
+    - a.txt
+  suppressed_split: |
+    a.txt
+`;
+  const result = runPlan('parse', yamlText);
+  const payload = parseJson(result);
+  assertTrue(result.status === 2, '列表字段用块标量应返回解析错误码 2');
+  assertTrue(payload.code === 'invalid_plan', `错误码应为 invalid_plan，实际 ${payload.code}`);
+  assertTrue(
+    String(payload.message).includes('suppressed_split'),
+    `消息应写明是 suppressed_split 字段，实际 ${payload.message}`,
+  );
+}
+
+function testInspectEzFastRelaxesQualityChecks() {
+  /**
+   * Given：六个文件跨两个模块发生修改，且计划里存在依赖。
+   * When：以 --ez-fast 运行快车道只读检查器。
+   * Then：eligible=true 且 ez_fast=true，语义拆分条件照常报告但不阻止进入快车道。
+   * 防回归：ez-fast 只放宽规划质量级检查，不能把 Git 级条件一起放宽。
+   */
+  return withTempRepo('git-up-ezfast-inspect-', (repo) => {
+    fs.mkdirSync(repo, { recursive: true });
+    initRepo(repo);
+    const paths = [];
+    for (const dir of ['src', 'docs']) {
+      fs.mkdirSync(path.join(repo, dir), { recursive: true });
+      for (let index = 0; index < 3; index += 1) {
+        const relative = `${dir}/file-${index}.txt`;
+        fs.writeFileSync(path.join(repo, relative), 'base\n', 'utf8');
+        paths.push(relative);
+      }
+    }
+    runCommand(['git', 'add', ...paths], repo);
+    runCommand(['git', 'commit', '-m', 'seed files'], repo);
+    for (const relative of paths) {
+      fs.writeFileSync(path.join(repo, relative), 'changed\n', 'utf8');
+    }
+    // 计划文件放在仓库外，避免它本身被计入文件数与模块数。
+    const planDir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-up-ezfast-plan-'));
+    const planPath = path.join(planDir, 'plan.yaml');
+    fs.writeFileSync(
+      planPath,
+      `- step: 2
+  subject: "feat: second"
+  depends_on:
+    - 1
+  files:
+    - src/file-0.txt
+- step: 1
+  subject: "feat: first"
+  files:
+    - docs/file-0.txt
+`,
+      'utf8',
+    );
+    try {
+      const result = runFastPath(repo, ['--ez-fast', '--plan-file', planPath]);
+      const payload = parseJson(result);
+      assertTrue(result.status === 0, result.stderr || result.stdout);
+      assertTrue(payload.ez_fast === true, 'ez-fast 上下文应可观测');
+      assertTrue(payload.eligible === true, 'ez-fast 下文件数与跨模块不应再回退');
+      assertTrue(
+        !payload.fallback_reasons.includes('file_count_exceeded'),
+        'ez-fast 下不应报告文件数超限',
+      );
+      assertTrue(
+        !payload.fallback_reasons.includes('multiple_modules'),
+        'ez-fast 下不应报告跨模块',
+      );
+      assertTrue(
+        payload.semantic_split_reasons.includes('dependencies_present'),
+        '语义拆分条件应照常报告',
+      );
+    } finally {
+      fs.rmSync(planDir, { recursive: true, force: true });
+    }
+  });
+}
+
+function testInspectEzFastKeepsGitLevelChecks() {
+  /**
+   * Given：仓库 index 里已有用户预暂存的文件。
+   * When：以 --ez-fast 运行快车道只读检查器。
+   * Then：仍报告 staged_changes_present 且 eligible=false。
+   * 防回归：ez-fast 不得变成绕过 Git 级安全检查的后门。
+   */
+  return withTempRepo('git-up-ezfast-git-level-', (repo) => {
+    fs.mkdirSync(repo, { recursive: true });
+    initRepo(repo);
+    fs.writeFileSync(path.join(repo, 'staged.txt'), 'staged\n', 'utf8');
+    runCommand(['git', 'add', 'staged.txt'], repo);
+    const result = runFastPath(repo, ['--ez-fast']);
+    const payload = parseJson(result);
+    assertTrue(result.status === 0, result.stderr || result.stdout);
+    assertTrue(payload.ez_fast === true, 'ez-fast 上下文应可观测');
+    assertTrue(payload.eligible === false, '已有暂存内容时 ez-fast 仍必须回退');
+    assertTrue(
+      payload.fallback_reasons.includes('staged_changes_present'),
+      '应报告 staged 原因',
+    );
+  });
+}
+
+function testExistingSuitesDoNotRegress() {
+  /**
+   * Given：ez-fast 改动落在语义核心层与执行器上，语义套件的行为必须保持不变。
+   * When：以子进程方式运行语义套件的全部用例。
+   * Then：语义套件退出码为 0，输出中没有任何失败用例。
+   * 防回归：commit-plan 套件自身的既有用例由本套件整体跑绿覆盖；
+   *         语义套件不在本文件里，需要单独拉起验证。
+   */
+  const suite = path.join(PROJECT_ROOT, 'test-space', 'git-up-semantic-tests', 'run_tests.mjs');
+  const result = spawnSync(process.execPath, [suite], {
+    cwd: PROJECT_ROOT,
+    encoding: 'utf8',
+    maxBuffer: 256 * 1024 * 1024,
+    windowsHide: true,
+    timeout: 600_000,
+  });
+  const output = `${result.stdout ?? ''}${result.stderr ?? ''}`;
+  assertTrue(
+    result.status === 0,
+    `语义套件应全部通过，实际退出码 ${result.status}：${output.slice(-2000)}`,
+  );
+  assertTrue(output.includes('PASS '), '语义套件应实际跑出用例');
+  assertTrue(!output.includes('FAIL '), '语义套件不应出现失败用例');
+}
+
 const TESTS = [
   testFastPathAcceptsSingleModuleChange,
   testFastPathRejectsPreStagedChange,
@@ -1067,6 +1575,21 @@ const TESTS = [
   testIgnoreSelectedStackDoesNotExpandOtherDetectedStack,
   testIgnoreCustomRuleIsDocumentedAndIdempotent,
   testIgnoreCleanPreviewsBeforeApply,
+  testEzFastParseAcceptsFilePlan,
+  testEzFastParseRejectsSemanticPlan,
+  testEzFastRejectsSemanticPlanBeforeIndexTouch,
+  testEzFastCommitAcceptsFilePlan,
+  testEzFastKeepsDependencyOrder,
+  testEzFastRejectsDependencyCycle,
+  testEzFastResultFields,
+  testNonEzFastResultKeepsContract,
+  testEzFastWithFastPathCombo,
+  testSuppressedSplitPathNotInFilesRejected,
+  testSuppressedSplitInSemanticModeRejected,
+  testSuppressedSplitBlockScalarRejected,
+  testInspectEzFastRelaxesQualityChecks,
+  testInspectEzFastKeepsGitLevelChecks,
+  testExistingSuitesDoNotRegress,
 ];
 
 async function main() {

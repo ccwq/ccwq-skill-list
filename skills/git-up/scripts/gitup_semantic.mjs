@@ -86,6 +86,9 @@ export function createChange({ path: changePath, patchMode = 'patch', patchFile 
 
 /**
  * 创建一个提交步骤。files 是兼容的文件级模式，changes 是语义模式。
+ *
+ * suppressedSplit 是 ez-fast 的可选字段：声明该步骤里哪些路径本可按语义目的拆分，
+ * 但因 ez-fast 按文件整体提交。
  */
 export function createStep({
   step,
@@ -96,8 +99,9 @@ export function createStep({
   reason = '',
   dependsOn = [],
   changes = [],
+  suppressedSplit = [],
 }) {
-  return { step, subject, body, foot, files, reason, dependsOn, changes };
+  return { step, subject, body, foot, files, reason, dependsOn, changes, suppressedSplit };
 }
 
 /** 生成提交信息正文。 */
@@ -124,6 +128,8 @@ export function stepToDict(step) {
     files: step.files,
     reason: step.reason,
     depends_on: step.dependsOn,
+    // suppressed_split 只对文件级计划有意义，语义模式下由 validatePlanStructure 拒绝。
+    suppressed_split: step.suppressedSplit ?? [],
     changes: step.changes.map((change) => ({
       path: change.path,
       patch_mode: change.patchMode,
@@ -345,7 +351,7 @@ function readValue(lines, index, key, rawValue, lineNo) {
   // 列表字段收到块标量时不能静默变成空列表或错值。
   const header = parseBlockHeader(rawValue, lineNo);
   if (header) {
-    if (key === 'files' || key === 'depends_on' || key === 'changes') {
+    if (key === 'files' || key === 'depends_on' || key === 'changes' || key === 'suppressed_split') {
       throw new PlanError(CODE_INVALID_PLAN, `${key} must not use a block scalar`, lineNo);
     }
     return readBlockScalar(lines, index);
@@ -377,13 +383,20 @@ function readValue(lines, index, key, rawValue, lineNo) {
     }
     return readChangeList(lines, index);
   }
+  if (key === 'suppressed_split') {
+    // suppressed_split 是列表字段。写成内联标量时语义不明确，直接拒绝。
+    if (value) {
+      throw new PlanError(CODE_INVALID_PLAN, 'suppressed_split must be a list', lineNo);
+    }
+    return readScalarList(lines, index, 'suppressed_split');
+  }
   return [parseScalar(value), index];
 }
 
 /**
  * 解析 YAML Lite 提交计划。
  *
- * 支持的步骤字段：step、subject、body、foot、reason、depends_on、files、changes。
+ * 支持的步骤字段：step、subject、body、foot、reason、depends_on、files、changes、suppressed_split。
  */
 export function parsePlan(text) {
   // Windows PowerShell 可能在管道文本开头携带 UTF-8 BOM；它不是计划内容。
@@ -501,6 +514,30 @@ function buildSteps(rawSteps) {
       }
     }
 
+    // suppressed_split 必须是字符串列表。标量写法会被静默丢弃，抑制拆分信息随之消失。
+    let suppressedSplit = [];
+    if (item.suppressed_split !== undefined && item.suppressed_split !== null && item.suppressed_split !== '') {
+      if (!Array.isArray(item.suppressed_split)) {
+        throw new PlanError(
+          CODE_INVALID_PLAN,
+          `step ${stepNo} suppressed_split must be a list of paths, for example "suppressed_split:" followed by four-space list entries`,
+        );
+      }
+      const seen = new Set();
+      for (const entry of item.suppressed_split) {
+        const text = String(entry).trim();
+        if (!text) {
+          throw new PlanError(
+            CODE_INVALID_PLAN,
+            `step ${stepNo} suppressed_split entries must not be empty`,
+          );
+        }
+        if (seen.has(text)) continue;
+        seen.add(text);
+        suppressedSplit.push(text);
+      }
+    }
+
     return createStep({
       step: stepNo,
       subject,
@@ -510,6 +547,7 @@ function buildSteps(rawSteps) {
       reason: String(item.reason ?? '').trim(),
       dependsOn,
       changes,
+      suppressedSplit,
     });
   });
 }
@@ -530,6 +568,13 @@ export function validatePlanStructure(steps) {
           `step ${step.step} must not declare files in semantic mode; describe every change with changes`,
         );
       }
+      // suppressed_split 只描述「文件级整体提交压掉了哪些语义拆分」，语义模式没有文件级归属。
+      if ((step.suppressedSplit ?? []).length > 0) {
+        throw new PlanError(
+          CODE_INVALID_PLAN,
+          `step ${step.step} must not declare suppressed_split in semantic mode; the field only applies to file-level plans`,
+        );
+      }
     }
     return;
   }
@@ -537,6 +582,15 @@ export function validatePlanStructure(steps) {
   for (const step of steps) {
     if (step.files.length === 0) {
       throw new PlanError('missing_files', `step ${step.step} files is required and must not be empty`);
+    }
+    // 归属校验放在解析层：路径不属于本步骤的 files 说明计划自相矛盾，与缩进错误同级。
+    for (const entry of step.suppressedSplit ?? []) {
+      if (!step.files.includes(entry)) {
+        throw new PlanError(
+          CODE_INVALID_PLAN,
+          `step ${step.step} suppressed_split path "${entry}" is not declared in files`,
+        );
+      }
     }
   }
 }
