@@ -15,4 +15,13 @@ node "$env:USERPROFILE\.claude\skills\git-up\scripts\gitignore_manager.mjs" --cw
 node "$env:USERPROFILE\.claude\skills\git-up\scripts\gitignore_manager.mjs" --cwd . --clean
 ```
 
+Linux 与 macOS 用系统 shell：
+
+```bash
+node ~/.claude/skills/git-up/scripts/gitignore_manager.mjs --cwd .
+node ~/.claude/skills/git-up/scripts/gitignore_manager.mjs --cwd . node python
+node ~/.claude/skills/git-up/scripts/gitignore_manager.mjs --cwd . --add "tmp/" --reason "本地调试输出"
+node ~/.claude/skills/git-up/scripts/gitignore_manager.mjs --cwd . --clean
+```
+
 脚本是 Node.js ESM 文件，扩展名为 `.mjs`。用 `python` 调用会报 `No such file or directory`。
