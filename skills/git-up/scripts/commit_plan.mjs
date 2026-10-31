@@ -78,6 +78,19 @@ function ezFastSemanticPlanMessage(steps) {
 }
 
 /**
+ * ez-fast 拒绝语义计划的错误结果。
+ *
+ * parse 与 commit 两个子命令共用同一份消息，拒绝语义一致。
+ */
+function ezFastRejectsSemanticPlan(steps) {
+  return {
+    ok: false,
+    code: CODE_INVALID_PLAN,
+    message: ezFastSemanticPlanMessage(steps),
+  };
+}
+
+/**
  * ez-fast 的结果字段。
  *
  * 非 ez-fast 场景返回空对象，两个键都不出现，现有结果契约保持字节级不变。
@@ -228,11 +241,7 @@ export function executePlan(steps, cwd, fastPathUsed = false, ezFast = false) {
   if (planMode(steps) === 'semantic') {
     // ez-fast 禁止语义计划。拒绝发生在任何 Git 写操作之前，index 不被触碰。
     if (ezFast) {
-      return {
-        ok: false,
-        code: CODE_INVALID_PLAN,
-        message: ezFastSemanticPlanMessage(steps),
-      };
+      return ezFastRejectsSemanticPlan(steps);
     }
     if (fastPathUsed) {
       return {
@@ -340,11 +349,7 @@ async function main(argv) {
   if (options.mode === 'parse') {
     // ez-fast 上下文里语义计划本身就是无效计划，parse 与 commit 用同一条消息拒绝。
     if (options.ezFast && mode === 'semantic') {
-      printJson({
-        ok: false,
-        code: CODE_INVALID_PLAN,
-        message: ezFastSemanticPlanMessage(steps),
-      });
+      printJson(ezFastRejectsSemanticPlan(steps));
       return 2;
     }
     const payload = { ok: true, plan_mode: mode, steps: steps.map((item) => stepToDict(item)) };

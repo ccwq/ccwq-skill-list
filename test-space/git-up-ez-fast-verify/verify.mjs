@@ -87,6 +87,13 @@ const SEMANTIC_PLAN = `- step: 1
 
 // --- 工单 08：解析层与执行器 ---
 
+/**
+ * Given：计划是文件级的，只声明 files。
+ * When：执行 commit_plan.mjs parse --ez-fast。
+ * Then：返回 ok=true、plan_mode=file，步骤含 suppressed_split 字段。
+ * 防回归：ez-fast 的计划必须能按文件级解析，-zp 场景靠它校验。
+ */
+
 // 1. parse --ez-fast 接受文件级计划，步骤含 suppressed_split 字段。
 {
   const result = run([COMMIT_PLAN, 'parse', '--ez-fast'], ROOT, FILE_PLAN);
@@ -99,6 +106,13 @@ const SEMANTIC_PLAN = `- step: 1
   );
 }
 
+/**
+ * Given：计划是语义级的，步骤声明 changes。
+ * When：执行 commit_plan.mjs parse --ez-fast。
+ * Then：返回退出码 2 与错误码 invalid_plan。
+ * 防回归：ez-fast 禁止语义计划，parse 子命令也要拒绝，否则 -zp 会放过无效计划。
+ */
+
 // 2. parse --ez-fast 拒绝语义计划。
 {
   const result = run([COMMIT_PLAN, 'parse', '--ez-fast'], ROOT, SEMANTIC_PLAN);
@@ -109,6 +123,13 @@ const SEMANTIC_PLAN = `- step: 1
     `status=${result.status} payload=${result.stdout}`,
   );
 }
+
+/**
+ * Given：仓库 index 已预暂存一个文件，计划是语义级的。
+ * When：执行 commit_plan.mjs commit --ez-fast。
+ * Then：返回 invalid_plan 而非 staged_changes_present，HEAD 不变，预暂存内容原样保留。
+ * 防回归：拒绝必须发生在任何 Git 写操作之前，index 不能被触碰或清空。
+ */
 
 // 3. 拒绝发生在 index 触碰之前：预暂存内容 + 语义计划 → invalid_plan（非 staged_changes_present），
 //    HEAD 不变，预暂存内容原样保留。
@@ -134,6 +155,13 @@ const SEMANTIC_PLAN = `- step: 1
   });
 }
 
+/**
+ * Given：仓库有计划内文件与计划外未跟踪文件。
+ * When：执行 commit_plan.mjs commit --ez-fast 执行文件级计划。
+ * Then：提交成功，计划内文件进入提交，计划外文件保持未跟踪。
+ * 防回归：ez-fast 沿用文件级暂存约束，不得扩大到计划外路径。
+ */
+
 // 4. commit --ez-fast 正常提交文件级计划，计划外文件保持未跟踪。
 {
   withRepo((repo) => {
@@ -150,6 +178,13 @@ const SEMANTIC_PLAN = `- step: 1
     );
   });
 }
+
+/**
+ * Given：计划的两步各自声明 suppressed_split，其中一步内有重复项。
+ * When：执行 commit_plan.mjs commit --ez-fast。
+ * Then：结果含 semantic_split_disabled=true，suppressed_split 为跨步骤去重排序的并集。
+ * 防回归：结果顶层字段回答本次是否禁用了语义拆分，并集不得漏项或重复。
+ */
 
 // 7. 结果字段：semantic_split_disabled=true，suppressed_split 为去重排序并集。
 {
@@ -179,7 +214,12 @@ const SEMANTIC_PLAN = `- step: 1
       `disabled=${payload?.semantic_split_disabled} suppressed=${union}`,
     );
 
-    // 无声明的计划 → 空数组。
+    /**
+     * Given：文件级计划不含任何 suppressed_split 声明。
+     * When：执行 commit_plan.mjs commit --ez-fast。
+     * Then：结果含 semantic_split_disabled=true，suppressed_split 为空数组。
+     * 防回归：无结构化文件时为空是正常态，字段不得省略或写成 null。
+     */
     const empty = run([COMMIT_PLAN, 'commit', '--ez-fast', '--cwd', repo], ROOT, FILE_PLAN);
     const emptyPayload = parseJson(empty);
     check(
@@ -190,6 +230,13 @@ const SEMANTIC_PLAN = `- step: 1
     );
   });
 }
+
+/**
+ * Given：同一份文件级计划不含 suppressed_split 声明。
+ * When：执行 commit_plan.mjs commit，不带 --ez-fast。
+ * Then：结果不含 semantic_split_disabled 与 suppressed_split 两个键。
+ * 防回归：非 ez-fast 场景的结果契约必须字节级不变，字段不得泄漏。
+ */
 
 // 8. 契约不泄漏：不带 --ez-fast 时结果不含这两个键。
 {
@@ -205,6 +252,13 @@ const SEMANTIC_PLAN = `- step: 1
     );
   });
 }
+
+/**
+ * Given：仓库有计划内文件。
+ * When：同时传入 --ez-fast 与 --fast-path 执行提交。
+ * Then：结果中 fast_path_used=true 且 semantic_split_disabled=true。
+ * 防回归：两个 flag 必须正交，-zpc 场景下同时生效。
+ */
 
 // 9. --ez-fast 与 --fast-path 正交组合。
 {
@@ -224,6 +278,13 @@ const SEMANTIC_PLAN = `- step: 1
   });
 }
 
+/**
+ * Given：计划某步的 suppressed_split 声明了不属于该步 files 的路径。
+ * When：执行 commit_plan.mjs parse。
+ * Then：返回错误码 invalid_plan，消息含该路径。
+ * 防回归：suppressed_split 路径必须属于该步骤的 files，否则计划自相矛盾。
+ */
+
 // 10. suppressed_split 路径不在该步骤 files 中 → invalid_plan，消息含路径。
 {
   const plan = `- step: 1
@@ -241,6 +302,13 @@ const SEMANTIC_PLAN = `- step: 1
     `status=${result.status} message=${payload?.message}`,
   );
 }
+
+/**
+ * Given：计划是语义级的，步骤额外声明 suppressed_split。
+ * When：执行 commit_plan.mjs parse。
+ * Then：返回错误码 invalid_plan。
+ * 防回归：该字段只对 files 有意义，语义模式声明它必须被拒绝。
+ */
 
 // 11. 语义计划声明 suppressed_split → invalid_plan。
 {
@@ -262,6 +330,13 @@ const SEMANTIC_PLAN = `- step: 1
   );
 }
 
+/**
+ * Given：计划的 suppressed_split 写成块标量。
+ * When：执行 commit_plan.mjs parse。
+ * Then：返回错误码 invalid_plan。
+ * 防回归：列表字段收到块标量时不能静默变成空列表，必须与 changes 同类拒绝。
+ */
+
 // 12. suppressed_split 用块标量 → invalid_plan。
 {
   const plan = `- step: 1
@@ -279,6 +354,13 @@ const SEMANTIC_PLAN = `- step: 1
     `status=${result.status} message=${payload?.message}`,
   );
 }
+
+/**
+ * Given：仓库有 6 个文件分布在两个顶层模块。
+ * When：执行 inspect_fast_path.mjs --ez-fast。
+ * Then：返回 eligible=true、ez_fast=true，semantic_split_reasons 照常报告。
+ * 防回归：ez-fast 只放宽规划质量级条件，文件数上限与跨模块不再回退。
+ */
 
 // 13. 检查器 --ez-fast 放宽规划质量级条件：6 文件跨两模块 → eligible=true。
 {
@@ -306,6 +388,13 @@ const SEMANTIC_PLAN = `- step: 1
   });
 }
 
+/**
+ * Given：仓库 index 已预暂存一个文件。
+ * When：执行 inspect_fast_path.mjs --ez-fast。
+ * Then：返回 eligible=false，fallback_reasons 含 staged_changes_present。
+ * 防回归：Git 级条件一条不绕，ez-fast 不是绕过暂存保护的后门。
+ */
+
 // 14. 检查器 --ez-fast 仍执行 Git 级条件：预暂存内容 → eligible=false。
 {
   withRepo((repo) => {
@@ -322,7 +411,62 @@ const SEMANTIC_PLAN = `- step: 1
   });
 }
 
+/**
+ * Given：--plan-file 指向一份无法解析的计划（步骤缺少 files）。
+ * When：执行 inspect_fast_path.mjs --ez-fast。
+ * Then：返回 eligible=false，fallback_reasons 含 invalid_plan。
+ * 防回归：ez-fast 放宽的是拆分粒度，不是对无效计划的容忍。
+ */
+{
+  withRepo((repo) => {
+    fs.writeFileSync(path.join(repo, 'a.txt'), 'a\n', 'utf8');
+    const planPath = path.join(repo, 'broken.yaml');
+    fs.writeFileSync(planPath, '- step: 1\n  subject: "broken"\n', 'utf8');
+    const result = run([INSPECT, '--cwd', repo, '--ez-fast', '--plan-file', planPath], ROOT);
+    const payload = parseJson(result);
+    check(
+      '08#21 ez-fast 下计划无效仍回退',
+      result.status === 0 && payload?.eligible === false
+        && Array.isArray(payload?.fallback_reasons) && payload.fallback_reasons.includes('invalid_plan'),
+      `eligible=${payload?.eligible} reasons=${JSON.stringify(payload?.fallback_reasons)}`,
+    );
+  });
+}
+
+/**
+ * Given：计划在 files 里用正斜杠，在 suppressed_split 里用反斜杠写同一路径。
+ * When：执行 commit_plan.mjs parse。
+ * Then：解析成功，不报归属错误。
+ * 防回归：归属校验此前用字符串全等比较，反斜杠写法会被误判为不属于该步骤。
+ */
+{
+  const backslash = String.fromCharCode(92);
+  const plan = [
+    '- step: 1',
+    '  subject: "feat(core): separator form"',
+    '  files:',
+    '    - src/a.txt',
+    '  suppressed_split:',
+    `    - src${backslash}a.txt`,
+    '',
+  ].join('\n');
+  const result = run([COMMIT_PLAN, 'parse'], ROOT, plan);
+  const payload = parseJson(result);
+  check(
+    '08#22 归属校验归一分隔符',
+    result.status === 0 && payload?.ok === true,
+    `status=${result.status} payload=${result.stdout}`,
+  );
+}
+
 // --- 工单 09：文档同步面 ---
+
+/**
+ * Given：marketplace.json 已按工单更新。
+ * When：读取并解析该文件。
+ * Then：JSON 合法，git-up 条目的 version 为 2.8.0。
+ * 防回归：插件入口版本必须与 skill 自身版本一致。
+ */
 
 // 15. marketplace.json 合法且 git-up 版本为 2.8.0。
 {
@@ -341,6 +485,13 @@ const SEMANTIC_PLAN = `- step: 1
   );
 }
 
+/**
+ * Given：SKILL.md 已按工单更新。
+ * When：读取该文件。
+ * Then：frontmatter version 为 2.8.0，正文含 ez-fast 章节。
+ * 防回归：主定义文件的版本与内容必须同步。
+ */
+
 // 16. SKILL.md 版本 2.8.0 且含 ez-fast 章节。
 {
   const skillPath = path.join(ROOT, 'skills', 'git-up', 'SKILL.md');
@@ -352,11 +503,25 @@ const SEMANTIC_PLAN = `- step: 1
   );
 }
 
+/**
+ * Given：ez-fast 的详情独立成文。
+ * When：检查 references/ez-fast.md。
+ * Then：该文件存在。
+ * 防回归：详情按渐进披露放在 references，主文件只留常用路径。
+ */
+
 // 17. references/ez-fast.md 存在。
 {
   const referencePath = path.join(ROOT, 'skills', 'git-up', 'references', 'ez-fast.md');
   check('09#17 references/ez-fast.md 存在', fs.existsSync(referencePath), referencePath);
 }
+
+/**
+ * Given：根 README、SKILL.md、skill README 与 ez-fast.md 含仓库内相对链接。
+ * When：解析全部相对链接并逐个检查目标文件。
+ * Then：不存在的链接清单为空。
+ * 防回归：参数说明与详情链接不得断链，否则安装后无法查阅。
+ */
 
 // 18. 改过的 Markdown 文件里指向仓库内的相对链接无断链。
 {
@@ -384,6 +549,13 @@ const SEMANTIC_PLAN = `- step: 1
   check('09#18 Markdown 相对链接无断链', broken.length === 0, broken.join('; '));
 }
 
+/**
+ * Given：根 README 与 references/ez-fast.md 均已按工单更新。
+ * When：比对两处的参数口径。
+ * Then：根 README 含 -z 与 --ez-fast，参考文档含全部组合与拒绝组合。
+ * 防回归：两处对参数的理解必须一致，否则 Agent 与用户会得到矛盾指引。
+ */
+
 // 19. 根 README 与 references/ez-fast.md 的组合矩阵口径一致。
 {
   const rootReadme = fs.readFileSync(path.join(ROOT, 'README.md'), 'utf8');
@@ -397,6 +569,13 @@ const SEMANTIC_PLAN = `- step: 1
     `rootHasZ=${rootHasZ} matrix=${referenceHasMatrix} rejects=${referenceRejects}`,
   );
 }
+
+/**
+ * Given：SKILL.md、references/ez-fast.md 与根 README 均已按工单更新。
+ * When：比对三处的措辞。
+ * Then：三处都含尽力而为或允许为空一类措辞。
+ * 防回归：suppressed_split 是软字段，三处文档必须一致声明它不保证完整。
+ */
 
 // 20. 「尽力而为、允许为空、不保证完整」措辞三处齐备。
 {

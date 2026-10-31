@@ -201,6 +201,11 @@ export function inspect(repo, maxFiles, planFile = null, ezFast = false) {
     for (const reason of planReasons) {
       if (!reasons.includes(reason)) reasons.push(reason);
     }
+  } else if (planInfo.plan_valid === false) {
+    // 计划解析失败不是语义拆分条件，是计划本身无效。ez-fast 放宽的是拆分粒度，
+    // 不是对无效计划的容忍。解析失败仍须回退，走 plan_error 机制。
+    // plan_valid 为 null 表示本次没有计划文件，不属于解析失败。
+    if (!reasons.includes('invalid_plan')) reasons.push('invalid_plan');
   }
 
   return {

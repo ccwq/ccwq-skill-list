@@ -584,8 +584,11 @@ export function validatePlanStructure(steps) {
       throw new PlanError('missing_files', `step ${step.step} files is required and must not be empty`);
     }
     // 归属校验放在解析层：路径不属于本步骤的 files 说明计划自相矛盾，与缩进错误同级。
+    // 比较前归一分隔符：仓库既有路径处理都按正斜杠比较，
+    // 否则 src\a.txt 与 files 里的 src/a.txt 会被误判为不同路径。
+    const declared = new Set(step.files.map((file) => file.replace(/\\/g, '/')));
     for (const entry of step.suppressedSplit ?? []) {
-      if (!step.files.includes(entry)) {
+      if (!declared.has(entry.replace(/\\/g, '/'))) {
         throw new PlanError(
           CODE_INVALID_PLAN,
           `step ${step.step} suppressed_split path "${entry}" is not declared in files`,

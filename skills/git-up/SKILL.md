@@ -78,7 +78,7 @@ description: |
 
 `-z` / `--ez-fast` 免除语义归类：只按文件拆分提交，放宽规划质量级检查（文件数上限、跨模块），Git 级检查一条不绕。单独使用等价 `-p`。组合速查：`-zp` 只规划；`-zc` 只执行；`-zpc` 规划并提交；`-zs` 由父 Agent 在委派描述里写明 `-z`；`-zd` / `-zi` 拒绝。
 
-`suppressed_split` 是 Agent 侧硬规则要求填写的步骤级字段，字段本身软：允许为空、尽力而为、不保证完整，用户不应依赖它发现所有被抑制的拆分。参数语法、组合矩阵、拆分粒度、检查放宽边界与结果契约见 [references/ez-fast.md](references/ez-fast.md)。
+`suppressed_split` 是 Agent 侧硬规则要求填写的步骤级字段：规划时对每个待提交的结构化文件（`.json`/`.yaml`/`.yml`/`.toml`，排除 lock 与生成物）判定是否新增或删除了 ≥2 个顶层键的整块，命中即写入该步骤的 `suppressed_split`。字段本身软：允许为空、尽力而为、不保证完整，用户不应依赖它发现所有被抑制的拆分。参数语法、组合矩阵、拆分粒度、检查放宽边界与结果契约见 [references/ez-fast.md](references/ez-fast.md)。
 
 ## `-pc` / `-pcP` 自适应快车道
 

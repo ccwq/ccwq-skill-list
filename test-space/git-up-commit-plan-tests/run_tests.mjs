@@ -1379,6 +1379,34 @@ function testSuppressedSplitPathNotInFilesRejected() {
   );
 }
 
+function testSuppressedSplitPathNormalizesSeparator() {
+  /**
+   * Given：一个文件级计划在 files 里用正斜杠，在 suppressed_split 里用反斜杠写同一路径。
+   * When：commit_plan.mjs parse 校验该计划。
+   * Then：解析成功，不报归属错误。
+   * 防回归：归属校验此前用字符串全等比较，反斜杠写法会被误判为
+   *         不属于该步骤的 files，从而阻塞本可执行的提交。
+   */
+  const backslash = String.fromCharCode(92);
+  const yamlText = [
+    '- step: 1',
+    '  subject: "feat(core): separator form"',
+    '  files:',
+    '    - src/a.txt',
+    '  suppressed_split:',
+    `    - src${backslash}a.txt`,
+    '',
+  ].join('\n');
+  const result = runPlan('parse', yamlText);
+  const payload = parseJson(result);
+  assertTrue(result.status === 0, `分隔符差异不应报错：${result.stdout || result.stderr}`);
+  assertTrue(payload.ok === true, '解析应成功');
+  assertTrue(
+    payload.steps[0].suppressed_split.length === 1,
+    '应保留一条 suppressed_split 声明',
+  );
+}
+
 function testSuppressedSplitInSemanticModeRejected() {
   /**
    * Given：一个语义计划在步骤里声明了 suppressed_split。
@@ -1495,6 +1523,29 @@ function testInspectEzFastRelaxesQualityChecks() {
   });
 }
 
+function testInspectEzFastWithoutPlanFile() {
+  /**
+   * Given：仓库有单模块的少量改动，不提供 --plan-file。
+   * When：以 --ez-fast 运行快车道只读检查器。
+   * Then：eligible=true，fallback_reasons 为空。
+   * 防回归：没有计划文件时 plan_valid 为 null，不等于计划解析失败。
+   *       此前把 null 误判为解析失败，会凭空产生 invalid_plan 回退原因，
+   *       使首次检查（计划产出之前）永远无法命中快车道。
+   */
+  return withTempRepo('git-up-ezfast-no-plan-', (repo) => {
+    fs.mkdirSync(repo, { recursive: true });
+    initRepo(repo);
+    fs.writeFileSync(path.join(repo, 'a.txt'), 'change\n', 'utf8');
+    const result = runFastPath(repo, ['--ez-fast']);
+    const payload = parseJson(result);
+    assertTrue(result.status === 0, result.stderr || result.stdout);
+    assertTrue(payload.ez_fast === true, 'ez-fast 上下文应可观测');
+    assertTrue(payload.plan_valid === null, '没有计划文件时 plan_valid 应为 null');
+    assertTrue(payload.eligible === true, '没有计划文件不应产生回退原因');
+    assertTrue(payload.fallback_reasons.length === 0, '不应凭空报告 invalid_plan');
+  });
+}
+
 function testInspectEzFastKeepsGitLevelChecks() {
   /**
    * Given：仓库 index 里已有用户预暂存的文件。
@@ -1519,6 +1570,63 @@ function testInspectEzFastKeepsGitLevelChecks() {
   });
 }
 
+function testInspectEzFastRejectsInvalidPlan() {
+  /**
+   * Given：--plan-file 指向一份无法解析的计划（步骤缺少 files）。
+   * When：以 --ez-fast 运行快车道只读检查器。
+   * Then：报告 invalid_plan 回退原因且 eligible=false。
+   * 防回归：ez-fast 放宽的是拆分粒度，不是对无效计划的容忍。
+   *       计划解析失败不是语义拆分条件，此前被一并排除在回退原因外，
+   *       会让快车道拿着一份无效计划判定为可执行。
+   */
+  return withTempRepo('git-up-ezfast-bad-plan-', (repo) => {
+    fs.mkdirSync(repo, { recursive: true });
+    initRepo(repo);
+    fs.writeFileSync(path.join(repo, 'a.txt'), 'change\n', 'utf8');
+    const planPath = path.join(repo, 'broken.yaml');
+    fs.writeFileSync(planPath, '- step: 1\n  subject: "broken"\n', 'utf8');
+    const result = runFastPath(repo, ['--ez-fast', '--plan-file', planPath]);
+    const payload = parseJson(result);
+    assertTrue(result.status === 0, result.stderr || result.stdout);
+    assertTrue(payload.plan_valid === false, '计划解析失败应被报告');
+    assertTrue(payload.eligible === false, '计划无效时 ez-fast 仍必须回退');
+    assertTrue(
+      payload.fallback_reasons.includes('invalid_plan'),
+      '应报告 invalid_plan 回退原因',
+    );
+  });
+}
+
+function testInspectEzFastAllowsSemanticSplitReasons() {
+  /**
+   * Given：--plan-file 指向一份合法的语义计划（步骤声明 changes）。
+   * When：以 --ez-fast 运行快车道只读检查器。
+   * Then：semantic_split_reasons 照常报告，但 eligible=true 且无回退原因。
+   * 防回归：ez-fast 下语义拆分条件只降级为提示，不阻止快车道命中。
+   */
+  return withTempRepo('git-up-ezfast-semantic-plan-', (repo) => {
+    fs.mkdirSync(repo, { recursive: true });
+    initRepo(repo);
+    fs.writeFileSync(path.join(repo, 'a.txt'), 'change\n', 'utf8');
+    const planPath = path.join(repo, 'semantic.yaml');
+    fs.writeFileSync(
+      planPath,
+      '- step: 1\n  subject: "semantic"\n  changes:\n    - path: a.txt\n      patch_mode: content\n      patch_file: state.json\n',
+      'utf8',
+    );
+    const result = runFastPath(repo, ['--ez-fast', '--plan-file', planPath]);
+    const payload = parseJson(result);
+    assertTrue(result.status === 0, result.stderr || result.stdout);
+    assertTrue(payload.plan_valid === true, '合法计划应被解析');
+    assertTrue(
+      payload.semantic_split_reasons.includes('changes_present'),
+      '语义拆分条件应照常报告',
+    );
+    assertTrue(payload.eligible === true, '语义拆分条件在 ez-fast 下不阻止命中');
+    assertTrue(payload.fallback_reasons.length === 0, '命中快车道时不应有回退原因');
+  });
+}
+
 function testExistingSuitesDoNotRegress() {
   /**
    * Given：ez-fast 改动落在语义核心层与执行器上，语义套件的行为必须保持不变。
@@ -1536,12 +1644,19 @@ function testExistingSuitesDoNotRegress() {
     timeout: 600_000,
   });
   const output = `${result.stdout ?? ''}${result.stderr ?? ''}`;
+  const passCount = (output.match(/^PASS /gm) ?? []).length;
   assertTrue(
     result.status === 0,
     `语义套件应全部通过，实际退出码 ${result.status}：${output.slice(-2000)}`,
   );
   assertTrue(output.includes('PASS '), '语义套件应实际跑出用例');
   assertTrue(!output.includes('FAIL '), '语义套件不应出现失败用例');
+  // 工单 08 第 4 节要求语义套件 49 例全通过。用具体数字断言，
+  // 用例被误删或被跳过时不会被退出码掩盖。
+  assertTrue(
+    passCount === 49,
+    `语义套件应跑满 49 例，实际 ${passCount} 例`,
+  );
 }
 
 const TESTS = [
@@ -1585,10 +1700,14 @@ const TESTS = [
   testNonEzFastResultKeepsContract,
   testEzFastWithFastPathCombo,
   testSuppressedSplitPathNotInFilesRejected,
+  testSuppressedSplitPathNormalizesSeparator,
   testSuppressedSplitInSemanticModeRejected,
   testSuppressedSplitBlockScalarRejected,
   testInspectEzFastRelaxesQualityChecks,
+  testInspectEzFastWithoutPlanFile,
   testInspectEzFastKeepsGitLevelChecks,
+  testInspectEzFastRejectsInvalidPlan,
+  testInspectEzFastAllowsSemanticSplitReasons,
   testExistingSuitesDoNotRegress,
 ];
 
