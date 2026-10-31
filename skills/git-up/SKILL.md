@@ -1,11 +1,11 @@
 ---
 name: git-up
-version: 2.7.0
-argument-hint: "[--plan|-p|--discuss|-d|--modify <内容>|--commit|-c|-pc|-pcP|--sub-agent|-s|-sP|--ignore|-i] [--push|-P] [-l zh|en] [提交约束]"
+version: 2.8.0
+argument-hint: "[--plan|-p|--discuss|-d|--modify <内容>|--commit|-c|-pc|-pcP|--sub-agent|-s|-sP|--ez-fast|-z|--ignore|-i] [--push|-P] [-l zh|en] [提交约束]"
 description: |
   Git 提交综合工具：分析改动、生成规范 commit message、规划并执行提交，支持按语义组拆分提交。
   用户提到“提交代码”“commit 一下”“git up”“拆 commit”“规划提交”“提交并 push”“生成 commit message”、
-  `-p`、`-c`、`-pc`、`-pcP`、`-s`、`-sP` 或维护 `.gitignore` 时使用。
+  “快速提交”“按文件提交”、`-p`、`-c`、`-pc`、`-pcP`、`-s`、`-sP`、`-z`、`--ez-fast` 或维护 `.gitignore` 时使用。
 ---
 
 # Git-up
@@ -21,6 +21,7 @@ description: |
 | `-pc` | 规划并提交；符合快车道条件时不回显完整 YAML。 |
 | `-cP` / `-pcP` | 仅在 commit 成功后 push。 |
 | `-s` / `-sP` | 一个子 Agent 完整执行 `-pc` / `-pcP`。 |
+| `-z` / `--ez-fast` | ez-fast 模式，单独使用等价 `-p`，只按文件拆分并放宽规划质量检查。 |
 | `-i` | 增量维护 `.gitignore`，不读取或修改暂存区。 |
 
 ## 轻量规划
@@ -73,6 +74,12 @@ description: |
 - `depends_on` 是提交顺序的唯一权威来源。依赖成环时停止，不按任意顺序提交。
 - 无法生成独立补丁时停止。执行器不得把多个语义组合成一个提交。
 
+## ez-fast 模式
+
+`-z` / `--ez-fast` 免除语义归类：只按文件拆分提交，放宽规划质量级检查（文件数上限、跨模块），Git 级检查一条不绕。单独使用等价 `-p`。组合速查：`-zp` 只规划；`-zc` 只执行；`-zpc` 规划并提交；`-zs` 由父 Agent 在委派描述里写明 `-z`；`-zd` / `-zi` 拒绝。
+
+`suppressed_split` 是 Agent 侧硬规则要求填写的步骤级字段，字段本身软：允许为空、尽力而为、不保证完整，用户不应依赖它发现所有被抑制的拆分。参数语法、组合矩阵、拆分粒度、检查放宽边界与结果契约见 [references/ez-fast.md](references/ez-fast.md)。
+
 ## `-pc` / `-pcP` 自适应快车道
 
 快车道只属于 `-pc/-pcP`；`-p` 始终输出完整 YAML，`-s/-sP` 保持既有委派契约。
@@ -83,11 +90,11 @@ description: |
 4. 最终紧凑汇报 `fast_path_used`、commit subject、files、completed/skipped steps、git log；`-pcP` 另报 push 结果。
 5. `eligible=false` 或语义不明确时，报告 `fallback_reasons`，立即使用完整 YAML 规划和既有执行流程。
 
-检查器默认最多允许 5 个文件，并回退以下情况：已有 staged 内容、冲突或进行中的 Git 操作、跨模块、Junction/嵌套 Git 边界、二进制/生成物/超大文件、无改动，以及任何语义拆分条件。检查器只判断硬条件，绝不替代语义判断。
+检查器默认最多允许 5 个文件，并回退以下情况：已有 staged 内容、冲突或进行中的 Git 操作、跨模块、Junction/嵌套 Git 边界、二进制/生成物/超大文件、无改动，以及任何语义拆分条件。检查器只判断硬条件，绝不替代语义判断。`-zpc` 下快车道判定放宽文件数与跨模块，Git 级条件不变，详见 [references/ez-fast.md](references/ez-fast.md)。
 
 ## 执行与安全边界
 
-执行 `-c/-pc` 时，优先一次调用 `scripts/commit_plan.mjs` 执行整份计划。文件级模式拒绝已有 staged 内容，只 `git add -- <files...>`，跳过空提交。语义模式按依赖顺序逐步应用补丁，每步检查暂存范围，最后比较最终 HEAD 与执行前的目标快照；不一致时返回失败。两种模式都返回 JSON 的 completed/skipped steps 与 `fast_path_used`。解析错误可修复 YAML 后重试一次；Git 执行错误直接报告并停止。
+执行 `-c/-pc` 时，优先一次调用 `scripts/commit_plan.mjs` 执行整份计划。文件级模式拒绝已有 staged 内容，只 `git add -- <files...>`，跳过空提交。语义模式按依赖顺序逐步应用补丁，每步检查暂存范围，最后比较最终 HEAD 与执行前的目标快照；不一致时返回失败。两种模式都返回 JSON 的 completed/skipped steps 与 `fast_path_used`。解析错误可修复 YAML 后重试一次；Git 执行错误直接报告并停止。`--ez-fast` 与 `--fast-path` 是两个独立 flag，语义计划遇 `--ez-fast` 返回 `invalid_plan`。
 
 `-pc` / `-pcP` 是免二次确认模式。`-cP/-pcP` 仅对网络/传输类 push 失败进行有限重试；认证、权限、无 upstream、non-fast-forward、保护分支或 hook 拒绝立即停止。详细 push 分类见 [references/push.md](references/push.md)。
 
@@ -95,7 +102,7 @@ Windows PowerShell 含中文或 emoji 的计划必须使用 UTF-8 `--plan-file`�
 
 ## 委派与 ignore
 
-`-s/-sP`：父 Agent 只创建一个子 Agent 并等待；自然语言约束是硬提交边界。子 Agent 失败、边界不满足或 commit 未成功时，父 Agent 只报告，不能接管 Git 操作。
+`-s/-sP`：父 Agent 只创建一个子 Agent 并等待；自然语言约束是硬提交边界。子 Agent 失败、边界不满足或 commit 未成功时，父 Agent 只报告，不能接管 Git 操作。委派描述模板需写明使用的模式，例如「使用 `-z` 按文件拆分提交」。
 
 子 Agent 在当前工作目录执行 `git-up -pc`，读同一份 SKILL.md，因此适用同一套语义模式与安全规则：同样的补丁暂存、同样的目标快照校验、同样的错误码。委派只改变执行者，不改变提交边界。父 Agent 不重复 Git 调查、规划、暂存、提交或 push。
 
@@ -108,4 +115,6 @@ Windows PowerShell 含中文或 emoji 的计划必须使用 UTF-8 `--plan-file`�
 - 普通 `-c/-pc`：YAML（快车道除外）及执行 JSON 摘要。
 - 快车道：紧凑计划摘要及 `fast_path_used`/`fallback_reasons`。
 - 语义模式：每个提交的 step、sha、subject、paths，以及 `verification` 的最终一致性结论。
+- `-zp`：回显完整 YAML。
+- `-zc`：只给 JSON 摘要，不回显 YAML。
 - push / 委派：只报告实际返回的 commit、attempt、stderr 分类和 push 结果。

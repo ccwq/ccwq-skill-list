@@ -22,6 +22,19 @@ All notable changes to this skill will be documented in this file.
 - 补充计划文件的推荐写法。用文件写入工具直接落 UTF-8 文件再传 `--plan-file`，避免在 PowerShell 里拼接多行字符串引入编码问题。
 - 补充语义模式的委派契约：子 Agent 读同一份 SKILL.md，适用同一套补丁暂存、目标快照校验与错误码。委派只改变执行者，不改变提交边界。
 
+## [2.8.0] - 2026-10-31
+
+### 新增
+- 新增 ez-fast 模式（`-z` / `--ez-fast`）：免除语义归类，只按文件拆分提交，并放宽规划质量级检查（文件数上限、跨模块）。单独使用等价 `-p`，不提交。Git 级检查一条不绕。
+- 新增 `references/ez-fast.md`：参数语法与组合矩阵、拆分粒度与 `depends_on`、检查放宽边界、`suppressed_split` 判据、结果契约字段表、与快车道的正交关系、错误行为。
+- 新增 `suppressed_split` 结果契约：结果 JSON 顶层新增 `semantic_split_disabled`（布尔）与 `suppressed_split`（路径数组），计划步骤新增可选 `suppressed_split` 字段。
+- `suppressed_split` 由 Agent 侧按结构化文件增删整块启发式判定，字段本身软：允许为空、尽力而为、不保证完整，用户不应依赖它发现所有被抑制的拆分。
+
+### 变更
+- 新增 `--ez-fast` flag：语义计划遇 `--ez-fast` 返回 `invalid_plan`，拒绝发生在任何 Git 写操作之前。`--ez-fast` 与 `--fast-path` 是两个独立 flag，可同时传入。
+- ez-fast 上下文下快车道判定放宽文件数与跨模块，Git 级条件不变。快车道仍只属于 `-pc`/`-pcP`，`-zp` 不走快车道。
+- `-zd` / `-zi` 组合被拒绝；`-zP`、`-zl` 照常。
+
 ## [2.7.0] - 2026-10-29
 
 ### 新增

@@ -51,7 +51,7 @@ npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code --
 | `ffmpeg-video-processing` | 用 ffmpeg / ffprobe 压缩、转码、裁剪、抽取音频与检查媒体 | [速查](#ffmpeg-video-processing) · [SKILL](skills/ffmpeg-video-processing/SKILL.md) |
 | `gemin-mirror` | Gemini 兼容镜像站的账号探针、账号切换与安全会话删除 | [速查](#gemin-mirror) · [README](skills/gemin-mirror/README.md) |
 | `git-history-cleaner` | 清理 Git 历史中的特定文件或目录 | [速查](#git-history-cleaner) · [SKILL](skills/git-history-cleaner/SKILL.md) |
-| `git-up` | Git 提交与 `.gitignore` 维护，支持规划、讨论、委派、一步提交与语义拆分提交 | [速查](#git-up) · [README](skills/git-up/README.md) |
+| `git-up` | Git 提交与 `.gitignore` 维护，支持规划、讨论、委派、一步提交、语义拆分提交与 ez-fast 按文件快速拆分 | [速查](#git-up) · [README](skills/git-up/README.md) |
 | `handoff-portable` | 把当前任务交接给普通聊天 AI，生成可粘贴的单个 Markdown 文件并做结构校验与语义体检 | [速查](#handoff-portable) · [SKILL](skills/handoff-portable/SKILL.md) |
 | `joint-debugging` | 手动协调技术联调、故障诊断、验证与修复 | [速查](#joint-debugging) · [SKILL](skills/joint-debugging/SKILL.md) |
 | `lite-team` | 轻量多 Agent 协作，用协作板在不同 Agent / session 间手动交接 | [速查](#lite-team) · [README](skills/lite-team/README.md) |
@@ -497,14 +497,18 @@ $git-history-cleaner --repo /path/to/repo --path "*.log" --auto
 
 同一个文件含多个语义目的的改动时，按语义组拆成多个可独立回滚的提交。
 
+不想做语义归类时，用 `-z` 只按文件拆分提交。
+
 ```text
 /git-up --plan, -p      # 分析 diff，在会话中输出 YAML 提交计划
 /git-up --discuss, -d   # 轻量讨论提交计划，最多 1-3 个关键问题
 /git-up --modify <内容>  # 根据反馈调整计划并重新输出
 /git-up --commit, -c    # 优先用 Node.js fast path 执行会话中的计划
+/git-up --ez-fast, -z   # 只按文件拆分提交，不做语义归类
 /git-up --sub-agent, -s 仅提交 skills/git-up  # 委派一个子智能体执行 git-up -pc
 /git-up --ignore, -i       # 自动识别技术栈，直接创建或增量维护 .gitignore
 /git-up -l en --plan     # 使用英文输出计划、讨论问题和 commit message
+$git-up -zpc            # 按文件拆分规划并提交，不做语义归类
 /git-up                  # 直接生成 commit message
 ```
 
@@ -517,7 +521,7 @@ $git-history-cleaner --repo /path/to/repo --path "*.log" --auto
 <details>
 <summary>参数与模式</summary>
 
-模式：plan / discuss / modify / commit / plan+commit / commit+push / plan+commit+push / sub-agent / sub-agent+push / ignore / default。
+模式：plan / discuss / modify / commit / plan+commit / commit+push / plan+commit+push / sub-agent / sub-agent+push / ez-fast / ignore / default。
 
 | 简写 | 等价 | 作用 |
 |------|------|------|
@@ -526,12 +530,16 @@ $git-history-cleaner --repo /path/to/repo --path "*.log" --auto
 | `-c` | `--commit` | 执行会话中的计划 |
 | `-P` | `--push` | 提交成功后 push |
 | `-s` | `--sub-agent` | 创建子智能体同步执行 `git-up -pc` |
+| `-z` | `--ez-fast` | 只按文件拆分提交，不做语义归类；单独使用等价 `-p` |
 | `-i` | `--ignore` | 维护 `.gitignore` |
 | `-l <zh\|en>` | `--lang` | 控制输出语言，默认 `zh` |
 
 - `-pcP` / `--plan --commit --push` 一步规划、提交并 push。
 - `-sP`、`-s -P`、`--sub-agent --push` 让子智能体执行 `git-up -pcP`。
 - `-s` 不得与其他主模式混用，包括 `-p`、`-c`、`-d`、`--modify` 和 `-i`。它可以与 `-l/--lang` 组合。
+- `-z` 禁止语义计划：语义计划带 `--ez-fast` 执行返回 `invalid_plan`。
+- `-zd` 与 `-zi` 组合被拒绝：`-d`/`--modify` 围绕语义边界讨论，ez-fast 无可讨论的语义边界；`-i` 与提交无关。`-zP`、`-zl` 照常。
+- `-z` 的 `suppressed_split` 尽力而为、允许为空、不保证完整，用户不应依赖它发现所有被抑制的拆分。
 - `-i` 自动识别 Node.js/Python 项目。它只增量加入高置信度规则，并附中文用途说明。
 - `.env` 默认不纳入忽略规则。
 - 指定技术栈参数时，只维护对应技术栈的规则。
@@ -564,6 +572,22 @@ $git-history-cleaner --repo /path/to/repo --path "*.log" --auto
 - 语义模式下每一步都必须声明 `changes`，且不得声明 `files`。执行器不回退到文件级暂存。
 - 执行后比较最终 HEAD 与执行前的目标工作区。不一致时返回失败。
 - 二进制补丁、重命名和复制格式显式失败，不做猜测。
+
+</details>
+
+<details>
+<summary>ez-fast 模式</summary>
+
+`-z` / `--ez-fast` 免除语义归类：只按文件拆分提交，与语义模式互斥。
+
+- 单独使用等价 `-p`，只输出计划不提交。`-zp` 只规划，`-zc` 只给 JSON 摘要，`-zpc` 规划并提交，`-zs` 委派一个子智能体执行 `-pc`。
+- 沿用文件级拆分规则，不强制单提交。`depends_on` 仍可用，成环返回 `dependency_cycle`。
+- 放宽规划质量级检查：文件数上限失效，跨模块不再回退。
+- Git 级检查一条不绕：暂存区、冲突、进行中的 Git 操作、二进制与超大文件、风险路径照常回退。
+- 语义计划带 `--ez-fast` 执行返回 `invalid_plan`，拒绝发生在任何 Git 写操作之前。
+- 结果 JSON 顶层新增 `semantic_split_disabled` 与 `suppressed_split`。
+
+完整参数矩阵、拆分粒度、检查放宽边界与结果契约见 [references/ez-fast.md](skills/git-up/references/ez-fast.md)。
 
 </details>
 
