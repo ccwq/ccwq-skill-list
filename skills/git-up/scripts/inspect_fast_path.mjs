@@ -263,7 +263,7 @@ const USAGE = `usage: inspect_fast_path.mjs [--cwd DIR] [--max-files N] [--plan-
 检查器会回退快车道并给出原因。
 
   --ez-fast        处于 ez-fast 上下文：文件数上限与跨模块不再触发回退，
-                   Git 级条件（已有暂存内容、冲突、进行中的 Git 操作、
+                   Git 级条件（已有暂存内容、冲突、进行中的 Git 操作、无改动、
                    嵌套 Git 边界、二进制与超大文件、风险路径）一条不绕
 `;
 
