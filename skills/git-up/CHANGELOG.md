@@ -11,6 +11,7 @@ All notable changes to this skill will be documented in this file.
 - 块标量报错指向正确位置。缩进不足的内容行此前静默跳出块，随后在外层报 `syntax` / 「expected '<key>: <value>'」，Agent 依提示改缩进会陷入循环。现在返回 `indent` 并指向内容行。
 - 列表条目缩进不足时显式失败。`changes` 条目缩进少于四空格时，列表此前被静默截断，`changes` 变空后计划降级成文件级模式，语义拆分意图被无声丢弃并直接提交。现在返回 `indent` 并指向该条目行。
 - 回归套件的跨平台假设。模式变更用例此前用 `git diff HEAD` 取补丁，Linux 上 `core.fileMode=true` 使该输出为空，用例误判为「无有效改动」；现改用 `git diff --cached`，两端行为一致。钩子拒绝用例此前漏设执行位，Linux 上 Git 忽略无执行位的钩子，提交直接成功；现补 `chmod +x`。printf 管道用例此前只找 Windows Git Bash 的固定路径，Linux 上无法运行；现按平台选 shell，并引入 `SKIP` 语义，平台不具备前提时显式跳过并记录原因，不再计为失败。
+- 打包产物的跨平台分发。`scripts/package-skills.mjs` 此前经 .NET 的 `ZipFile.CreateFromDirectory` 打包，在 Windows 上把条目名写成 `references\ignore.md` 这样的反斜杠路径。按 POSIX 路径匹配的解压器在 Linux 与 macOS 上找不到这些条目，skill 装不上。现改用 `scripts/zip.mjs` 写条目名，一律用正斜杠，并去掉仅支持 Windows 的限制。
 
 ### 新增
 - 新增 `references/plan-format.md`：提交计划格式的唯一权威说明，含字段表、缩进规则、多行正文写法与解析错误码。

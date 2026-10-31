@@ -1107,6 +1107,22 @@ npm run check:main-skills
 
 `MAIN_LIST` 是逗号分隔的 Skill 名列表，必须指向存在的 `skills/<name>/SKILL.md`。生成文件 `.claude-plugin/plugin.json` 不手工编辑。
 
+## 跨平台验证
+
+git-up 的回归套件在 Windows 与 Linux 双端维护。两端用同一份脚本，验证命令：
+
+```bash
+# Windows 与 Linux 通用
+npm run test:git-up-dual
+
+# Linux 侧（含 WSL），自动补 Node 的 PATH
+bash scripts/verify-linux.sh
+```
+
+输出按平台列出各套件的 `PASS`、`SKIP`、`FAIL`。`SKIP` 表示该用例在当前平台不具备运行前提，不计为失败。
+
+打包产物 `skill-zips/*.zip` 的条目名一律用 POSIX 正斜杠。Linux 与 macOS 上按 POSIX 路径解包不会失败。
+
 ## 目录结构
 
 ```text
