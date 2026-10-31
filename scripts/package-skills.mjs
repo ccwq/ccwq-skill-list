@@ -2,7 +2,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
-import { spawnSync } from 'node:child_process';
+
+import { writeZip } from './zip.mjs';
 
 const SKILL_NAME_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -67,41 +68,13 @@ function discoverSkills(root, selectedSkill) {
 
 function zipSkill(skill, outputDirectory) {
   const destination = path.join(outputDirectory, `${skill.name}.zip`);
-  // 使用 .NET ZipFile 可保留隐藏文件，并让 zip 内直接以 Skill 内容为根。
-  const command = [
-    '$ErrorActionPreference = "Stop"',
-    '$source = $env:SKILL_PACKAGE_SOURCE',
-    '$destination = $env:SKILL_PACKAGE_DESTINATION',
-    'if (Test-Path -LiteralPath $destination) { Remove-Item -LiteralPath $destination -Force }',
-    'Add-Type -AssemblyName System.IO.Compression.FileSystem',
-    '[System.IO.Compression.ZipFile]::CreateFromDirectory($source, $destination, [System.IO.Compression.CompressionLevel]::Optimal, $false)',
-  ].join('; ');
-  const result = spawnSync('powershell.exe', [
-    '-NoProfile',
-    '-NonInteractive',
-    '-ExecutionPolicy',
-    'Bypass',
-    '-Command',
-    command,
-  ], {
-    env: {
-      ...process.env,
-      SKILL_PACKAGE_SOURCE: skill.directory,
-      SKILL_PACKAGE_DESTINATION: destination,
-    },
-    encoding: 'utf8',
-  });
-  if (result.error) throw result.error;
-  if (result.status !== 0) {
-    throw new Error(`打包 ${skill.name} 失败：${(result.stderr || result.stdout || '').trim()}`);
-  }
-  return destination;
+  // 用 Node 自带的 ZIP 写入器，条目名一律用正斜杠。
+  // .NET 的 ZipFile.CreateFromDirectory 在 Windows 上写反斜杠路径，Linux 与 macOS 解包会失败。
+  const result = writeZip(skill.directory, destination);
+  return { destination, ...result };
 }
 
 function run() {
-  if (process.platform !== 'win32') {
-    throw new Error('当前打包实现依赖 Windows PowerShell，仅支持 Windows。');
-  }
   const options = parseArgs(process.argv.slice(2));
   const root = path.resolve(options.root);
   const outputDirectory = path.join(root, 'skill-zips');
@@ -109,8 +82,8 @@ function run() {
 
   const skills = discoverSkills(root, options.skill);
   for (const skill of skills) {
-    const destination = zipSkill(skill, outputDirectory);
-    console.log(`已打包 ${skill.name} -> ${path.relative(root, destination)}`);
+    const { destination, entries } = zipSkill(skill, outputDirectory);
+    console.log(`已打包 ${skill.name} -> ${path.relative(root, destination)}（${entries} 个条目）`);
   }
   console.log(`SKILL_ZIP_PACKAGE_COMPLETE ${skills.length}`);
 }
