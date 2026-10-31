@@ -1189,7 +1189,9 @@ function testModeChangeIsRejectedBeforeCommitting() {
     git(repo, 'commit', '-m', 'init');
     git(repo, 'update-index', '--chmod=+x', 'run.sh');
     const patch = path.join(work, 'mode.patch');
-    writeFile(patch, git(repo, 'diff', 'HEAD', '--', 'run.sh').stdout);
+    // 模式只存在于 index，必须用 `git diff --cached` 取补丁。
+    // `git diff HEAD` 在 Linux 上受 core.fileMode=true 影响，输出为空。
+    writeFile(patch, git(repo, 'diff', '--cached', '--', 'run.sh').stdout);
     git(repo, 'reset', '-q');
 
     const yamlText = semanticPlan([
@@ -1719,6 +1721,8 @@ function testExecutionReportsCommitFailure() {
       path.join(repo, '.git', 'hooks', 'pre-commit'),
       '#!/bin/sh\necho "hook rejected" >&2\nexit 1\n',
     );
+    // Linux 上 Git 忽略没有执行位的钩子，提交会直接成功。用例因此必须先加执行位。
+    if (process.platform !== 'win32') fs.chmodSync(path.join(repo, '.git', 'hooks', 'pre-commit'), 0o755);
     writeFile(path.join(repo, 'a.txt'), 'one changed\n');
     const patch = path.join(work, 'a.patch');
     writeFile(patch, git(repo, 'diff', '--', 'a.txt').stdout);

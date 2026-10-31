@@ -19,6 +19,9 @@ const FAST_PATH_SCRIPT = path.join(PROJECT_ROOT, 'skills', 'git-up', 'scripts', 
 
 class TestFailure extends Error {}
 
+/** 用例在本平台不具备运行前提时抛出。跳过不算失败，但必须显式记录原因。 */
+class TestSkip extends Error {}
+
 function runCommand(command, cwd, stdin = null) {
   return spawnSync(command[0], command.slice(1), {
     cwd,
@@ -31,7 +34,9 @@ function runCommand(command, cwd, stdin = null) {
 
 /** 通过指定 shell 产出计划字节，再交给 commit_plan.mjs 解析。 */
 function runShellPipe(shell, producerScript, yamlText) {
-  const isPowerShell = path.basename(shell).toLowerCase() === 'powershell.exe';
+  const shellName = path.basename(shell).toLowerCase();
+  // PowerShell 5.1 与 PowerShell 7 的参数形态不同，都要单独识别。
+  const isPowerShell = shellName === 'powershell.exe' || shellName === 'pwsh.exe';
   const producerArgs = isPowerShell
     ? ['-NoProfile', '-NonInteractive', '-Command', producerScript]
     : ['-lc', producerScript];
@@ -109,11 +114,43 @@ function runShellPipe(shell, producerScript, yamlText) {
 }
 
 function powershellPath() {
-  for (const candidate of ['powershell', 'powershell.exe']) {
+  // 本用例验证 Windows PowerShell 5.1 原生管道的编码行为，只在 Windows 上有意义。
+  // WSL 的 PATH 含 Windows 目录，能找到 powershell.exe，但那是互操作调用，行为不同。
+  if (process.platform !== 'win32') {
+    throw new TestSkip('PowerShell 管道是 Windows 专有行为，本用例只在 Windows 上运行');
+  }
+  for (const candidate of ['powershell', 'powershell.exe', 'pwsh', 'pwsh.exe']) {
     const found = findOnPath(candidate);
     if (found) return found;
   }
-  throw new TestFailure('找不到 Windows PowerShell，无法验证 PowerShell 管道输入');
+  throw new TestSkip('找不到 Windows PowerShell，本用例只在 Windows 上运行');
+}
+
+/**
+ * 定位可用于 printf 管道的 POSIX shell。
+ *
+ * Windows 上用 Git Bash：PATH 上的 `C:\Windows\System32\bash.exe` 是 WSL 启动器，
+ * 它不保证透传环境变量，输出的是 WSL 提示文本而不是管道内容。
+ * Linux 与 macOS 上用系统 bash。
+ */
+function posixShellPath() {
+  if (process.platform !== 'win32') {
+    for (const candidate of ['bash', 'sh']) {
+      const found = findOnPath(candidate);
+      if (found && canRunPrintf(found)) return found;
+    }
+    throw new TestSkip('找不到可用的 POSIX shell，无法验证 printf 管道输入');
+  }
+  return gitBashPath();
+}
+
+/** shell 必须能执行内建 printf，WSL 启动器在这里会被排除。 */
+function canRunPrintf(shell) {
+  const probe = spawnSync(shell, ['-lc', 'printf "%s" ok'], {
+    encoding: 'utf8',
+    windowsHide: true,
+  });
+  return probe.status === 0 && probe.stdout === 'ok';
 }
 
 /**
@@ -141,14 +178,10 @@ function gitBashPath() {
   for (const candidate of candidates) {
     if (!candidate || !fs.existsSync(candidate)) continue;
     // Git Bash 必须能执行内建 printf。WSL 启动器在这里会被排除。
-    const probe = spawnSync(candidate, ['-lc', 'printf "%s" ok'], {
-      encoding: 'utf8',
-      windowsHide: true,
-    });
-    if (probe.status === 0 && probe.stdout === 'ok') return candidate;
+    if (canRunPrintf(candidate)) return candidate;
   }
 
-  throw new TestFailure('找不到可用的 Git Bash，无法验证 printf 管道输入');
+  throw new TestSkip('找不到可用的 Git Bash，无法验证 printf 管道输入');
 }
 
 function findOnPath(name) {
@@ -691,12 +724,13 @@ async function testPowershellPipePreservesUtf8PlanVariants() {
 
 async function testGitBashPrintfPipePreservesPlanVariants() {
   /**
-   * Given：Git Bash printf 管道输出 ASCII、中文和 emoji 计划。
+   * Given：POSIX shell 的 printf 管道输出 ASCII、中文和 emoji 计划。
    * When：commit_plan.mjs parse 从该管道读取计划。
    * Then：合法计划都能成功解析。
-   * 防回归：确保 Git Bash 输入路径与 PowerShell 输入路径使用同一解析契约。
+   * 防回归：确保 shell 输入路径与 PowerShell 输入路径使用同一解析契约。
+   * 平台：Windows 用 Git Bash，Linux 与 macOS 用系统 bash。
    */
-  const shell = gitBashPath();
+  const shell = posixShellPath();
   const producerScript = 'printf "%s" "$GIT_UP_PLAN"';
   const validPlans = [
     '- step: 1\n  subject: "feat: add parser test"\n  files:\n    - test.mjs\n',
@@ -1037,17 +1071,27 @@ const TESTS = [
 
 async function main() {
   const failures = [];
+  const skipped = [];
   for (const test of TESTS) {
     try {
       await test();
       console.log(`PASS ${test.name}`);
     } catch (error) {
+      if (error instanceof TestSkip) {
+        const message = `SKIP ${test.name}: ${error.message}`;
+        skipped.push(message);
+        console.log(message);
+        continue;
+      }
       const message = `FAIL ${test.name}: ${error?.message ?? error}`;
       failures.push(message);
       console.log(message);
     }
   }
 
+  if (skipped.length > 0) {
+    console.log(`跳过 ${skipped.length} 个用例（当前平台不具备运行前提）`);
+  }
   if (failures.length > 0) {
     process.stderr.write(`${failures.join('\n')}\n`);
     return 1;
