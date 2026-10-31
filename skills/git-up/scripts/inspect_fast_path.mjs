@@ -148,7 +148,7 @@ export function inspectPlan(repo, planFile) {
   };
 }
 
-export function inspect(repo, maxFiles, planFile = null) {
+export function inspect(repo, maxFiles, planFile = null, ezFast = false) {
   const statusArgs = ['status', '--porcelain=v1', '-uall', '-z'];
   const statusResult = runGit(statusArgs, repo);
   if (statusResult.status !== 0) {
@@ -166,8 +166,11 @@ export function inspect(repo, maxFiles, planFile = null) {
   if (stagedFiles.length > 0) reasons.push('staged_changes_present');
   if (conflictFiles.length > 0) reasons.push('conflicts_present');
   if (operationInProgress(repo)) reasons.push('git_operation_in_progress');
-  if (paths.length > maxFiles) reasons.push('file_count_exceeded');
-  if (modules.length > 1) reasons.push('multiple_modules');
+  // ez-fast 只放宽规划质量级检查：文件数上限与跨模块不再触发回退。
+  if (!ezFast) {
+    if (paths.length > maxFiles) reasons.push('file_count_exceeded');
+    if (modules.length > 1) reasons.push('multiple_modules');
+  }
 
   const riskyFiles = [];
   for (const pathText of paths) {
@@ -193,13 +196,18 @@ export function inspect(repo, maxFiles, planFile = null) {
 
   const planInfo = inspectPlan(repo, planFile);
   const planReasons = [...planInfo.semantic_split_reasons];
-  for (const reason of planReasons) {
-    if (!reasons.includes(reason)) reasons.push(reason);
+  // ez-fast 下语义拆分条件照常报告，但不作为回退原因。
+  if (!ezFast) {
+    for (const reason of planReasons) {
+      if (!reasons.includes(reason)) reasons.push(reason);
+    }
   }
 
   return {
     ok: true,
     eligible: reasons.length === 0,
+    // ez_fast 只在 ez-fast 上下文出现，非 ez-fast 场景保持现有结果契约不变。
+    ...(ezFast ? { ez_fast: true } : {}),
     fast_path_used: false,
     fallback_reasons: reasons,
     semantic_review_required: true,
@@ -219,7 +227,7 @@ export function inspect(repo, maxFiles, planFile = null) {
 }
 
 function parseArgs(argv) {
-  const options = { cwd: '.', maxFiles: 5, planFile: null };
+  const options = { cwd: '.', maxFiles: 5, planFile: null, ezFast: false };
   const takeValue = (name, index) => {
     const value = argv[index];
     if (value === undefined) {
@@ -238,6 +246,8 @@ function parseArgs(argv) {
     } else if (arg === '--plan-file') {
       options.planFile = takeValue('--plan-file', i + 1);
       i += 1;
+    } else if (arg === '--ez-fast') {
+      options.ezFast = true;
     } else if (arg === '--help' || arg === '-h') {
       options.help = true;
     } else {
@@ -247,10 +257,14 @@ function parseArgs(argv) {
   return options;
 }
 
-const USAGE = `usage: inspect_fast_path.mjs [--cwd DIR] [--max-files N] [--plan-file FILE]
+const USAGE = `usage: inspect_fast_path.mjs [--cwd DIR] [--max-files N] [--plan-file FILE] [--ez-fast]
 
 检查 -pc/-pcP 是否可以使用快车道。--plan-file 指定的计划若需要语义拆分，
 检查器会回退快车道并给出原因。
+
+  --ez-fast        处于 ez-fast 上下文：文件数上限与跨模块不再触发回退，
+                   Git 级条件（已有暂存内容、冲突、进行中的 Git 操作、
+                   嵌套 Git 边界、二进制与超大文件、风险路径）一条不绕
 `;
 
 try {
@@ -262,7 +276,7 @@ try {
       process.stderr.write('--max-files must be at least 1\n');
       process.exitCode = 2;
     } else {
-      const payload = inspect(path.resolve(options.cwd), options.maxFiles, options.planFile);
+      const payload = inspect(path.resolve(options.cwd), options.maxFiles, options.planFile, options.ezFast);
       process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
       process.exitCode = payload.ok ? 0 : 1;
     }

@@ -64,8 +64,34 @@ function failGit(step, completed, command, result) {
   };
 }
 
+/** 汇总各步骤声明的抑制拆分路径，去重后排序。 */
+function collectSuppressedSplit(steps) {
+  const paths = steps.flatMap((item) => item.suppressedSplit ?? []);
+  return [...new Set(paths)].sort();
+}
+
+/** 生成 ez-fast 拒绝语义计划的错误消息，指出第一个声明 changes 的步骤。 */
+function ezFastSemanticPlanMessage(steps) {
+  const offending = steps.find((item) => item.changes.length > 0);
+  const stepNo = offending ? offending.step : '?';
+  return `the --ez-fast flag forbids semantic plans; step ${stepNo} declares changes`;
+}
+
+/**
+ * ez-fast 的结果字段。
+ *
+ * 非 ez-fast 场景返回空对象，两个键都不出现，现有结果契约保持字节级不变。
+ */
+function ezFastResultFields(steps, ezFast) {
+  if (!ezFast) return {};
+  return {
+    semantic_split_disabled: true,
+    suppressed_split: collectSuppressedSplit(steps),
+  };
+}
+
 /** 执行兼容的文件级计划。每个步骤只暂存计划显式列出的路径。 */
-export function executeFilePlan(steps, cwd, fastPathUsed = false) {
+export function executeFilePlan(steps, cwd, fastPathUsed = false, ezFast = false) {
   const preflight = ensureCleanIndex(cwd);
   if (preflight !== null) return preflight;
 
@@ -167,6 +193,7 @@ export function executeFilePlan(steps, cwd, fastPathUsed = false) {
       code: CODE_VERIFICATION,
       message: `target verification failed: ${verification.reason}`,
       step: null,
+      ...ezFastResultFields(steps, ezFast),
       verification,
       completed_steps: completed,
       skipped_steps: skipped,
@@ -183,6 +210,7 @@ export function executeFilePlan(steps, cwd, fastPathUsed = false) {
     ok: true,
     mode: 'file',
     fast_path_used: fastPathUsed,
+    ...ezFastResultFields(steps, ezFast),
     base_head: snapshot.base_head,
     final_head: runGit(['rev-parse', 'HEAD'], cwd).stdout.trim(),
     target_tree: snapshot.target_tree,
@@ -196,8 +224,16 @@ export function executeFilePlan(steps, cwd, fastPathUsed = false) {
 }
 
 /** 按计划模式选择执行器。语义模式不会回退到文件级暂存。 */
-export function executePlan(steps, cwd, fastPathUsed = false) {
+export function executePlan(steps, cwd, fastPathUsed = false, ezFast = false) {
   if (planMode(steps) === 'semantic') {
+    // ez-fast 禁止语义计划。拒绝发生在任何 Git 写操作之前，index 不被触碰。
+    if (ezFast) {
+      return {
+        ok: false,
+        code: CODE_INVALID_PLAN,
+        message: ezFastSemanticPlanMessage(steps),
+      };
+    }
     if (fastPathUsed) {
       return {
         ok: false,
@@ -207,7 +243,7 @@ export function executePlan(steps, cwd, fastPathUsed = false) {
     }
     return executeSemanticPlan(steps, cwd);
   }
-  return executeFilePlan(steps, cwd, fastPathUsed);
+  return executeFilePlan(steps, cwd, fastPathUsed, ezFast);
 }
 
 function printJson(payload) {
@@ -215,7 +251,7 @@ function printJson(payload) {
 }
 
 function parseArgs(argv) {
-  const options = { mode: null, cwd: '.', planFile: null, fastPath: false };
+  const options = { mode: null, cwd: '.', planFile: null, fastPath: false, ezFast: false };
   const takeValue = (name, index) => {
     const value = argv[index];
     if (value === undefined) {
@@ -235,6 +271,8 @@ function parseArgs(argv) {
       i += 1;
     } else if (arg === '--fast-path') {
       options.fastPath = true;
+    } else if (arg === '--ez-fast') {
+      options.ezFast = true;
     } else if (arg === '--help' || arg === '-h') {
       options.help = true;
     } else {
@@ -244,7 +282,7 @@ function parseArgs(argv) {
   return options;
 }
 
-const USAGE = `usage: commit_plan.mjs {parse|commit} [--cwd DIR] [--plan-file FILE] [--fast-path]
+const USAGE = `usage: commit_plan.mjs {parse|commit} [--cwd DIR] [--plan-file FILE] [--fast-path] [--ez-fast]
 
 Parse or execute a git-up YAML-lite commit plan.
 
@@ -253,6 +291,7 @@ Parse or execute a git-up YAML-lite commit plan.
   --cwd DIR        Git 仓库工作目录，默认当前目录
   --plan-file FILE 从 UTF-8 文件读取计划（Windows PowerShell 推荐）
   --fast-path      标记本次执行是已校验的 -pc/-pcP 快车道
+  --ez-fast        标记本次执行处于 ez-fast 上下文：禁止语义计划，并放宽规划质量级检查
 `;
 
 async function main(argv) {
@@ -299,6 +338,15 @@ async function main(argv) {
   const mode = planMode(steps);
 
   if (options.mode === 'parse') {
+    // ez-fast 上下文里语义计划本身就是无效计划，parse 与 commit 用同一条消息拒绝。
+    if (options.ezFast && mode === 'semantic') {
+      printJson({
+        ok: false,
+        code: CODE_INVALID_PLAN,
+        message: ezFastSemanticPlanMessage(steps),
+      });
+      return 2;
+    }
     const payload = { ok: true, plan_mode: mode, steps: steps.map((item) => stepToDict(item)) };
     try {
       if (mode === 'semantic') {
@@ -317,7 +365,7 @@ async function main(argv) {
     return 0;
   }
 
-  const result = executePlan(steps, cwd, options.fastPath);
+  const result = executePlan(steps, cwd, options.fastPath, options.ezFast);
   printJson(result);
   return result.ok ? 0 : 1;
 }
