@@ -22,12 +22,14 @@ Label: wayfinder:map
 - [ez-fast 规则的脚本层强制点](issues/04-ez-fast-script-enforcement.md)：`commit_plan.mjs` 新增独立 `--ez-fast` flag，与 `--fast-path` 正交；收到语义计划返回 `invalid_plan`，不新增错误码。
 - [ez-fast 的结果契约与抑制拆分提示](issues/05-ez-fast-result-contract.md)：计划新增步骤级可选字段 `suppressed_split`；结果顶层新增 `semantic_split_disabled` 与 `suppressed_split`；`-zp` 回显完整 YAML，`-zc` 只给 JSON 摘要。
 - [ez-fast 与快车道的关系](issues/06-ez-fast-fast-path-interaction.md)：两者正交，快车道不脱离 `-pc/-pcP` 限制；快车道判定在 ez-fast 下放宽文件数与跨模块。
+- [ez-fast 下如何判别并声明 suppressed_split](issues/07-suppressed-split-detection.md)：结构化文件增删整块启发式（`.json/.yaml/.yml/.toml`，排除 lock/生成物，≥2 个顶层键整块增删才标记）；Agent 侧硬规则 + 软字段（允许为空）；脚本只校验路径归属，未知路径 `invalid_plan` 且不触碰 index。
+- [ez-fast 的脚本改动面与测试口径](issues/08-script-surface-and-tests.md)：三个脚本的逐函数改动清单已列全（解析层加 `suppressed_split` 字段与归属校验、执行器加 `--ez-fast` 与结果字段、检查器加 `--ez-fast` 放宽规划质量级条件）；15 项回归用例落在 `test-space/git-up-commit-plan-tests/`；上下文识别定为新增 `--ez-fast` flag。
+- [ez-fast 的文档同步面](issues/09-doc-sync-surface.md)：详情独立成 `references/ez-fast.md`（用户已确认），SKILL.md 增量 ≤15 行（模式表一行 + ≤10 行小节 + 交叉引用）；16 项逐文件改动清单已列全，版本走 2.8.0，CONTEXT.md 不写。
 
 ## Not yet specified
 
-- ez-fast 下 Agent 如何判别并声明 `suppressed_split`。判据、误报成本与是否值得额外一次工具调用均未定。见 [工单 07](issues/07-suppressed-split-detection.md)。未决前该字段允许为空。
-- ez-fast 术语是否写入根 `CONTEXT.md`。该文件当前只承载 project-self-memory 域的术语，上一张图的先例是不写入。
-- ez-fast 在 `references/` 下是否独立成文，还是并入 `references/semantic-commit.md`。取决于文档同步面的划分，见 [工单 09](issues/09-doc-sync-surface.md)。
+- ~~ez-fast 下 Agent 如何判别并声明 `suppressed_split`~~ → 已决，见 [工单 07](issues/07-suppressed-split-detection.md)。
+- ~~ez-fast 章节位置、文档同步面~~ → 已决，见 [工单 09](issues/09-doc-sync-surface.md)。ez-fast 术语不写入根 `CONTEXT.md`（沿用先例）。
 
 ## Out of scope
 
