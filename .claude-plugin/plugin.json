@@ -21,6 +21,7 @@
     "./skills/progressive-doc",
     "./skills/rd-mode",
     "./skills/claude-proj-skill-linker",
-    "./skills/handoff-portable"
+    "./skills/handoff-portable",
+    "./skills/skill-to-prompt"
   ]
 }
