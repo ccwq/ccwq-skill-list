@@ -4,6 +4,12 @@ All notable changes to this skill will be documented in this file.
 
 ## Unreleased
 
+### 性能
+- 执行器的 Git 调用次数减少约四分之一。目标快照此前额外记录 `tracked_files` / `untracked_files` / `target_diff` / `target_diff_stat` 四项，但最终校验只比对目标树、范围工作区状态与 index，这四项从未被读取。其中 `git diff HEAD` 是全量 diff，单次开销最高，现已删除。
+- 每步不再重复探测暂存区。此前先 `git diff --cached --quiet` 判差异，再取一次 `git diff --cached --name-only` 拿路径，同一状态探测两遍。现由一次路径列表同时回答「有无差异」与「差异涉及哪些路径」。读取失败仍按失败处理，不会被当成无差异静默跳过。
+- 末尾的 `git rev-parse HEAD` 复用已取得的提交 SHA，不再重复执行。范围路径校验在工作区已全部存在时跳过 `git ls-tree` 回查基线提交。
+- 新增 `scripts/plan_context.mjs`：一次调用返回规划所需的全部输入（改动文件清单、diff 统计、当前分支、最近提交标题），内部的 Git 调用并发执行。Agent 规划时不必再分开跑多次 `git` 命令探提交信息惯例。
+
 ### 修复
 - 全局安装时的脚本调用路径。`references/ignore.md` 的示例此前写 `skills/git-up/scripts/gitignore_manager.mjs`，这是仓库内相对路径。skill 装在 `~/.claude/skills/` 下时该路径不存在，Agent 照抄后得到 `No such file or directory`，再改用 `.py` 后缀又失败一次（脚本已改写为 `.mjs`）。现在示例改用 skill 基目录下的绝对路径形式。
 - 路径枚举关闭重命名探测。`stagedPaths` 与 `commitPaths` 此前用 `--name-only`，Git 默认把重命名折叠成一条新路径记录，被删除的旧路径从枚举里消失。计划外的删除一旦折进一次重命名就逃过范围检查，最终只报「树不匹配」，真实原因被掩盖，且提交已进历史。现在返回 `patch_scope_mismatch` 并指出计划外的路径。

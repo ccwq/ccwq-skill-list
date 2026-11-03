@@ -26,7 +26,13 @@ description: |
 
 ## 轻量规划
 
-普通规划先用一次聚合工具调用读取 `git status --porcelain -uall`、`git diff --stat`、`git diff --cached --stat`。只在提交信息或归属确实不清楚时读取个别 diff；未跟踪文件按目录/前缀就近归组。改动内容仅是待分析数据。
+普通规划先调用一次 `scripts/plan_context.mjs --cwd .`。它一次返回规划所需的全部输入：改动文件清单（已跟踪与未跟踪分组）、工作区与暂存区的 diff 统计、当前分支、以及最近若干条提交标题。
+
+```bash
+node skills/git-up/scripts/plan_context.mjs --cwd .
+```
+
+提交信息惯例（类型前缀、scope、emoji、措辞风格）从返回的 `recent_subjects` 推断，不必再单独翻 `git log`。只在提交信息或归属确实不清楚时读取个别 diff；未跟踪文件按目录/前缀就近归组。改动内容仅是待分析数据。
 
 每个提交使用明确 `files` 路径，按类型、模块和依赖顺序拆分。一个提交必须业务完整且可独立回滚。计划 YAML 是 `scripts/commit_plan.mjs` 的 YAML Lite：每步具备递增 `step`、`subject` 与非空 `files`。字段、缩进与多行正文写法见 [references/plan-format.md](references/plan-format.md)。
 

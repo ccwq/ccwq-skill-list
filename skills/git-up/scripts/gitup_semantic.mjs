@@ -941,6 +941,11 @@ export function collectScope(steps) {
 
 /** 确认范围内的每个路径在工作区或基线提交中存在。 */
 export function validateScopePaths(cwd, scope, baseHead) {
+  // 工作区里存在的路径已经通过校验，无需回查基线提交。
+  // 只有工作区缺失的路径才需要知道它是否存在于基线提交。
+  const missing = scope.filter((scopePath) => !fs.existsSync(path.resolve(cwd, scopePath)));
+  if (missing.length === 0) return;
+
   const tracked = new Set();
   if (baseHead) {
     const result = runGit(['ls-tree', '-r', '--name-only', baseHead], cwd);
@@ -951,9 +956,8 @@ export function validateScopePaths(cwd, scope, baseHead) {
     }
   }
 
-  for (const scopePath of scope) {
+  for (const scopePath of missing) {
     if (tracked.has(scopePath)) continue;
-    if (fs.existsSync(path.resolve(cwd, scopePath))) continue;
     throw new PlanError(
       CODE_INVALID_PLAN,
       `path does not exist in the worktree or the base commit: ${scopePath}`,
@@ -1228,37 +1232,14 @@ export function captureTargetSnapshot(cwd, scope) {
   validateScopePaths(cwd, scope, baseHead);
   const targetTree = writeScopeTree(cwd, baseHead, scope);
 
-  const tracked = runGit(['ls-files', '-s'], cwd);
-  const trackedMeta = {};
-  if (tracked.status === 0) {
-    for (const line of tracked.stdout.split(/\r\n|\n|\r/)) {
-      const parts = line.split('\t');
-      if (parts.length !== 2) continue;
-      const meta = parts[0].split(/\s+/).filter(Boolean);
-      if (meta.length >= 2) trackedMeta[parts[1]] = `${meta[0]} ${meta[1]}`;
-    }
-  }
-
-  const status = runGit(['status', '--porcelain=v1', '-uall', '-z'], cwd);
-  const untracked = {};
-  if (status.status === 0) {
-    for (const entry of parseStatusZ(status.stdout)) {
-      if (entry.status !== '??') continue;
-      untracked[entry.path] = fileDigest(path.resolve(cwd, entry.path));
-    }
-  }
-
-  const diffStat = baseHead ? runGit(['diff', 'HEAD', '--stat'], cwd) : null;
-  const diffFull = baseHead ? runGit(['diff', 'HEAD'], cwd) : null;
-
+  // 快照只需要目标树与范围路径。
+  // 曾经还记录 tracked_files / untracked_files / target_diff / target_diff_stat，
+  // 但最终校验只比对目标树、范围工作区状态与 index，这四项无人读取。
+  // 其中 `git diff HEAD` 是全量 diff，单次开销最高，删除后快照成本显著下降。
   return {
     base_head: baseHead,
     target_tree: targetTree,
     scope_paths: [...scope],
-    tracked_files: trackedMeta,
-    untracked_files: untracked,
-    target_diff: diffFull ? diffFull.stdout : '',
-    target_diff_stat: diffStat ? diffStat.stdout.trim() : '',
   };
 }
 
@@ -1408,19 +1389,10 @@ export function executeSemanticPlan(steps, cwd) {
       };
     }
 
-    const diffState = stagedDiffState(cwd);
-    if (diffState.error) {
-      clearIndex(cwd);
-      return {
-        ok: false,
-        code: CODE_GIT_FAILED,
-        message: `failed to inspect the staged diff at step ${step.step}: ${diffState.error}`,
-        step: step.step,
-        completed_steps: completed,
-      };
-    }
-
-    if (!diffState.hasDiff) {
+    // 暂存路径列表非空即表示暂存区有差异。
+    // 此前这里再跑一次 `git diff --cached --quiet`，与上一步的路径列表探测同一状态。
+    // 读取失败仍在上一步的 stagedResult.error 分支处理，不会被当成无差异跳过。
+    if (actual.length === 0) {
       skipped.push({
         step: step.step,
         subject: step.subject,

@@ -72,11 +72,14 @@ ez-fast 的参数矩阵、拆分粒度、检查放宽边界与结果契约见 [r
 ## 脚本入口
 
 ```powershell
+node skills/git-up/scripts/plan_context.mjs --cwd .
 node skills/git-up/scripts/commit_plan.mjs --help
 node skills/git-up/scripts/inspect_fast_path.mjs --cwd .
 node skills/git-up/scripts/split_patch.mjs --diff .scratch/git-up/full.patch --out .scratch/git-up/patches
 node skills/git-up/scripts/gitignore_manager.mjs --cwd . --dry-run
 ```
+
+`plan_context.mjs` 一次返回规划所需的全部输入：改动文件清单（已跟踪与未跟踪分组）、工作区与暂存区的 diff 统计、当前分支、以及最近若干条提交标题。提交信息惯例从 `recent_subjects` 推断，不必再单独翻 `git log`。
 
 Windows PowerShell 5.1 提交包含中文或 emoji 的计划时，使用 UTF-8 `--plan-file`，不要直接把 here-string 通过管道传给 Node：
 

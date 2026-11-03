@@ -592,6 +592,24 @@ $git-up -zpc            # 按文件拆分规划并提交，不做语义归类
 
 </details>
 
+<details>
+<summary>规划输入</summary>
+
+规划阶段先调用一次 `scripts/plan_context.mjs`，一次拿到全部输入：
+
+```bash
+node skills/git-up/scripts/plan_context.mjs --cwd .
+```
+
+返回改动文件清单（已跟踪与未跟踪分组）、工作区与暂存区的 diff 统计、当前分支、以及最近若干条提交标题。提交信息惯例（类型前缀、scope、emoji、措辞风格）从 `recent_subjects` 推断，不必再单独翻 `git log`。
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `--cwd DIR` | 仓库工作目录 | 当前目录 |
+| `--log-count N` | 返回的最近提交标题条数 | `15` |
+
+</details>
+
 详情见 [README.md](skills/git-up/README.md)。
 
 ---

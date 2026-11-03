@@ -17,6 +17,7 @@ const ROOT = path.resolve(import.meta.dirname, '..', '..');
 const SUITES = [
   { name: '语义拆分', script: path.join(ROOT, 'test-space', 'git-up-semantic-tests', 'run_tests.mjs') },
   { name: '计划级', script: path.join(ROOT, 'test-space', 'git-up-commit-plan-tests', 'run_tests.mjs') },
+  { name: '性能回归', script: path.join(ROOT, 'test-space', 'git-up-perf-tests', 'run_tests.mjs') },
 ];
 
 function countLines(text, prefix) {

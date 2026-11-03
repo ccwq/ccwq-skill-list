@@ -32,7 +32,6 @@ import {
   planMode,
   runGit,
   semanticSplitReasons,
-  stagedDiffState,
   stagedPaths,
   stepMessage,
   stepToDict,
@@ -144,23 +143,12 @@ export function executeFilePlan(steps, cwd, fastPathUsed = false, ezFast = false
       return failGit(item.step, completed, ['git', 'add', '--', ...item.files], addResult);
     }
 
-    const diffState = stagedDiffState(cwd);
-    if (diffState.error) {
-      clearIndex(cwd);
-      return {
-        ok: false,
-        code: 'git_failed',
-        step: item.step,
-        message: `failed to inspect the staged diff: ${diffState.error}`,
-        completed_steps: completed,
-      };
-    }
-
-    if (!diffState.hasDiff) {
-      skipped.push(item.step);
-      continue;
-    }
-
+    // 一次 `git diff --cached --name-only --no-renames -z` 同时回答两件事：
+    // 暂存区是否有差异（路径列表非空），以及差异涉及哪些路径。
+    // 此前先 `git diff --cached --quiet` 判差异，再取一次路径列表，
+    // 同一状态探测了两遍，每次多付一次进程创建开销。
+    //
+    // 读取失败仍按失败处理，不能当成「无差异」把整步静默跳过。
     const stagedResult = stagedPaths(cwd);
     if (stagedResult.error) {
       clearIndex(cwd);
@@ -172,7 +160,13 @@ export function executeFilePlan(steps, cwd, fastPathUsed = false, ezFast = false
         completed_steps: completed,
       };
     }
+
     const paths = stagedResult.paths;
+
+    if (paths.length === 0) {
+      skipped.push(item.step);
+      continue;
+    }
 
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-up-msg-'));
     const messagePath = path.join(tmpDir, 'message.txt');
