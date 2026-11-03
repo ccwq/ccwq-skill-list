@@ -231,6 +231,13 @@
       "description": "把技能源文提炼为文言式执行提示词：保留主流程与核心行文要求、删除低频分支，正文上限可调（默认700字），以成对 agent-skill 标签封装",
       "version": "1.0.0",
       "category": "writing"
+    },
+    {
+      "name": "advise-motion-effects",
+      "source": "./skills/advise-motion-effects",
+      "description": "动效与视觉特效工程顾问：把目标效果或参考视频拆解到 20 项工具的具体能力与功能入口，覆盖网页动画、Three.js/Blender、粒子/物理/后期、代码视频、生成素材、声音同步、录制导出，并诊断渲染、性能、时序与交付问题",
+      "version": "1.0.0",
+      "category": "media"
     }
   ]
 }

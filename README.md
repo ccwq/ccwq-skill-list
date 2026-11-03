@@ -38,6 +38,7 @@ npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code --
 
 | Skill | 说明 | 详情 |
 |-------|------|------|
+| `advise-motion-effects` | 动效与视觉特效工程顾问，把目标效果拆解到 20 项工具的能力与功能入口 | [速查](#advise-motion-effects) · [SKILL](skills/advise-motion-effects/SKILL.md) |
 | `agent-human-debug` | Agent 主导、人类执行的跨平台故障诊断；最小只读 probe、脱敏回传 | [速查](#agent-human-debug) · [README](skills/agent-human-debug/README.md) |
 | `aria-filedown` | 手动授权的 aria2 稳定下载，支持代理优先级与项目 `.env` | [速查](#aria-filedown) · [SKILL](skills/aria-filedown/SKILL.md) |
 | `bash-completion` | 配置与排查 Bash 补全：Tab、fzf、ble.sh、zoxide 及启动顺序冲突 | [速查](#bash-completion) · [SKILL](skills/bash-completion/SKILL.md) |
@@ -74,6 +75,39 @@ npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code --
 > 触发形式：`/skill-name` 偏 slash command 风格，`$skill-name` 偏按 skill 名触发；实际以你的 Claude Code / skills 运行环境为准。
 
 ## 参数速查
+
+### advise-motion-effects
+
+动效与视觉特效工程顾问。把目标效果或参考视频拆解到具体工具能力、API/节点/功能入口和实现路径。
+
+```text
+$advise-motion-effects 网页卡片列表重排动画怎么做
+$advise-motion-effects 有个参考视频，想用 Three.js 还原粒子拖尾效果
+$advise-motion-effects Remotion 批量视频导出，音频对不上字幕
+```
+
+按效果和工具双向检索 20 项工具：Remotion、Anime.js、Motion、Manim、Lottie、Blender MCP、Three.js、Pathtracer、Jolt、postprocessing、Three.quarks、Tweakpane、ComfyUI、CosyVoice、librosa、WhisperX、OBS、LosslessCut、FFmpeg。
+
+默认给方案，不直接改工程。要求代码或实施时再提供完整代码。
+
+<details>
+<summary>参数</summary>
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `<效果目标或问题>` | 目标效果、参考图/参考视频，或待诊断的渲染、性能、时序问题 | 无 |
+| `<目标形态>` | 实时网页、离线视频、三维资产或录制素材；不填则按上下文判断 | 按上下文推断 |
+
+</details>
+
+- 单一明确问题直接回答；多个相互影响的目标按依赖关系分轮 grilling，每轮只问当前可决定的问题。
+- 工具指南一次只加载一份，先读效果索引定位候选，再读对应工具指南。
+- 涉及安装、API、后端、模型、授权或兼容性时核对项目版本与官方文档；资料不足就补查一手来源。
+- 区分资料核对、代码执行、画面检查与跨工具运行的验证范围；未运行的片段明确写未验证。
+
+详情见 [SKILL.md](skills/advise-motion-effects/SKILL.md)。
+
+---
 
 ### agent-human-debug
 

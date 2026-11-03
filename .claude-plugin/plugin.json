@@ -22,6 +22,7 @@
     "./skills/rd-mode",
     "./skills/claude-proj-skill-linker",
     "./skills/handoff-portable",
-    "./skills/skill-to-prompt"
+    "./skills/skill-to-prompt",
+    "./skills/advise-motion-effects"
   ]
 }

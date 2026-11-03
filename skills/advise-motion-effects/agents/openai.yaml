@@ -1,0 +1,13 @@
+interface:
+  display_name: 动效工程顾问
+  short_description: 为网页、视频及三维动效工程提供选型、创作和故障诊断建议
+  default_prompt: 分析我的动效目标或问题，推荐合适的工具和验证步骤。
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg
+policy:
+  products:
+  - chatgpt
+  - codex
+  - api
+  - atlas
+  allow_implicit_invocation: true
