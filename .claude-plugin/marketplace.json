@@ -224,6 +224,13 @@
       "description": "根据文章正文、简短要点、链接或文件生成与优化微信公众号标题，默认六条不同方向候选并首推一条，兼顾点击吸引力与事实边界，支持按反馈迭代",
       "version": "1.0.0",
       "category": "writing"
+    },
+    {
+      "name": "skill-to-prompt",
+      "source": "./skills/skill-to-prompt",
+      "description": "把技能源文提炼为文言式执行提示词：保留主流程与核心行文要求、删除低频分支，正文上限可调（默认700字），以成对 agent-skill 标签封装",
+      "version": "1.0.0",
+      "category": "writing"
     }
   ]
 }

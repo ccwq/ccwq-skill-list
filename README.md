@@ -63,6 +63,7 @@ npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code --
 | `progressive-doc` | 用渐进式披露结构创建、改写或审查中文技术文章 | [速查](#progressive-doc) · [SKILL](skills/progressive-doc/SKILL.md) |
 | `project-self-memory` | 维护项目级结论记忆，支持逐问策展、评分、候选逐条入库、结论暂存、可选派生多标签与 legacy 迁移 | [速查](#project-self-memory) · [README](skills/project-self-memory/README.md) |
 | `rd-mode` | 远程开发模式规则，统一通过 `abc` 命令操作 host 浏览器 | [速查](#rd-mode) · [README](skills/rd-mode/README.md) |
+| `skill-to-prompt` | 把技能源文提炼为文言式执行提示词，删除低频分支并以 `agent-skill` 标签封装 | [速查](#skill-to-prompt) · [SKILL](skills/skill-to-prompt/SKILL.md) |
 | `software-license-checker` | 评估软件企业内部使用的许可证合规与付费风险 | [速查](#software-license-checker) · [README](skills/software-license-checker/README.md) |
 | `subagent-router` | 预览并确认后临时创建子 Agent，支持动态模型路由 | [速查](#subagent-router) · [README](skills/subagent-router/README.md) |
 | `tool-evaluator` | 调查、比较并筛选适合当前约束的工具 | [速查](#tool-evaluator) · [SKILL](skills/tool-evaluator/SKILL.md) |
@@ -946,6 +947,40 @@ rd-mode --init   # 首次使用，问答补全 RHost / CDP_PORT，写入 ~/.conf
 </details>
 
 host/server 架构、`abc` 用法与故障排查见 [README.md](skills/rd-mode/README.md)。
+
+---
+
+### skill-to-prompt
+
+把技能源文提炼为文言式执行提示词。保留主流程与核心行文要求，删除低频分支，以成对 `agent-skill` 标签封装。
+
+```text
+$skill-to-prompt 把 progressive-doc 转换为提示词
+$skill-to-prompt @progressive-doc 正文上限1000字
+```
+
+只输出 XML 标签块，不加开场、解释、字数统计或代码围栏。正文上限可调，默认 700 字，开闭标签不计。
+
+辅助脚本：`node skills/skill-to-prompt/scripts/validate_prompt.mjs --help`（检查标签配对与正文长度）。
+
+<details>
+<summary>参数</summary>
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `[待转换技能]` | 待转换的技能名、正文、附件或路径 | 无 |
+| `正文上限 N` | 每块正文的字数上限，必须为正整数 | `700` |
+
+脚本命令行参数：`--limit N` 设置每块正文上限；`--total-limit N` 设置正文合计上限。两者都只统计正文，标签不计入。
+
+- 压缩保留目标、适用对象、主流程、核心行为与行文要求、输出格式，以及使规则成立的必要条件、优先级与权限边界。
+- 删除不影响常规主流程的低频分支，例如特殊环境适配、冷门故障处理、冗长案例和安装细节。
+- 守住否定、范围、数量、条件、确定程度和指令力度，不新增原文没有的事实。
+- 脚本只检查格式与长度，不证明核心语义保留，仍须对照原文核查。
+
+</details>
+
+详情见 [SKILL.md](skills/skill-to-prompt/SKILL.md)。
 
 ---
 
