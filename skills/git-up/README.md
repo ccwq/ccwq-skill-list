@@ -23,7 +23,7 @@ $git-up -i                         # 增量维护 .gitignore
 
 ## 提交边界
 
-计划依据 Git 状态和改动规模生成。每个步骤都列出明确路径。执行时只对这些路径运行 `git add`。
+每个计划步骤都列出明确路径。文件级计划仅暂存所列路径；语义计划按补丁和路径边界执行。
 
 相关文件按模块和依赖关系拆分。每次提交都可以独立回滚。
 
@@ -33,7 +33,7 @@ $git-up -i                         # 增量维护 .gitignore
 
 ## 语义拆分提交
 
-同一文件包含多个语义目的的改动时，改用语义模式。每一步用 `changes` 声明自己的补丁，同一文件可以进入多个提交。
+默认规划按文件拆分。显式指定 `-d` / `--deep` 后，才分析并按需使用语义模式；每一步用 `changes` 声明补丁，同一文件可以进入多个提交。deep 没有混合改动时也可使用文件级计划。
 
 语义模式的执行器按依赖顺序逐步把补丁写入 index，不改动工作区。执行结束后，它比较最终 HEAD 与执行前保存的目标工作区。不一致时返回失败，不报告成功。
 
@@ -41,18 +41,13 @@ $git-up -i                         # 增量维护 .gitignore
 
 完整格式、补丁模式、错误码和快车道回退条件见 [references/semantic-commit.md](references/semantic-commit.md)。
 
-## 模式选择
+## 选择规划深度
 
-根据任务选择模式：
+默认按文件拆分，`-p` 先输出完整 YAML 供审阅；`-c` 可在同一会话执行最近计划。显式使用 `-d` 或 `--deep` 才进行深度语义规划；`-d` 不授权提交。`-g/--grilling` 逐问审查计划，等待用户回答后继续，`--modify` 按直接反馈调整计划；二者继承当前深度，不提交。旧 `--discuss` 兼容 grilling，旧 `-z` 仍兼容默认轻量行为。
 
-- 先审阅拆分边界，再决定是否提交：`-p` 只规划，`-c` 执行本会话内最近的计划，二者必须在同一会话。
-- 追求一步到位时用 `-pc`。最多 5 个文件、单一模块且无风险信号时，只返回紧凑计划摘要；不满足条件则回退完整 YAML。
-- 需要 push 时用 `-cP` / `-pcP`：仅在提交成功后 push，且只对网络或传输失败重试。
-- 委派给别人执行时用 `-s` / `-sP`：父线程只创建一个子智能体并等待结果。
-- 只想整理忽略规则时用 `-i`：不读取也不改动暂存区。
-- 只想按文件快速拆分、不做语义归类时用 `-z` / `--ez-fast`：只按文件拆分提交，放宽文件数与跨模块限制。`-zp` 只规划，`-zc` 只执行，`-zpc` 规划并提交。
+Grilling 的审查范围、提问轮次与停止条件见 [references/grilling.md](references/grilling.md)。本技能自足，不要求安装外部 grilling skill。
 
-ez-fast 的参数矩阵、拆分粒度、检查放宽边界与结果契约见 [references/ez-fast.md](references/ez-fast.md)。
+规划加提交可在符合条件时使用快车道。默认轻量规划放宽文件数与跨模块的规划质量检查，但保留 Git 安全检查；deep 不放宽。具体路由、兼容性与执行约束见 [SKILL.md](SKILL.md)，参数速查见[根 README](../../README.md#git-up)。
 
 ## 安全与失败语义
 
@@ -74,18 +69,18 @@ ez-fast 的参数矩阵、拆分粒度、检查放宽边界与结果契约见 [r
 ```powershell
 node skills/git-up/scripts/plan_context.mjs --cwd .
 node skills/git-up/scripts/commit_plan.mjs --help
-node skills/git-up/scripts/inspect_fast_path.mjs --cwd .
+node skills/git-up/scripts/inspect_fast_path.mjs --cwd . --ez-fast
 node skills/git-up/scripts/split_patch.mjs --diff .scratch/git-up/full.patch --out .scratch/git-up/patches
 node skills/git-up/scripts/gitignore_manager.mjs --cwd . --dry-run
 ```
 
 `plan_context.mjs` 一次返回规划所需的全部输入：改动文件清单（已跟踪与未跟踪分组）、工作区与暂存区的 diff 统计、当前分支、以及最近若干条提交标题。提交信息惯例从 `recent_subjects` 推断，不必再单独翻 `git log`。
 
-Windows PowerShell 5.1 提交包含中文或 emoji 的计划时，使用 UTF-8 `--plan-file`，不要直接把 here-string 通过管道传给 Node：
+以上 inspect 示例及以下 commit 示例适用于默认轻量计划；deep 时移除 `--ez-fast`。Windows PowerShell 5.1 提交包含中文或 emoji 的计划时，使用 UTF-8 `--plan-file`，不要直接把 here-string 通过管道传给 Node：
 
 ```powershell
 [IO.File]::WriteAllText($planFile, $plan, [Text.UTF8Encoding]::new($false))
-node skills/git-up/scripts/commit_plan.mjs commit --cwd . --plan-file $planFile
+node skills/git-up/scripts/commit_plan.mjs commit --cwd . --plan-file $planFile --ez-fast
 ```
 
 完整 YAML 格式见 [references/plan-format.md](references/plan-format.md)。快车道判定、语义拆分、提交消息规范、push 重试规则及委派契约见 [SKILL.md](SKILL.md)。

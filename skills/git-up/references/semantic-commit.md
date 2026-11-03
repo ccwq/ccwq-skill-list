@@ -4,13 +4,9 @@
 
 ## 何时使用
 
-满足任一条件时使用语义模式：
+仅在用户显式授权 deep（`-d` / `--deep`）后，需要将同一文件的多个语义目的拆入不同提交时，考虑语义模式；例如 `package.json` 同时有依赖安装和 `scripts` 增加。混合改动本身不会自动触发 deep。
 
-- 同一文件包含多个语义目的的改动，例如 `package.json` 同时有依赖安装、格式调整和 `scripts` 增加。
-- 提交之间存在依赖顺序，例如脚本提交必须排在依赖安装之后。
-- 需要严格证明拆分后没有丢失改动，也没有把无关改动带进提交。
-
-其它情况使用文件级计划。文件级计划声明 `files`，执行器只 `git add -- <files...>`。
+提交之间有依赖或需要验证目标树，不单独触发语义模式；deep 也可使用文件级计划。文件级计划声明 `files`，执行器只 `git add -- <files...>`。
 
 ## 计划格式
 
@@ -99,7 +95,7 @@ node skills/git-up/scripts/split_patch.mjs --diff .scratch/git-up/full.patch --o
 # state-3.json 是最终内容
 ```
 
-执行器把文件内容按 Git 的 clean filter 归一化后写入 index。因此中间状态文件用 LF 换行即可。
+执行器将中间状态文件的原始字节作为输入，通过 `git hash-object --stdin --path=<目标路径>` 写入对象；Git 会依据目标路径的属性应用 clean filter 和换行转换。内容不会先由执行器按文本重新编码或统一换行。请按仓库属性准备字节，并以最终目标快照校验结果为准。
 
 ## 执行语义
 
@@ -164,7 +160,7 @@ node skills/git-up/scripts/split_patch.mjs --diff .scratch/git-up/full.patch --o
 
 ## 委派
 
-`-s` / `-sP` 委派时，子 Agent 在当前工作目录执行 `git-up -pc`，读同一份 SKILL.md。语义模式的补丁暂存、目标快照校验与错误码对委派执行完全一致。
+deep 的 `-ds` / `-dsP` 委派时，子 Agent 在当前工作目录执行 `git-up -dpc` / `-dpcP`，读同一份 SKILL.md。语义模式的补丁暂存、目标快照校验与错误码对委派执行完全一致。
 
 委派只改变执行者，不改变提交边界。父 Agent 不重复 Git 调查、规划、暂存、提交或 push。子 Agent 失败后，父 Agent 只报告，不接管 Git 操作。
 

@@ -32,7 +32,7 @@
 
 文件级模式声明 `files`，执行器只 `git add -- <files...>`。语义模式声明 `changes`。含 `files` 的步骤在语义模式下会被拒绝，语义模式不回退到文件级暂存。
 
-一个路径可以出现在多个步骤。语义模式的 `changes` 子字段见 [semantic-commit.md](semantic-commit.md)。
+语义模式中一个路径可以出现在多个步骤。默认规划使用 `files`；显式 deep 可使用 `files` 或 `changes`，且即使使用 `files` 也不传 `--ez-fast`。会话须另行记录规划深度，不把文件结构当作深度元数据。语义模式的 `changes` 子字段见 [semantic-commit.md](semantic-commit.md)。
 
 ## 多行正文
 

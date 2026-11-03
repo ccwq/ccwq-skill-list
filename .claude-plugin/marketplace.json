@@ -11,8 +11,8 @@
     {
       "name": "git-up",
       "source": "./git-up",
-      "description": "Git 提交与 .gitignore 维护工具：-pc/-pcP 对简单安全单提交自动走快车道；同一文件含多个语义目的时按语义组拆成多个可独立回滚的提交并校验最终状态；支持 -z/--ez-fast 快速按文件拆分提交；支持会话内讨论/修改、受控 push、完全子智能体委派与 zh/en 输出。",
-      "version": "2.9.0",
+      "description": "Git 提交与 .gitignore 维护工具：-p 默认按文件规划（等价旧 -zp）；-d/--deep 启用增强语义规划；-g/--grilling 逐问审查计划且不提交（兼容旧 --discuss）；--modify 按反馈调整；-pc 对简单安全任务走快车道，保留受控 push、子智能体委派与旧 -z 兼容。",
+      "version": "3.0.0",
       "category": "git"
     },
     {

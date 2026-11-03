@@ -51,7 +51,7 @@ npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code --
 | `ffmpeg-video-processing` | 用 ffmpeg / ffprobe 压缩、转码、裁剪、抽取音频与检查媒体 | [速查](#ffmpeg-video-processing) · [SKILL](skills/ffmpeg-video-processing/SKILL.md) |
 | `gemin-mirror` | Gemini 兼容镜像站的账号探针、账号切换与安全会话删除 | [速查](#gemin-mirror) · [README](skills/gemin-mirror/README.md) |
 | `git-history-cleaner` | 清理 Git 历史中的特定文件或目录 | [速查](#git-history-cleaner) · [SKILL](skills/git-history-cleaner/SKILL.md) |
-| `git-up` | Git 提交与 `.gitignore` 维护，支持规划、讨论、委派、一步提交、语义拆分提交与 ez-fast 按文件快速拆分 | [速查](#git-up) · [README](skills/git-up/README.md) |
+| `git-up` | Git 提交与 `.gitignore` 维护；默认按文件规划，`-d/--deep` 增强语义拆分，`-g/--grilling` 逐问审查，支持委派与受控 push | [速查](#git-up) · [README](skills/git-up/README.md) |
 | `handoff-portable` | 把当前任务交接给普通聊天 AI，生成可粘贴的单个 Markdown 文件并做结构校验与语义体检 | [速查](#handoff-portable) · [SKILL](skills/handoff-portable/SKILL.md) |
 | `joint-debugging` | 手动协调技术联调、故障诊断、验证与修复 | [速查](#joint-debugging) · [SKILL](skills/joint-debugging/SKILL.md) |
 | `lite-team` | 轻量多 Agent 协作，用协作板在不同 Agent / session 间手动交接 | [速查](#lite-team) · [README](skills/lite-team/README.md) |
@@ -496,21 +496,27 @@ $git-history-cleaner --repo /path/to/repo --path "*.log" --auto
 
 简单、安全的 `-pc/-pcP` 任务自动采用快车道。
 
-同一个文件含多个语义目的的改动时，按语义组拆成多个可独立回滚的提交。
+默认按文件规划，`-p` 等价旧 `-zp`；同一文件不再自动拆成多个语义提交。
 
-不想做语义归类时，用 `-z` 只按文件拆分提交。
+需要同文件内的语义拆分时，用 `-d` / `--deep`，单独使用等价 `-dp`。旧 `-z` 保留兼容。
 
 ```text
-/git-up --plan, -p      # 分析 diff，在会话中输出 YAML 提交计划
-/git-up --discuss, -d   # 轻量讨论提交计划，最多 1-3 个关键问题
-/git-up --modify <内容>  # 根据反馈调整计划并重新输出
-/git-up --commit, -c    # 优先用 Node.js fast path 执行会话中的计划
-/git-up --ez-fast, -z   # 只按文件拆分提交，不做语义归类
-/git-up --sub-agent, -s 仅提交 skills/git-up  # 委派一个子智能体执行 git-up -pc
-/git-up --ignore, -i       # 自动识别技术栈，直接创建或增量维护 .gitignore
-/git-up -l en --plan     # 使用英文输出计划、讨论问题和 commit message
-$git-up -zpc            # 按文件拆分规划并提交，不做语义归类
-/git-up                  # 直接生成 commit message
+/git-up -p               # 默认按文件输出完整 YAML，不提交
+/git-up -d               # 等价 -dp，深度规划，不提交
+/git-up --deep --plan    # 显式启用深度规划
+/git-up -g               # 等价 --grilling，逐问审查当前计划，不提交
+/git-up -d -g            # 深度计划 grilling，不隐含提交
+/git-up -z -g            # 只讨论文件级范围与顺序
+/git-up --modify <内容>  # 按反馈调整计划，保留规划深度
+/git-up -c               # 执行同会话最近计划，继承其规划深度
+/git-up -pc              # 默认按文件规划并提交
+/git-up -dpc             # 深度规划并提交
+/git-up -s 仅提交 skills/git-up  # 委派一个子智能体，默认按文件
+/git-up -ds              # 委派一个子智能体深度规划并提交
+/git-up -i               # 增量维护 .gitignore
+/git-up -l en -p         # 使用英文输出
+/git-up -zp              # 兼容写法，等价 -p
+/git-up                  # 只生成一条 commit message
 ```
 
 计划保存在对话上下文中。`-p` 与 `-c` 必须在同一会话。
@@ -522,25 +528,30 @@ $git-up -zpc            # 按文件拆分规划并提交，不做语义归类
 <details>
 <summary>参数与模式</summary>
 
-模式：plan / discuss / modify / commit / plan+commit / commit+push / plan+commit+push / sub-agent / sub-agent+push / ez-fast / ignore / default。
+模式：默认文件级 / deep 增强；动作：plan / grilling / modify / commit / plan+commit / sub-agent / ignore / default。
 
 | 简写 | 等价 | 作用 |
 |------|------|------|
-| `-p` | `--plan` | 输出 YAML 提交计划 |
-| `-d` | `--discuss` | 围绕计划逐个提出 1-3 个关键问题，每问给推荐答案 |
-| `-c` | `--commit` | 执行会话中的计划 |
+| `-p` | `--plan`、`-zp` | 默认按文件输出完整 YAML，不生成语义补丁 |
+| `-d` | `--deep`、`-dp` | 启用深度规划；单独使用只规划，不提交 |
+| `-g` | `--grilling`；旧 `--discuss` 兼容 | 逐问审查分组、范围、依赖与风险；每轮 1–3 问并等待回答，不提交 |
+| 无 | `--modify <内容>` | 按反馈调整当前计划，不提交 |
+| `-c` | `--commit` | 执行会话中的计划，继承深度；无计划则默认按文件规划 |
 | `-P` | `--push` | 提交成功后 push |
-| `-s` | `--sub-agent` | 创建子智能体同步执行 `git-up -pc` |
-| `-z` | `--ez-fast` | 只按文件拆分提交，不做语义归类；单独使用等价 `-p` |
+| `-s` | `--sub-agent` | 委派一个子智能体执行 `-pc`；`-ds` 执行 `-dpc` |
+| `-z` | `--ez-fast` | 兼容旧参数，显式选择默认文件级模式；单独等价 `-p` |
 | `-i` | `--ignore` | 维护 `.gitignore` |
 | `-l <zh\|en>` | `--lang` | 控制输出语言，默认 `zh` |
 
-- `-pcP` / `--plan --commit --push` 一步规划、提交并 push。
-- `-sP`、`-s -P`、`--sub-agent --push` 让子智能体执行 `git-up -pcP`。
-- `-s` 不得与其他主模式混用，包括 `-p`、`-c`、`-d`、`--modify` 和 `-i`。它可以与 `-l/--lang` 组合。
-- `-z` 禁止语义计划：语义计划带 `--ez-fast` 执行返回 `invalid_plan`。
-- `-zd` 与 `-zi` 组合被拒绝：`-d`/`--modify` 围绕语义边界讨论，ez-fast 无可讨论的语义边界；`-i` 与提交无关。`-zP`、`-zl` 照常。
-- `-z` 的 `suppressed_split` 尽力而为、允许为空、不保证完整，用户不应依赖它发现所有被抑制的拆分。
+- `-pcP` 默认按文件规划、提交并 push；`-dpcP` 启用深度规划后执行同一动作。
+- `-sP` 委派 `-pcP`；`-dsP` 委派 `-dpcP`。`-s` 可带深度修饰，但不与 `-p`、`-c`、`-g/--grilling`、`--modify` 或 `-i` 混用。
+- `-g` 与 `-p/-c/-s/-i/--modify` 等其他主动作互斥，可带深度与语言修饰。`-d -g` 审查深度计划，不隐含提交；`-z -g` 只讨论文件级分组、范围与顺序，不展开语义拆分，遇已有深度计划拒绝降级。
+- `-c` 继承最近计划的深度，包括未使用 `changes` 的深度计划。旧计划缺少深度信息但含 `changes` 时视为深度计划。
+- `-dc` 遇默认文件级计划时重新深度规划；`-zc` 遇深度计划时拒绝，不静默降级。
+- `-d` 与 `-z` 冲突；`-i` 不与规划、执行、委派、讨论或深度修饰组合。纯规划不能带 `-P`，`-zP` 同样拒绝。
+- 默认文件级计划在 `parse`、`commit` 和快车道检查时传 `--ez-fast`；深度计划不传。`--deep` 是 Skill 参数，不是执行器 CLI 参数。
+- 默认模式沿用 `suppressed_split` 判据：尽力而为、允许为空、不保证完整。`-g/--grilling` / `--modify` 保留当前深度；无计划先按当前深度规划；只有显式 `-d/--deep` 才切换为深度模式。
+- Grilling 使用可用的 `AskUserQuestion` 给推荐选项，等待用户回答、不自答；旧 `--discuss` 与 `-g/--grilling` 等价，不再作为主入口。完整审查流程见 [grilling reference](skills/git-up/references/grilling.md)，无需安装特定外部 skill。
 - `-i` 自动识别 Node.js/Python 项目。它只增量加入高置信度规则，并附中文用途说明。
 - `.env` 默认不纳入忽略规则。
 - 指定技术栈参数时，只维护对应技术栈的规则。
@@ -555,7 +566,7 @@ $git-up -zpc            # 按文件拆分规划并提交，不做语义归类
 <details>
 <summary>语义拆分提交</summary>
 
-同一文件含多个语义目的的改动时，计划步骤改用 `changes` 声明自己的补丁。
+深度规划（`-d` / `--deep`）发现同一文件含多个语义目的时，计划步骤改用 `changes` 声明自己的补丁。默认 `-p` 保持整文件归组。
 
 ```yaml
 - step: 1
@@ -577,16 +588,16 @@ $git-up -zpc            # 按文件拆分规划并提交，不做语义归类
 </details>
 
 <details>
-<summary>ez-fast 模式</summary>
+<summary>默认文件级模式与旧 -z 兼容</summary>
 
-`-z` / `--ez-fast` 免除语义归类：只按文件拆分提交，与语义模式互斥。
+默认 `-p/-pc` 使用文件级模式，免除同文件内的语义拆解。`-z` / `--ez-fast` 保留为显式兼容别名。
 
-- 单独使用等价 `-p`，只输出计划不提交。`-zp` 只规划，`-zc` 只给 JSON 摘要，`-zpc` 规划并提交，`-zs` 委派一个子智能体执行 `-pc`。
+- `-zp` 等价 `-p`，只规划；`-zpc` 等价默认 `-pc`；`-zs` 委派默认文件级规划与执行。`-zc` 只执行文件级计划并输出 JSON 摘要，遇深度计划拒绝。
 - 沿用文件级拆分规则，不强制单提交。`depends_on` 仍可用，成环返回 `dependency_cycle`。
 - 放宽规划质量级检查：文件数上限失效，跨模块不再回退。
 - Git 级检查一条不绕：暂存区、冲突、进行中的 Git 操作、无改动、二进制与超大文件、风险路径照常回退。
 - 语义计划带 `--ez-fast` 执行返回 `invalid_plan`，拒绝发生在任何 Git 写操作之前。
-- 结果 JSON 顶层新增 `semantic_split_disabled` 与 `suppressed_split`。
+- 默认文件级执行的结果 JSON 含 `semantic_split_disabled` 与 `suppressed_split`；深度执行保留原结果契约。
 
 完整参数矩阵、拆分粒度、检查放宽边界与结果契约见 [references/ez-fast.md](skills/git-up/references/ez-fast.md)。
 
