@@ -58,17 +58,15 @@ function withRepo(body) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ezfast-verify-'));
   const repo = path.join(dir, 'repo');
   fs.mkdirSync(repo, { recursive: true });
-  try {
-    runGit(['init'], repo);
-    runGit(['config', 'user.name', 'Verify'], repo);
-    runGit(['config', 'user.email', 'verify@example.com'], repo);
-    fs.writeFileSync(path.join(repo, 'README.md'), '# base\n', 'utf8');
-    runGit(['add', 'README.md'], repo);
-    runGit(['commit', '-m', 'init'], repo);
-    return body(repo);
-  } finally {
-    fs.rmSync(dir, { recursive: true, force: true });
-  }
+  // 保留 Git 仓库供失败复核；批量删除需用户确认，不在验收中自动执行。
+  console.log(`KEEP ${dir}`);
+  runGit(['init'], repo);
+  runGit(['config', 'user.name', 'Verify'], repo);
+  runGit(['config', 'user.email', 'verify@example.com'], repo);
+  fs.writeFileSync(path.join(repo, 'README.md'), '# base\n', 'utf8');
+  runGit(['add', 'README.md'], repo);
+  runGit(['commit', '-m', 'init'], repo);
+  return body(repo);
 }
 
 const FILE_PLAN = `- step: 1
@@ -464,11 +462,11 @@ const SEMANTIC_PLAN = `- step: 1
 /**
  * Given：marketplace.json 已按工单更新。
  * When：读取并解析该文件。
- * Then：JSON 合法，git-up 条目的 version 为 2.8.0。
+ * Then：JSON 合法，git-up 条目的 version 为 3.0.0。
  * 防回归：插件入口版本必须与 skill 自身版本一致。
  */
 
-// 15. marketplace.json 合法且 git-up 版本为 2.8.0。
+// 15. marketplace.json 合法且 git-up 版本为 3.0.0。
 {
   const marketplacePath = path.join(ROOT, '.claude-plugin', 'marketplace.json');
   let parsed = null;
@@ -479,8 +477,8 @@ const SEMANTIC_PLAN = `- step: 1
   }
   const entry = parsed?.plugins?.find((item) => item.name === 'git-up');
   check(
-    '09#15 marketplace.json 合法且 git-up 版本 2.8.0',
-    parsed !== null && entry?.version === '2.8.0',
+    '09#15 marketplace.json 合法且 git-up 版本 3.0.0',
+    parsed !== null && entry?.version === '3.0.0',
     `version=${entry?.version}`,
   );
 }
@@ -488,17 +486,17 @@ const SEMANTIC_PLAN = `- step: 1
 /**
  * Given：SKILL.md 已按工单更新。
  * When：读取该文件。
- * Then：frontmatter version 为 2.8.0，正文含 ez-fast 章节。
+ * Then：frontmatter version 为 3.0.0，正文含 ez-fast 章节。
  * 防回归：主定义文件的版本与内容必须同步。
  */
 
-// 16. SKILL.md 版本 2.8.0 且含 ez-fast 章节。
+// 16. SKILL.md 版本 3.0.0 且含 ez-fast 章节。
 {
   const skillPath = path.join(ROOT, 'skills', 'git-up', 'SKILL.md');
   const text = fs.readFileSync(skillPath, 'utf8');
   check(
-    '09#16 SKILL.md 版本 2.8.0 且含 ez-fast 章节',
-    /^version:\s*2\.8\.0$/m.test(text) && text.includes('ez-fast'),
+    '09#16 SKILL.md 版本 3.0.0 且含 ez-fast 章节',
+    /^version:\s*3\.0\.0$/m.test(text) && text.includes('ez-fast'),
     'frontmatter version 或 ez-fast 章节缺失',
   );
 }
@@ -550,23 +548,29 @@ const SEMANTIC_PLAN = `- step: 1
 }
 
 /**
- * Given：根 README 与 references/ez-fast.md 均已按工单更新。
- * When：比对两处的参数口径。
- * Then：根 README 含 -z 与 --ez-fast，参考文档含全部组合与拒绝组合。
- * 防回归：两处对参数的理解必须一致，否则 Agent 与用户会得到矛盾指引。
+ * Given：根 README、SKILL.md 与 references/ez-fast.md 均已按新模式更新。
+ * When：比对三处的兼容参数与拒绝规则。
+ * Then：保留 -z 组合覆盖，d+z 与 i 混用被拒绝，grilling/modify 继承深度且兼容 --discuss。
+ * 防回归：-d 已迁至 --deep，讨论主入口改为 -g/--grilling，不能丢失旧别名或把 --modify 当作 ez-fast 的拒绝组合。
  */
 
-// 19. 根 README 与 references/ez-fast.md 的组合矩阵口径一致。
+// 19. 根 README 与 references/ez-fast.md 的兼容组合和新 -d 规则一致。
 {
   const rootReadme = fs.readFileSync(path.join(ROOT, 'README.md'), 'utf8');
   const reference = fs.readFileSync(path.join(ROOT, 'skills', 'git-up', 'references', 'ez-fast.md'), 'utf8');
+  const skillText = fs.readFileSync(path.join(ROOT, 'skills', 'git-up', 'SKILL.md'), 'utf8');
   const rootHasZ = /`?-{1,2}z`?/.test(rootReadme) && rootReadme.includes('--ez-fast');
   const referenceHasMatrix = ['-z', '-zp', '-zc', '-zpc', '-zs'].every((token) => reference.includes(token));
-  const referenceRejects = reference.includes('-zd') && reference.includes('-zi');
+  const depthConflict = reference.split(/\r?\n/).some((line) =>
+    line.includes('-z') && line.includes('-d/--deep') && line.includes('冲突'));
+  const ignoreConflict = skillText.split(/\r?\n/).some((line) =>
+    line.includes('-i') && line.includes('-z') && line.includes('不得'));
+  const discussionInherits = reference.split(/\r?\n/).some((line) =>
+    ['-g/--grilling', '--discuss', '--modify', '继承当前深度'].every((token) => line.includes(token)));
   check(
     '09#19 根 README 与参考文档参数口径一致',
-    rootHasZ && referenceHasMatrix && referenceRejects,
-    `rootHasZ=${rootHasZ} matrix=${referenceHasMatrix} rejects=${referenceRejects}`,
+    rootHasZ && referenceHasMatrix && depthConflict && ignoreConflict && discussionInherits,
+    `rootHasZ=${rootHasZ} matrix=${referenceHasMatrix} depthConflict=${depthConflict} ignoreConflict=${ignoreConflict} discussionInherits=${discussionInherits}`,
   );
 }
 
