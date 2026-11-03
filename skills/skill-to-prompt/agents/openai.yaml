@@ -1,0 +1,14 @@
+interface:
+  display_name: 技能转提示词
+  short_description: 保留核心、删低频分支，以XML标签封装文言提示词；正文上限可调，默认700字
+  default_prompt: 使用 $skill-to-prompt，将指定技能提炼为文言式提示词：保留主流程与核心行文、删除低频分支，正文上限按我指定的字数，未指定则默认700字，使用成对
+    agent-skill 标签，仅输出XML块。
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg
+policy:
+  products:
+  - chatgpt
+  - codex
+  - api
+  - atlas
+  allow_implicit_invocation: true
