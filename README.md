@@ -4,6 +4,8 @@
 
 https://github.com/ccwq/ccwq-skill-list
 
+[Skill 演进日志](CHANGELOG.md)：查看各 Skill 的首次引入与重要调整。
+
 ## 安装
 
 最简：启动交互式安装，勾选需要的 Skill。
