@@ -50,6 +50,8 @@ __tmp*
 /*.pid
 /*.port
 /*.stream
+/*.engine
 /.planning
 /.scratch
 /.project-self-memory/backups/
+/test-space
