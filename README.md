@@ -6,7 +6,7 @@ https://github.com/ccwq/ccwq-skill-list
 
 [Skill 演进日志](CHANGELOG.md)：查看各 Skill 的首次引入与重要调整。
 
-[普通聊天 AI 提示词](my-prompts.md)：收录 11 个 Skill 的可复制提示词，每块正文不超过 720 字，并列出未收录项及理由。
+[提示词汇编](my-prompts.md)：收录本仓库 11 项与第三方 7 项可复制提示词，每块正文不超过 720 字；附来源、能力要求、排除理由及 1 项待补全记录。第三方取材与许可见[来源说明](my-prompts-sources.md)。
 
 ## 安装
 
