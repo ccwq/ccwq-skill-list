@@ -12,43 +12,43 @@
 
 ## 批次索引
 
-每批按首次引入提交分组；日期为作者日期。本次覆盖 33 个 Skill，划分为 33 个引入批次；现有批次各含一个 Skill，不将同日的独立引入提交合并。
+每批按首次引入提交分组，按提交作者时间倒序排列，最新批次在前；表中日期为作者日期，同日批次仍按具体作者时间倒序。本次覆盖 33 个 Skill，划分为 33 个引入批次；现有批次各含一个 Skill，不将同日的独立引入提交合并。
 
 | 引入日期 | 引入提交 | 批次文件 | Skill 成员 |
 |---|---|---|---|
-| 2026-04-08 | [690e2b4](https://github.com/ccwq/ccwq-skill-list/commit/690e2b4) | [690e2b4](docs/changelog/690e2b4.md) | git-up |
-| 2026-04-15 | [492cc9e](https://github.com/ccwq/ccwq-skill-list/commit/492cc9e) | [492cc9e](docs/changelog/492cc9e.md) | software-license-checker |
-| 2026-04-16 | [6b04224](https://github.com/ccwq/ccwq-skill-list/commit/6b04224) | [6b04224](docs/changelog/6b04224.md) | git-history-cleaner |
-| 2026-04-20 | [294f65d](https://github.com/ccwq/ccwq-skill-list/commit/294f65d) | [294f65d](docs/changelog/294f65d.md) | nano-prompt |
-| 2026-05-29 | [2e41a96](https://github.com/ccwq/ccwq-skill-list/commit/2e41a96) | [2e41a96](docs/changelog/2e41a96.md) | ffmpeg-video-processing |
-| 2026-06-25 | [afa6e34](https://github.com/ccwq/ccwq-skill-list/commit/afa6e34) | [afa6e34](docs/changelog/afa6e34.md) | rd-mode |
-| 2026-06-25 | [40945b7](https://github.com/ccwq/ccwq-skill-list/commit/40945b7) | [40945b7](docs/changelog/40945b7.md) | lite-team |
-| 2026-06-30 | [4c4c368](https://github.com/ccwq/ccwq-skill-list/commit/4c4c368) | [4c4c368](docs/changelog/4c4c368.md) | codex-windows-hooks-fix |
-| 2026-07-08 | [11d6aea](https://github.com/ccwq/ccwq-skill-list/commit/11d6aea) | [11d6aea](docs/changelog/11d6aea.md) | ntl-script-descriptions |
-| 2026-07-20 | [5c8f9ca](https://github.com/ccwq/ccwq-skill-list/commit/5c8f9ca) | [5c8f9ca](docs/changelog/5c8f9ca.md) | gemin-mirror |
-| 2026-07-20 | [78c4fdd](https://github.com/ccwq/ccwq-skill-list/commit/78c4fdd) | [78c4fdd](docs/changelog/78c4fdd.md) | npm-license-declaration |
-| 2026-07-23 | [e621bad](https://github.com/ccwq/ccwq-skill-list/commit/e621bad) | [e621bad](docs/changelog/e621bad.md) | debug-instrumentation |
-| 2026-07-29 | [7fcc8bf](https://github.com/ccwq/ccwq-skill-list/commit/7fcc8bf) | [7fcc8bf](docs/changelog/7fcc8bf.md) | project-self-memory |
-| 2026-07-30 | [d1c55c1](https://github.com/ccwq/ccwq-skill-list/commit/d1c55c1) | [d1c55c1](docs/changelog/d1c55c1.md) | pro-grilling |
-| 2026-07-30 | [05df0f6](https://github.com/ccwq/ccwq-skill-list/commit/05df0f6) | [05df0f6](docs/changelog/05df0f6.md) | aria-filedown |
-| 2026-07-31 | [cb378b3](https://github.com/ccwq/ccwq-skill-list/commit/cb378b3) | [cb378b3](docs/changelog/cb378b3.md) | chatgpt-web-skill |
-| 2026-08-04 | [98a6161](https://github.com/ccwq/ccwq-skill-list/commit/98a6161) | [98a6161](docs/changelog/98a6161.md) | subagent-router |
-| 2026-08-05 | [ad63d4c](https://github.com/ccwq/ccwq-skill-list/commit/ad63d4c) | [ad63d4c](docs/changelog/ad63d4c.md) | dockerhub-mirror |
-| 2026-08-06 | [4db3095](https://github.com/ccwq/ccwq-skill-list/commit/4db3095) | [4db3095](docs/changelog/4db3095.md) | joint-debugging |
-| 2026-08-11 | [d06f230](https://github.com/ccwq/ccwq-skill-list/commit/d06f230) | [d06f230](docs/changelog/d06f230.md) | deep-investigation |
-| 2026-08-11 | [bfa59d7](https://github.com/ccwq/ccwq-skill-list/commit/bfa59d7) | [bfa59d7](docs/changelog/bfa59d7.md) | tool-evaluator |
-| 2026-08-12 | [b0d42e2](https://github.com/ccwq/ccwq-skill-list/commit/b0d42e2) | [b0d42e2](docs/changelog/b0d42e2.md) | agent-human-debug |
-| 2026-08-12 | [af760ad](https://github.com/ccwq/ccwq-skill-list/commit/af760ad) | [af760ad](docs/changelog/af760ad.md) | tutor-man |
-| 2026-08-13 | [4442643](https://github.com/ccwq/ccwq-skill-list/commit/4442643) | [4442643](docs/changelog/4442643.md) | website-state-sync-agent |
-| 2026-08-19 | [b6393a9](https://github.com/ccwq/ccwq-skill-list/commit/b6393a9) | [b6393a9](docs/changelog/b6393a9.md) | network-debug |
-| 2026-08-25 | [23e5445](https://github.com/ccwq/ccwq-skill-list/commit/23e5445) | [23e5445](docs/changelog/23e5445.md) | engineering-method-selector |
-| 2026-08-25 | [da3c738](https://github.com/ccwq/ccwq-skill-list/commit/da3c738) | [da3c738](docs/changelog/da3c738.md) | progressive-doc |
-| 2026-09-30 | [14b18c2](https://github.com/ccwq/ccwq-skill-list/commit/14b18c2) | [14b18c2](docs/changelog/14b18c2.md) | bash-completion |
-| 2026-10-08 | [d72e9a3](https://github.com/ccwq/ccwq-skill-list/commit/d72e9a3) | [d72e9a3](docs/changelog/d72e9a3.md) | claude-proj-skill-linker |
-| 2026-10-15 | [08990aa](https://github.com/ccwq/ccwq-skill-list/commit/08990aa) | [08990aa](docs/changelog/08990aa.md) | wechat-headlines |
-| 2026-10-28 | [5dbeae3](https://github.com/ccwq/ccwq-skill-list/commit/5dbeae3) | [5dbeae3](docs/changelog/5dbeae3.md) | handoff-portable |
-| 2026-11-03 | [861a22d](https://github.com/ccwq/ccwq-skill-list/commit/861a22d) | [861a22d](docs/changelog/861a22d.md) | skill-to-prompt |
 | 2026-11-03 | [9eca6a6](https://github.com/ccwq/ccwq-skill-list/commit/9eca6a6) | [9eca6a6](docs/changelog/9eca6a6.md) | advise-motion-effects |
+| 2026-11-03 | [861a22d](https://github.com/ccwq/ccwq-skill-list/commit/861a22d) | [861a22d](docs/changelog/861a22d.md) | skill-to-prompt |
+| 2026-10-28 | [5dbeae3](https://github.com/ccwq/ccwq-skill-list/commit/5dbeae3) | [5dbeae3](docs/changelog/5dbeae3.md) | handoff-portable |
+| 2026-10-15 | [08990aa](https://github.com/ccwq/ccwq-skill-list/commit/08990aa) | [08990aa](docs/changelog/08990aa.md) | wechat-headlines |
+| 2026-10-08 | [d72e9a3](https://github.com/ccwq/ccwq-skill-list/commit/d72e9a3) | [d72e9a3](docs/changelog/d72e9a3.md) | claude-proj-skill-linker |
+| 2026-09-30 | [14b18c2](https://github.com/ccwq/ccwq-skill-list/commit/14b18c2) | [14b18c2](docs/changelog/14b18c2.md) | bash-completion |
+| 2026-08-25 | [da3c738](https://github.com/ccwq/ccwq-skill-list/commit/da3c738) | [da3c738](docs/changelog/da3c738.md) | progressive-doc |
+| 2026-08-25 | [23e5445](https://github.com/ccwq/ccwq-skill-list/commit/23e5445) | [23e5445](docs/changelog/23e5445.md) | engineering-method-selector |
+| 2026-08-19 | [b6393a9](https://github.com/ccwq/ccwq-skill-list/commit/b6393a9) | [b6393a9](docs/changelog/b6393a9.md) | network-debug |
+| 2026-08-13 | [4442643](https://github.com/ccwq/ccwq-skill-list/commit/4442643) | [4442643](docs/changelog/4442643.md) | website-state-sync-agent |
+| 2026-08-12 | [af760ad](https://github.com/ccwq/ccwq-skill-list/commit/af760ad) | [af760ad](docs/changelog/af760ad.md) | tutor-man |
+| 2026-08-12 | [b0d42e2](https://github.com/ccwq/ccwq-skill-list/commit/b0d42e2) | [b0d42e2](docs/changelog/b0d42e2.md) | agent-human-debug |
+| 2026-08-11 | [bfa59d7](https://github.com/ccwq/ccwq-skill-list/commit/bfa59d7) | [bfa59d7](docs/changelog/bfa59d7.md) | tool-evaluator |
+| 2026-08-11 | [d06f230](https://github.com/ccwq/ccwq-skill-list/commit/d06f230) | [d06f230](docs/changelog/d06f230.md) | deep-investigation |
+| 2026-08-06 | [4db3095](https://github.com/ccwq/ccwq-skill-list/commit/4db3095) | [4db3095](docs/changelog/4db3095.md) | joint-debugging |
+| 2026-08-05 | [ad63d4c](https://github.com/ccwq/ccwq-skill-list/commit/ad63d4c) | [ad63d4c](docs/changelog/ad63d4c.md) | dockerhub-mirror |
+| 2026-08-04 | [98a6161](https://github.com/ccwq/ccwq-skill-list/commit/98a6161) | [98a6161](docs/changelog/98a6161.md) | subagent-router |
+| 2026-07-31 | [cb378b3](https://github.com/ccwq/ccwq-skill-list/commit/cb378b3) | [cb378b3](docs/changelog/cb378b3.md) | chatgpt-web-skill |
+| 2026-07-30 | [05df0f6](https://github.com/ccwq/ccwq-skill-list/commit/05df0f6) | [05df0f6](docs/changelog/05df0f6.md) | aria-filedown |
+| 2026-07-30 | [d1c55c1](https://github.com/ccwq/ccwq-skill-list/commit/d1c55c1) | [d1c55c1](docs/changelog/d1c55c1.md) | pro-grilling |
+| 2026-07-29 | [7fcc8bf](https://github.com/ccwq/ccwq-skill-list/commit/7fcc8bf) | [7fcc8bf](docs/changelog/7fcc8bf.md) | project-self-memory |
+| 2026-07-23 | [e621bad](https://github.com/ccwq/ccwq-skill-list/commit/e621bad) | [e621bad](docs/changelog/e621bad.md) | debug-instrumentation |
+| 2026-07-20 | [78c4fdd](https://github.com/ccwq/ccwq-skill-list/commit/78c4fdd) | [78c4fdd](docs/changelog/78c4fdd.md) | npm-license-declaration |
+| 2026-07-20 | [5c8f9ca](https://github.com/ccwq/ccwq-skill-list/commit/5c8f9ca) | [5c8f9ca](docs/changelog/5c8f9ca.md) | gemin-mirror |
+| 2026-07-08 | [11d6aea](https://github.com/ccwq/ccwq-skill-list/commit/11d6aea) | [11d6aea](docs/changelog/11d6aea.md) | ntl-script-descriptions |
+| 2026-06-30 | [4c4c368](https://github.com/ccwq/ccwq-skill-list/commit/4c4c368) | [4c4c368](docs/changelog/4c4c368.md) | codex-windows-hooks-fix |
+| 2026-06-25 | [40945b7](https://github.com/ccwq/ccwq-skill-list/commit/40945b7) | [40945b7](docs/changelog/40945b7.md) | lite-team |
+| 2026-06-25 | [afa6e34](https://github.com/ccwq/ccwq-skill-list/commit/afa6e34) | [afa6e34](docs/changelog/afa6e34.md) | rd-mode |
+| 2026-05-29 | [2e41a96](https://github.com/ccwq/ccwq-skill-list/commit/2e41a96) | [2e41a96](docs/changelog/2e41a96.md) | ffmpeg-video-processing |
+| 2026-04-20 | [294f65d](https://github.com/ccwq/ccwq-skill-list/commit/294f65d) | [294f65d](docs/changelog/294f65d.md) | nano-prompt |
+| 2026-04-16 | [6b04224](https://github.com/ccwq/ccwq-skill-list/commit/6b04224) | [6b04224](docs/changelog/6b04224.md) | git-history-cleaner |
+| 2026-04-15 | [492cc9e](https://github.com/ccwq/ccwq-skill-list/commit/492cc9e) | [492cc9e](docs/changelog/492cc9e.md) | software-license-checker |
+| 2026-04-08 | [690e2b4](https://github.com/ccwq/ccwq-skill-list/commit/690e2b4) | [690e2b4](docs/changelog/690e2b4.md) | git-up |
 
 ## Skill 快速查找
 
