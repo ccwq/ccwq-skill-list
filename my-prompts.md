@@ -1,14 +1,14 @@
 # 我的提示词
 
-从本仓库正式维护的 33 个 Skill 中筛选 11 个核心做法，并增补用户指定的第三方 Skill，按 [skill-to-prompt](skills/skill-to-prompt/SKILL.md) 提炼为可复制的执行提示词。本仓库其余 22 项见文末排除清单；第三方条目单列来源、能力要求及缺件状态。
+从本仓库正式维护的 33 个 Skill 中收录 18 项（普通聊天 11 项、工具型 7 项），并增补第三方 7 项，按 [skill-to-prompt](skills/skill-to-prompt/SKILL.md) 提炼为 25 个可复制的执行提示词。本仓库其余 15 项见文末排除清单；各工具型及第三方条目单列来源、能力要求，Q 风格另列待补全。
 
 ## 使用与维护
 
-- 复制所需节中的完整标签块，再附任务、原文或必要资料；无需安装源 Skill。本仓库收录项面向普通聊天 AI；第三方条目如需图像、页面渲染或持久工单能力，须先满足该节能力要求。
+- 复制所需节中的完整标签块，再附任务、原文或必要资料。普通聊天分区不要求 AI 自带工具；工具型及部分第三方条目仍须实际联网、文件操作、渲染或持久工单能力。`claude-proj-skill-linker`、`dockerhub-mirror` 还须另备源 Skill 的完整配套 CLI 与必要配置；可复制不等于免依赖，不得擅自手工替代。
 - 每块正文最多 **720 字**：按 Unicode 码点计数，仅忽略空白；标点、英文字母与数字各计一字。标题、来源链接和开闭标签不计。
 - 普通聊天 AI 不具备终端、浏览器、文件读写或联网能力时，不得声称已执行或已验证。诊断类由用户执行命令、脱敏回传，AI 据证续诊。
 - 本文是核心流程的提炼，不是原 Skill 的完整替代。保留主干、关键条件与权限边界，省去安装、环境适配、冗例及低频分支。
-- 本仓库收录名称及顺序维护在 [`.env`](.env) 的 `MY_PROMPTS_LIST`，第三方已完成条目使用 `MY_PROMPTS_THIRD_PARTY_LIST`。清单只作维护记录，不会自动生成本文，也不影响 `MAIN_LIST`；待补全项不计入已完成清单。增删条目时同步更新正文、来源和排除说明，再检查语义、标签与字数。
+- [`.env`](.env) 中 `MY_PROMPTS_LIST` 维护本仓库普通聊天项，`MY_PROMPTS_TOOLS_LIST` 维护本仓库工具型项，`MY_PROMPTS_THIRD_PARTY_LIST` 维护第三方已完成项，各自顺序与正文一致。清单只作维护记录，不会自动生成本文，也不影响 `MAIN_LIST`；待补全项不计入已完成清单。增删条目时同步更新正文、来源和排除说明，再检查语义、标签与字数。
 
 ## 目录
 
@@ -23,15 +23,26 @@
 9. [joint-debugging：联合调试](#joint-debugging)
 10. [network-debug：网络诊断](#network-debug)
 11. [handoff-portable：便携交接](#handoff-portable)
-12. [ste：简明中文汇报](#ste)
-13. [wayfinder：决策地图](#wayfinder)
-14. [grilling：设计树质询](#grilling)
-15. [humanizer-zh：中文编辑](#humanizer-zh)
-16. [infocard-white-purple-style：白紫信息卡](#infocard-white-purple-style)
-17. [infocard-bigwhite-style：大白商务信息卡](#infocard-bigwhite-style)
-18. [writing-for-agents：面向 Agent 写作](#writing-for-agents)
+12. [debug-instrumentation：可控调试埋点](#debug-instrumentation)
+13. [ntl-script-descriptions：脚本中文说明](#ntl-script-descriptions)
+14. [claude-proj-skill-linker：项目 Skill 链接](#claude-proj-skill-linker)
+15. [deep-investigation：深度调查](#deep-investigation)
+16. [dockerhub-mirror：镜像候选诊断](#dockerhub-mirror)
+17. [software-license-checker：内部使用许可预警](#software-license-checker)
+18. [tool-evaluator：工具评估](#tool-evaluator)
+19. [ste：简明中文汇报](#ste)
+20. [wayfinder：决策地图](#wayfinder)
+21. [grilling：设计树质询](#grilling)
+22. [humanizer-zh：中文编辑](#humanizer-zh)
+23. [infocard-white-purple-style：白紫信息卡](#infocard-white-purple-style)
+24. [infocard-bigwhite-style：大白商务信息卡](#infocard-bigwhite-style)
+25. [writing-for-agents：面向 Agent 写作](#writing-for-agents)
 
 待补全：[infocard-q-style](#infocard-q-style)。第三方来源与许可：[来源说明](my-prompts-sources.md)。
+
+## 本仓库普通聊天提示词
+
+以下 11 项可基于用户提供的材料在普通聊天中使用；诊断类允许由用户执行并回传。
 
 ## nano-prompt
 
@@ -176,6 +187,112 @@ debug_report：SUMMARY含run_id、probe_id、environment、collection_status=ok|
 </agent-skill:handoff-portable>
 ```
 
+## 本仓库工具型提示词
+
+本节保留真实操作与联网取证的目标，不改成纯咨询。请先核对各项能力要求；无工具、材料、配套脚本或所需授权时，报告阻碍与未验证范围，不冒称完成。来源均为本仓库对应 Skill 定义，提示词不是其配套执行器的替代实现。
+
+## debug-instrumentation
+
+用途：以假设驱动源码埋点、日志采集、证据分析与可控清理。来源：[SKILL.md](skills/debug-instrumentation/SKILL.md)。
+
+能力要求：源码检索、文件修改、日志采集及语法或项目检查；可分析用户提供的日志，但不因此声称已写入或清理源码。无需源 Skill 专用 CLI。
+
+```xml
+<agent-skill:debug-instrumentation>
+以假设驱动调试埋点、采集、归因、清理；先读相关代码、调用链及日志，择最可疑路径少量埋点，遵项目日志级别、参数与脱敏规范。每条首项为纯文本 token：[DBG_<label>_<suffix>]；label 为3–15字符 kebab-case，仅小写字母与连字符；suffix 为4位小写字母或数字，生成代码时选定，勿在业务代码中随机生成。同轮同目的共用完整 token；新假设或独立模块另建批次。
+新建前若可检索工作区，以固定字符串搜 [DBG_ 及候选 [DBG_<label>_，排除 .git 与依赖目录；有历史则列完整 token、位置及可判断用途，写入前请用户择清理后新增、沿用现有或仅新增，建议沿用；只沿用明确选定且语义相符者，仅新增须不同 suffix。清理后新增须先完成清理双确认。写前列本轮 token、用途、位置及假设；历史处理与多标签清单合并一次确认；无历史且单标签，获修改授权后可直接执行。完成后报位置与复现法。
+接收粘贴或文件日志，以完整 token 或标签前缀固定字符串过滤；记录来源、时间顺序及缺失段。区分日志事实、推断与结论；证据足则报原因、影响路径和修复方向；不足则至多提两个可证伪假设，说明追加位置、字段及区分理由，以新 token 追加前待用户决定。环境不可及则索日志或授权，勿称预期为实证。
+每轮分析后问本批次保留或清理；用户选清理后，以完整 token 定位，仅为该 token 对应源码埋点生成删除 diff，展示后再待最终确认；确认后删除、查语法或项目检查并重搜 token；日志、文档及其他批次不动。跨会话可凭用户提供的完整 token 操作。各阶段报批次、证据、归因及清理状态。
+</agent-skill:debug-instrumentation>
+```
+
+## ntl-script-descriptions
+
+用途：为实际 `package.json` 的全部 scripts 补充 `ntl.descriptions` 中文说明。来源：[SKILL.md](skills/ntl-script-descriptions/SKILL.md)。
+
+能力要求：读取目标配置及必要脚本源码、修改文件、实际解析 JSON；不要求安装 ntl，不运行项目 scripts。
+
+```xml
+<agent-skill:ntl-script-descriptions>
+为目标 package.json 的 scripts 补充 ntl.descriptions。先定位用户指定路径，未指定则取当前目录；文件不存在则报告，勿创建项目。解析 scripts、现有说明、packageManager、依赖及相关配置，必要时读脚本源码，依据实际命令而非名称推断用途。为全部 scripts 含 pre*、post* 生命周期补缺失说明；保留所有旧值与孤儿项，不为统一风格改写。旧说明与命令明显冲突则报告，勿自动覆盖；语义不明则保守描述并标记需人工确认。
+说明默认用简短中文，保留命令、框架、脚本名、文件名与环境变量英文；说清做什么，必要时说明何时用；包装脚本须说明入口语义，勿机械复述命令。
+仅修改目标 package.json，保持可读缩进及无关字段顺序；已有 ntl 留原位，否则追加顶层后部。写后实际重新解析 JSON，并确认每项新增说明确在 ntl.descriptions。勿运行 scripts 或自行安装 ntl、添加依赖及入口；除非用户明确要求，勿同步文档。中文报告新增项、保留项、冲突、孤儿项、待人工确认项及真实 JSON 校验和覆盖结果；未写入则说明原因与所需条件。
+</agent-skill:ntl-script-descriptions>
+```
+
+## claude-proj-skill-linker
+
+用途：整理指定项目的 Skill 本体与链接入口，迁移并独立验收。来源：[SKILL.md](skills/claude-proj-skill-linker/SKILL.md)。
+
+能力要求：Node.js ≥20、完整[配套脚本目录](skills/claude-proj-skill-linker/scripts)、文件系统及链接权限；入口为 `scripts/link-skills.mjs`，必须按实际位置使用绝对路径，不能用手工 shell 链接代替 CLI。
+
+```xml
+<agent-skill:claude-proj-skill-linker>
+欲整理项目 skill 链接，先取得此 skill 完整配套脚本并备 Node.js；必用 scripts/link-skills.mjs，勿用 shell 手工替代平台判断、恢复或验收。确认项目根与范围；未指定则用当前目录、全部 skill。禁操作全局 ~/.claude、~/.agents 或文件系统根；项目根及 .agents、.claude、skills 容器须为实体目录。以 .agents/skills 为本体、.claude/skills 为入口。
+先运行 node <脚本绝对路径> --project-root <root> [--skill <name>...] 只读预览；须 exit 0、stderr 空、stdout 唯一 JSON，呈用户 digest、actionCount、各项动作及外部依赖。仅用户明确确认清单后，以完全相同根和范围追加 --apply --expect <digest>；遇 STALE 则重新预览、再次确认，勿沿用旧摘要。摘要仅约束行动计划，非内容校验。
+成功须同时满足 exit 0、stdout 合法 JSON 且 results 成功项均为 status: ok；逐项独立验收入口为 junction/symlink、realpath 指向规范源、入口可读 SKILL.md；再预览 actionCount 为 0 且注明 already linked correctly。失败停止后续写入，当前项尝试恢复、已成功项保留，恢复亦可能失败；原样报告错误码、失败项、恢复结果和实际残留位置，待用户指示，勿称成功。
+</agent-skill:claude-proj-skill-linker>
+```
+
+## deep-investigation
+
+用途：针对公共事件等议题建立证据账本、时间线和竞争解释。来源：[SKILL.md](skills/deep-investigation/SKILL.md)。
+
+能力要求：获取与核实原始资料的联网能力；近期或持续演变事件不能仅凭旧知识宣称完成取证。子代理可用时独立调查，不可用时按相同视角串行。
+
+```xml
+<agent-skill:deep-investigation>
+就公共事件、组织、人物、政策或商业议题作可追溯调查；话题缺失，询对象与范围。先校正可证伪误前提，定时间、地域及主体；近期或演变中事件主动联网，优取原始文件、数据与完整声明，查来源独立性，转载同源不算复核。建证据账本，记主张、时间、来源、一手性、独立验证、事实等级与缺口；分事实、当事方主张、推断与未知，勿以动机猜测充事实。
+有子智能体时分2至3支独立调查事实历史、主体关系与反证，再交叉核验；不可用时依此串行，并于综合前查反证。循当前事件、直接起因、有效历史根源、分支演化、主体利益与证据冲突推进；关系注明性质与证据，合作非控制，接触非串谋。还原各方叙事，比较支持、反证及来源质量；至少检验一种合理竞争解释，说明何种新证据可推翻判断。
+按材料交付核心结论、事实与关键时间线、根源演化、主体关系、竞争解释、未解问题及按重要性排序的来源；仅留有据章节，区分确定、较高可信、争议与未知；情景分析列触发、阻力、指标及失效条件，勿造精确概率。
+</agent-skill:deep-investigation>
+```
+
+## dockerhub-mirror
+
+用途：诊断 Docker Hub 拉取异常，真实探测和排序镜像候选，并按授权维护缓存。来源：[SKILL.md](skills/dockerhub-mirror/SKILL.md)。
+
+能力要求：Node.js、[完整 CLI 目录](skills/dockerhub-mirror)及必要配置、真实网络探测能力；入口为 `bin/dockerhub-mirror.mjs`，另需 `scripts/`、`config/`，缓存状态由 CLI 独占管理。
+
+```xml
+<agent-skill:dockerhub-mirror>
+排查 Docker Hub 下载缓慢或失败，先取得此 skill 完整配套 CLI、脚本及配置并备 Node.js；以绝对路径运行 bin/dockerhub-mirror.mjs，状态读写、锁与原子更新专由 CLI，勿手改缓存。选且只选诊断、现有候选检查、发现、缓存管理一支，辨明只读或写入；确认镜像、错误及 Hub 适用性，docker run 先确认卡在下载；保留 digest，不改非 Hub 引用。
+按讨论中→待共识→待授权→执行中→已完成。精确收到 ok 前只询问、分析、只读研究比较或 --dry-run；ok 后呈有界计划，另请精确回复 okok；收到后仅执行已议定写分支，范围、成本、风险或路径改变则回讨论。需决策时逐轮一问，说明选项、推荐及取舍。诊断和只读检查用 --dry-run，不改缓存；普通快速检查、--deep、发现及缓存变更会写入，须授权。
+逐候选真实探测并留成功、失败或超时；快速须 API 与 manifest 均成功；深测另测首字节和限量 blob 吞吐，须达配置下限。/v2/ 的 401 若 token 流与 manifest 成功，不算失败。先资格后排序，按配置综合 manifest 延迟、吞吐、历史成功率、API 延迟、新鲜度及连续失败惩罚；发现时去重并跳过已有及隔离项，仅深测并保存合格新项。授权检查成功更新记录、清除连续失败；失败累积至阈值隔离。
+报告分支、模式、缓存影响、合格及淘汰数、首选与备选、证据和风险；写分支须 CLI 成功且状态可回读。镜像已知时仅输出替代 docker pull 命令，绝不执行 docker pull/run、修改 daemon 或重启 Docker；勿经公共镜像发送私有凭据。可达性不证明运营方可信或全国表现。
+</agent-skill:dockerhub-mirror>
+```
+
+## software-license-checker
+
+用途：对企业内部使用作保守许可与付费预警，不代替法律意见。来源：[SKILL.md](skills/software-license-checker/SKILL.md)。
+
+能力要求：查询并核对目标版本许可证、当前官方价格及适用条件，保留至少两条高质量来源；资料不足给出信息不足，不猜测条款或报价。
+
+```xml
+<agent-skill:software-license-checker>
+就企业内部安装、研发、办公或内部平台使用作保守授权预警；对外SaaS、分发、OEM、转售及外部开源义务超界，说明并建议另行分析。先据名称、链接、包名或路径查项目、目标版本、许可证、变更、双授权、商业版及价格；仅当缺口影响结论时追问项目、版本、内部范围或修改行为。
+联网优先查目标版本许可证及发行包文本，其次官方许可、价格、FAQ、版本公告，再查包元数据与第三方；至少取2条高质量来源，记录链接、日期、适用版本及证据级别。冲突时核版本、双授权与附加条款；仅有第三方、版本不明或条款冲突则倾向信息不足，勿猜。核内部使用限制、授权是否必需、变更时间及影响范围。
+以Markdown给主报告：基本信息及日期；仅限内部使用的低风险、高风险或信息不足结论；3至5条大白话说明能否用、前提及风险；逐项列依据、版本、来源、时间与结论影响；列风险建议及非正式法律意见免责声明。勿将未知写成安全。
+有商业授权、商业计划、公开 pricing 页面或价格、试用、免费层或商用限制、计费、折扣或联系销售任一情形，另附授权与付费整理：需求、方案、价格、计费、币种地区、折扣、来源日期、未公开项及采购建议；默认中国团队视角，不猜企业报价。未发现额外付费要求亦明言；重要采购或长期依赖请法务复核。
+</agent-skill:software-license-checker>
+```
+
+## tool-evaluator
+
+用途：以 Gate、分级证据、动态权重和敏感性分析筛选工具。来源：[SKILL.md](skills/tool-evaluator/SKILL.md)。
+
+能力要求：联网发现候选并核实证据；只有目标环境实测才能标为 L3。安装、运行、配置、注册或 POC 实测须另获明确授权，未授权时只提供方案。
+
+```xml
+<agent-skill:tool-evaluator>
+为软件、服务或开发工具作证据驱动决策。先定指定候选比较或探索筛选，提取目标、环境、预算、隐私及维护要求，分必须、偏好、未知；仅偏好影响结论时追问。指定范围不擅扩；探索时覆盖主要路线，信息增益低则止。
+先建通用、类型专项与用户动态Gate，逐项记硬淘汰、严重扣分或进入评分及理由；硬淘汰不参与总排名。对通过者联网先初筛再深挖Top N，默认Top 3；逐条记来源、日期、冲突与证据等级：L1官方声明、L2代码及项目行为、L3目标环境实测；冲突时L3>L2>L1并说明，仅L3可称实测。项目健康结合趋势与上下文，勿凭热度或单次更新断言。
+按场景选维度，默认各项0–10分，列原始分、动态权重、加权分及依据；用户偏好调整权重，置信度高、中、低另列，勿混同得分。对关键权重做合理范围敏感性分析，说明排名翻转条件；微小分差勿夸大，分清已知风险、潜在风险及可改变结论的未知。
+交付需求与Gate、候选及淘汰理由、核心对比、Top分析、健康趋势、评分权重、敏感性、风险、首选次选条件首选及不推荐和改荐条件。仅关键未知影响决策时拟POC，列假设、方法、环境影响、修改对象、风险及回滚；未经明确授权，不安装、运行、改配置、注册或实测，只给方案。
+</agent-skill:tool-evaluator>
+```
+
 ## 第三方提示词
 
 本节从本地已安装技能和用户提供的 ZIP 提炼，不导入为仓库正式 Skill。已完成 7 项；`infocard-styles.zip` 中另一个 Q 风格因核心资料缺失，列为待补全。来源声明、取材记录、ZIP 摘要与已知许可原文见 [第三方提示词来源](my-prompts-sources.md)。来源只表示本地证据所载，未联网核验当前上游。
@@ -290,7 +407,7 @@ debug_report：SUMMARY含run_id、probe_id、environment、collection_status=ok|
 
 ## 未收录
 
-以下 22 项仍是有效的工具型 Skill，但其核心交付依赖实际工具、联网取证、文件操作或宿主集成。将其改成纯聊天建议会缩减或改变用途，因此不收录；并非质量评价。
+以下 15 项仍是有效的工具型 Skill，但目前未纳入本汇编。前文已按用户指定新增 7 项本仓库工具型提示词；其余项目本次未转换，表中保留其主要依赖说明，并非质量评价。
 
 | Skill | 排除理由 |
 | --- | --- |
@@ -298,23 +415,16 @@ debug_report：SUMMARY含run_id、probe_id、environment、collection_status=ok|
 | `aria-filedown` | 下载能力依赖 aria2、包装脚本及真实下载进度，纯聊天不能交付下载结果。 |
 | `bash-completion` | 核心包含环境探测、安装变更及真实 PTY 行为验收。 |
 | `chatgpt-web-skill` | 依赖已登录浏览器、CDP 和完整发送、研究证据等验收。 |
-| `claude-proj-skill-linker` | 链接创建、恢复与验收由专用链接器执行，原文禁止手工替代。 |
 | `codex-windows-hooks-fix` | 必须读取并修复真实配置，再验证实际 hook 链路。 |
-| `debug-instrumentation` | 核心包含源码埋点、历史批次定位、双确认清理及语法复验。 |
-| `deep-investigation` | 原始资料获取和近期事件主动联网取证属于核心流程。 |
-| `dockerhub-mirror` | 依赖专用 CLI 的真实探测、候选资格、评分和缓存。 |
 | `ffmpeg-video-processing` | 交付包括真实媒体探测、处理及输出复验，而非仅生成命令。 |
 | `gemin-mirror` | 依赖 CDP、站点适配器、浏览器 runner 及删除审计。 |
 | `git-history-cleaner` | 必须分析真实历史、备份 Git 元数据并执行历史改写。 |
 | `git-up` | 核心依赖仓库探测、计划执行器、精确暂存及提交验收。 |
 | `lite-team` | 核心是跨会话的仓库 BBS 文件协作，不等同于聊天角色模拟。 |
 | `npm-license-declaration` | 依赖生成器、Registry 查询和唯一许可证规则数据。 |
-| `ntl-script-descriptions` | 必须读写实际 package.json 并重新解析验证。 |
 | `project-self-memory` | 记忆库读写由 CLI 独占，涉及持久化、锁、cache 和宿主生命周期。 |
 | `rd-mode` | 依赖特定 host/server 映射、初始化配置和浏览器封装。 |
-| `software-license-checker` | 必须调查官方许可证、目标版本及当前价格等证据。 |
 | `subagent-router` | 依赖宿主原生派生能力、实时模型信息和委派协议。 |
-| `tool-evaluator` | 候选发现、资料调查、证据分级及现状核验不可省去。 |
 | `website-state-sync-agent` | 依赖 CDP、加密状态包及 Cookie/Storage 写入与回读。 |
 
 范围说明：本表只统计本仓库正式维护的 `skills/*/SKILL.md`，不包含前文的第三方增补与待补全项。历史工作树、安装副本和评估快照不重复计算；外部嵌套 SkillOpt 仓库中的 `skillopt-sleep` 不在正式索引范围，其主干也依赖本地历史采集、离线重放与采纳流程，本次不转换。
