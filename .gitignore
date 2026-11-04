@@ -31,6 +31,9 @@ skill-opt
 
 skills/*-workspace
 docs/*
+!docs/changelog/
+docs/changelog/*
+!docs/changelog/*.md
 !docs/agents/
 docs/agents/*
 !docs/agents/issue-tracker.md
