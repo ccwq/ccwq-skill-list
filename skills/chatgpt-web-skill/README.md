@@ -1,6 +1,6 @@
 # ChatGPT Web Skill
 
-在已登录的 ChatGPT Web 中完成图片生成、编辑、单图结构化视觉审查，以及经确认后的经验整理。它面向需要复用现有浏览器会话的任务，不是通用网页爬取工具。
+在已登录的 ChatGPT Web 中完成信息调查、图片生成与编辑、单图结构化视觉审查，以及经确认后的经验整理。它复用现有浏览器会话，以工作区归属、完整发送和业务后置条件验收操作，不是通用网页爬取工具。
 
 ## 使用前提
 
@@ -57,13 +57,17 @@ python skills/chatgpt-web-skill/scripts/image_exporter.py `
   --output 'E:\exports\image.png'
 ```
 
-脚本会在当前已登录 Tab 的浏览器上下文中读取已渲染图像，校验响应为 `image/*`、文件非空，并原子写入目标路径。它不使用宿主机 `curl`，因此能复用当前页面的会话权限。
+脚本在当前已登录 Tab 的浏览器上下文中读取已渲染图像，检查响应类型并原子写入目标路径。交付前仍需独立确认文件存在且非空，不以脚本返回成功替代该检查。它不使用宿主机 `curl`，因此能复用当前页面的会话权限。
 
 完整调用参数仍以根 [README](../../README.md) 的“参数速查”为准。
 
 ## 工作方式
 
-每个任务都会重新枚举 tab，并以实时 snapshot 和至少两项页面证据确认 `agents-op` Project。图像任务会在当前任务 chat 中完成；审查任务只上传本次指定的一张图片，要求返回结构化中文 YAML，再由本地规则计算 `VISUAL_PASSED`、`VISUAL_BLOCKED` 或 `VISUAL_PENDING`。
+每个任务都会重新枚举 tab，先确认 HTTPS ChatGPT 站点，再以至少两项独立页面证据确认 `agents-op` Project。名称相似或归属冲突时停止；定位器未找到结果不代表账户没有该 Project。用户手动准备页面后，重新发现控件并核验归属。
+
+发送前核对 composer 全文、关键约束和末尾；发送后关联本次新增用户消息并核对完整正文。只检查 marker、点击返回成功或输入框清空都不足以证明发送成功。提交不明时有界读取，不自动重发。
+
+研究任务按需加载[研究与证据验收](references/research.md)，分别记录完整送达、生成完成、实际搜索与来源支持；只出现官方域名不能算来源已核验。图片任务仍使用独立图片流程；视觉审查只上传本次指定的一张图，以中文 YAML 和本地规则计算状态。
 
 浏览器 UI、selector 和 tab ID 都是短期线索。操作前后必须重新观察页面；浏览器重启或 tab 失效后，需要重新获取 lease 与归属证据。
 
@@ -71,10 +75,10 @@ python skills/chatgpt-web-skill/scripts/image_exporter.py `
 
 ## 授权与边界
 
-- Search 或 Deep Research 需先说明原因并获得当次明确授权。
-- Project instructions、Memory/Library 设置、重命名、分享、删除 chat 或 Project、付费/权限确认均需单独授权。
-- 不输入凭据、不处理付款或订阅，也不把未文档化的后端接口当作稳定 API。
-- 默认最多进行 3 个图片生成或编辑轮次；用户提供轮次预算时，以其为上限。
+- 普通对话、Search、Deep Research 的授权互不替代；后两者需说明原因并获得对应模式的当次授权。
+- 创建 Project 与修改设置分开授权；instructions、Memory/Library、重命名、分享、删除等持久变更均需单独授权。
+- 凭据、付款/订阅和权限批准交由用户手动处理；不把未文档化的后端接口当作稳定 API。
+- 默认最多进行 3 个图片生成或编辑轮次；实际提交即计数，生成失败也计入。浏览器恢复另设上限，不与图片轮次混算。
 
 统一经验库仅由 `experience_memory.py` 维护。只有已验证、脱敏的结论才能追加；整理全库需要用户对最终计划明确回复 `ok`。
 
@@ -87,5 +91,14 @@ python skills/chatgpt-web-skill/scripts/image_exporter.py `
 | `runtime_checks.py` | 机械检查 Project 归属、消息提交和图片可见性 |
 | `project_locator.py` | 从实时 sidebar 精确定位 Project 行并打开、校验其主页 |
 | `experience_memory.py` | 读取、追加和按确认计划整理脱敏经验 |
+
+本地回归命令：
+
+```text
+python test-space/chatgpt-web-skill/run_tests.py
+node --test test-space/chatgpt-web-skill/document-contract.test.mjs
+```
+
+第一项检查脚本行为，第二项检查文档契约、版本及链接；均不能证明当前真实页面可用。实网验收用例见 [LIVE_CASES.md](../../test-space/chatgpt-web-skill/LIVE_CASES.md)，执行前另行授权。
 
 完整执行步骤、视觉审查 YAML 契约和故障恢复规则见 [SKILL.md](SKILL.md) 与 [visual-review 参考](references/visual-review.md)。

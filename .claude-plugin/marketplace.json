@@ -158,8 +158,8 @@
     {
       "name": "chatgpt-web-skill",
       "source": "./skills/chatgpt-web-skill",
-      "description": "依赖 agent-browser 在指定 agents-op ChatGPT Project 中受授权地生图、编辑或单图结构化视觉审查；以中文 YAML、本地状态和统一经验库形成可验证工作流，不修改任何 ChatGPT 持久设置",
-      "version": "1.15.1",
+      "description": "依赖 agent-browser 在 agents-op ChatGPT Project 中进行信息调查、生图、编辑和单图结构化视觉审查；核验工作区与完整发送，分开验收生成、搜索和来源支持，未经授权不修改持久设置",
+      "version": "1.16.0",
       "category": "automation"
     },
     {

@@ -3,12 +3,12 @@ name: chatgpt-web-skill
 description: 通过 ChatGPT Web 进行信息搜集、Deep Research、图片生成编辑、结构化视觉审查和统一经验整理。
 license: MIT
 metadata:
-  version: 1.15.1
+  version: 1.16.0
   tags: [chatgpt, chatgpt-web, agent-browser, image-generation, image-editing, visual-review, research]
   related_skills: [agent-browser]
 ---
 
-# ChatGPT Web 图片工作区 / Image Workspace
+# ChatGPT Web 工作区 / Web Workspace
 
 ## 适用范围 / Scope
 
@@ -21,7 +21,9 @@ python scripts/run_agent_browser.py tab list
 python scripts/run_agent_browser.py -c <port-or-url> snapshot -i
 ```
 
-此 skill 的全部业务动作都在 ChatGPT Web 对话内完成；不把它用作直接浏览、抓取或自动化外部网站的通用工具。普通讨论可直接在 chat 中进行。只有确有必要使用 ChatGPT Web 的 Search 或 Deep Research 时，发送前先向用户说明理由并取得本次明确授权；未获授权则继续普通对话，或报告信息边界。
+此 skill 的全部业务动作都在 ChatGPT Web 对话内完成；不把它用作直接浏览、抓取或自动化外部网站的通用工具。普通讨论可直接在 chat 中进行。只有确有必要使用 ChatGPT Web 的 Search 或 Deep Research 时，发送前先向用户说明理由并取得本次明确授权；普通对话、Search、Deep Research 的授权互不替代，未获授权则继续普通对话并报告信息边界。
+
+**研究任务**（信息调查、方案比较、来源核验）开始前读取 [研究与证据验收](references/research.md)：固定问题与硬约束，分开验收发送、生成、搜索和来源支持。纯图片任务无需加载此参考，也不额外填写研究表单。
 
 ## 经验演进 / Evolution Memory
 
@@ -43,7 +45,7 @@ Entry-Count: 0
 
 1. 先运行 `experience_memory.py read --full`，读取全量经验，并核验本地 `SKILL.md`、`scripts/` 与 `references/`。默认可接入已有 CDP 浏览器，复用现有 ChatGPT tab 做实时 snapshot 的只读核验。
 2. 按主题逐问展示“保留 / 改写 / 合并 / 删除 / 本轮未证实”建议及其证据。只读核验不足时，先展示主动验证计划、影响和成功判据；用户确认该主题后，才可创建专用 chat、发送最小测试 prompt，并使用既有浏览器核验脚本。
-3. 主动验证默认不生成图片、不上传内容、不改 Project 设置、不触发付费/权限；这些操作均需用户在该轮额外明确授权。无法取得更强当前证据的条目归为“本轮未证实”并保留。
+3. 主动验证默认不生成图片、不上传内容、不改 Project 设置；这些操作均需用户在该轮额外明确授权。付费、订阅与权限批准交由用户手动处理。无法取得更强当前证据的条目归为“本轮未证实”并保留。
 4. 所有主题达成共识且用户明确回复 `ok` 后，生成含全部原始条目处理结果的 JSON 计划，并通过脚本原子写回。删除、改写和合并必须带已验证证据；改写或合并保留最早“首次记录日”，并写入“最近核验”。
 
 ```powershell
@@ -57,9 +59,9 @@ python scripts/experience_memory.py trim --plan <confirmed-plan.json> --confirm 
 
 把每条已验证经验按稳定性分流，避免以自然语言反复执行机械步骤：
 
-- 对跨页面和跨任务不变、可观察且无副作用的步骤，先为 `scripts/` 增加标准库 Python 辅助逻辑和离线单元测试，再在 skill 中调用脚本。
+- 对跨页面和跨任务不变、可观察且无副作用的步骤，优先复用现有脚本并补离线单元测试；新增独立脚本采用 Node.js `.mjs`，不为经验融合整体迁移既有 Python 入口。
 - 对依赖当前页面、角色、Project 或构图的判断，只记录为现场线索；继续使用实时 snapshot、DOM 和截图核验，不把 selector、ref、tab ID 或私有 URL 写死到脚本。
-- 对账户、单次任务或未复现的现象，只留在统一经验库；未获得明确确认时不据此修改 `SKILL.md`。
+- 对尚未复现的候选方法，明确标记“未验证”，不当成已验证经验追加；账户信息、本机故障、安装路径、端口、进程和排障流水账不进入通用经验。仅沉淀跨任务方法、判断规则与验收条件；结构校验不等于事实验证或自动脱敏。
 
 当前可直接复用的辅助脚本：
 
@@ -70,8 +72,8 @@ python scripts/runtime_checks.py -c <port-or-url> --tab <tab-id> project --name 
 # 每轮先检查快照；一旦图片已可见就立即截图并返回，不再空等尺寸轮询。
 python scripts/runtime_checks.py -c <port-or-url> --tab <tab-id> images --min-width 1000 --screenshot <temp-path>
 
-# 确认 marker 已离开 composer 并渲染；认证中断会以退出码 2 停止。
-python scripts/runtime_checks.py -c <port-or-url> --tab <tab-id> message --marker <unique-marker>
+# 消息完整性：先 preflight 保存本次基线，再提交一次并只读验收；完整调用见根 README。
+# 仅 --marker 的兼容调用不能证明完整发送，返回未确认而非成功。
 
 # 由当前 sidebar 的真实 Project 行定位并点击主页，再返回实时 URL 和双证据；不拼接 URL 或请求 backend-api。
 python scripts/project_locator.py -c <port-or-url> --tab <tab-id> --name agents-op
@@ -105,16 +107,26 @@ python scripts/browser_task.py release <lease-path> [--purge]
 
 1. 使用当前项目对应的 agent-browser session；按已有 CDP 配置决定是否接入既有浏览器。先枚举 tabs，优先复用 ChatGPT tab；没有可复用 tab 时，可通过 `project_locator.py --new-tab --name agents-op` 创建。它经 `browser_task.acquire(... --force-new)` 调用 agent-browser `tab new`，在 skill `.env` 的 `CHATGPT_PROJECT_LOCATOR_NEW_TAB_TIMEOUT_SECONDS=30` **共享总预算**内依次等待 sidebar 与 Project 证据渲染；超时或失败会释放本次新建 tab，成功才返回稳定 `tab_id`、`created_tab=true` 和 lease。把该 ID 传给每个 `run_agent_browser.py --tab` 与 `runtime_checks.py --tab` 调用，终态用 `browser_task.py release <lease>` 关闭新建 tab。
    对需要跨多条命令的任务，优先通过 `browser_task.py acquire` 获取 lease；真实回归使用 `--force-new`，普通任务按精确 URL 复用。
-2. 若当前 tab 尚未在目标 Project 首页，运行 `project_locator.py --name agents-op`：它从当前 sidebar 的实时 DOM 精确匹配 Project 行、点击同一行的 `Open project home`，再读取浏览器实际导航得到的 URL。不得预存、拼接或从 `/backend-api/*` 推导 Project URL。随后运行 `runtime_checks.py project --name agents-op` 并结合实时 snapshot，确认页面是 ChatGPT Web 且 Project 名为 `agents-op`。禁止相信旧 tab ID、旧 URL 或记忆中的页面文本。
-3. `agents-op` 不存在时，先报告并请求创建 Project 的持久化状态授权；存在时直接使用，名称重复也以实时证据选择正确 Project。
+2. 先用当前页面证据核验归属；用户手动准备的 Project 内页面若已满足双证据且无冲突，可直接继续，不强制返回首页。需要定位时运行 `project_locator.py --name agents-op`：它从当前 sidebar 的实时 DOM 精确匹配 Project 行、点击同一行的 `Open project home`，再读取浏览器实际导航得到的 URL。不得预存、拼接或从 `/backend-api/*` 推导 Project URL。随后运行 `runtime_checks.py project --name agents-op` 并结合实时 snapshot，确认页面是 ChatGPT Web 且 Project 名为 `agents-op`。禁止相信旧 tab ID、旧 URL 或记忆中的页面文本。
+3. 定位器未找到结果，只能说明当前页面/查询未发现唯一匹配，不能推断账户不存在该 Project。重新发现一次页面或由用户手动准备工作区后，废弃旧 ref 并重新核验归属；仍无法确认则报告并停下。创建 Project 需单独授权，创建成功以新 Project 首页或列表条目为准，不以按钮点击返回值为准。重复名称无法消歧时交回用户，不猜测。
 4. 为当前任务在 `agents-op` 内新建 chat；以当前 session 和 tab 作为本次任务的最小隔离边界。
 5. 终态（成功、取消、平台阻断或不可恢复失败）关闭**本任务创建的** tab，重新枚举 tabs 并确认其消失；复用的既有 tab 不关闭。
 
-可接受的 Project 实时证据至少两项：页面 title 含 `agents-op`、**Project 首页** URL 以 `/project` 结尾、composer 标注/placeholder 为 `New chat in agents-op`、页面内容表明该 Project 的 chats/sources。Project 内既有对话通常为同一路径下的 `/c/<chat-id>`，不能要求其以 `/project` 结尾。无法确认归属时，诊断并报告，不在普通 Chat 或其他 Project 静默执行。
+先确认 HTTPS ChatGPT 站点，再取得至少两项独立实时归属证据：页面 title 明确标识目标 Project、**Project 首页** URL 以 `/project` 结尾、composer 明确标注 `New chat in agents-op`、当前主内容区明确显示该 Project 的 chats/sources。名称按完整上下文匹配，`agents-op-copy` 或侧栏包含目标名称不算当前归属；已知身份冲突不能被其他证据数量抵消。Project 内既有对话通常为同一路径下的 `/c/<chat-id>`，不能要求其以 `/project` 结尾。脚本不识别的页面形态交由实时证据复核，不降低证据要求；无法确认时报告，不在普通 Chat 或其他 Project 静默执行。
 
 ## 变更授权 / Authorization Boundaries
 
-以下会改变持久化 ChatGPT 状态，未获本次明确授权时停止并书面报告：编辑/清空 Project instructions（`textarea#instructions`）、切换 Library access/Memory 等设置、重命名/分享/置顶/删除 Project 或 chat、批准付费/权限/订阅弹窗、上传到当前项目 chat 以外的位置。`visual-review` 调用仅授权在当前任务 chat 上传本次指定的一张图片和发送固定审查提示词；不授权删除或修改任何 chat。只读页面探测与视觉核验默认允许。
+按动作的影响范围授权，不把一次任务授权扩展为账户管理授权：
+
+| 动作 | 边界 |
+| --- | --- |
+| 只读页面探测、任务内新 chat、发送必要的脱敏任务内容 | 在用户已授权的任务和模式内执行；复用 tab 不在结束时关闭 |
+| Search / Deep Research | 各自取得当次明确授权；不自动升级模式 |
+| 创建 Project | 独立授权；不包含修改其设置 |
+| Project instructions、Library/Memory 设置、重命名/分享/置顶/删除、任务外上传 | 逐项取得本次明确授权；instructions 另需确认拟稿并写后读回 |
+| 凭据、付款/订阅、权限批准 | 交由用户手动处理，不由本 skill 执行 |
+
+`visual-review` 调用仅授权在当前任务 chat 上传本次指定的一张图片和发送固定审查提示词，不授权删除或修改 chat。外部调查只发送必要的脱敏技术条件，不上传运行日志或凭据。
 
 不把未文档化的 `/backend-api/*` 当成稳定自动化 API；只用浏览器 UI/CDP DOM 与当前页面已渲染资源。不得输入凭证、处理付款订阅或批准权限；遇到平台 policy/block 如实报告，不尝试绕过。
 
@@ -126,17 +138,26 @@ python scripts/browser_task.py release <lease-path> [--purge]
 
 ## 每次先重新发现 UI / Live Discovery
 
-ChatGPT UI 会变化。DOM selector 与 agent-browser ref（如 `@e123`）都可能随页面更新失效；每次点击、输入或提交前后都必须取得实时 snapshot 验证控件与页面状态，绝不跳过验证。Python 入口仅固化 CLI 参数、Project 证据和图片尺寸轮询，不能替代 DOM 的实时发现。下列 selector 仅为线索，不是永久契约：
+ChatGPT UI 会变化。DOM selector 与 agent-browser ref（如 `@e123`）都可能随页面更新失效；每次点击、输入或提交前后都必须取得实时 snapshot 验证控件与页面状态。工具退出成功只证明调用完成：创建要看到新 Project，发送要看到本次完整用户消息，设置要读回获批值。已有快照足以判定时不重复截图；结果不明先只读观察，不能把动作成功返回值当成业务后置条件。下列 selector 仅为线索，不是永久契约：
 
-- 在 PowerShell 中把 ref 作为字符串传入，例如 `click '@e123'`；PowerShell 不支持 `&&`，需要顺序执行的命令改为独立命令或使用 `;`。
-- Enter 不一定会提交 prompt。提交后先运行 `runtime_checks.py message --marker <unique-marker>`；未发送时重新发现并点击当前页面的 `Send prompt`，再运行该检查。若仍为 `pending`，不要盲目重复提交；若为 `interrupted`，报告认证/导航中断并停止。
-- Project home 中普通 ref `click` 无效时，不猜测或复用旧 ref。在同一 agent-browser session 内通过实时 DOM 定位 `agents-op` 的对应控件并触发 click；进入 Project 首页后，同时以 `/project` URL 和 `New chat in agents-op` 作为归属证据。Project 内既有对话通常为同一路径下的 `/c/<chat-id>`，不把它误判为 URL 证据缺失。
+- 在 PowerShell 中把 ref 作为字符串传入，例如 `click '@e123'`；PowerShell 7 支持 `&&`，Windows PowerShell 5.1 才需拆成独立命令。
+- Enter 不保证提交。按下文“完整发送”检查，不因 composer 清空或 snapshot 出现 marker 就宣布发送成功；提交后结果不明只做有界读取，不自动补点 Send。
+- Project home 的 ref click 无效时，先重新发现页面并核对归属。如果已导航成功，不再点击；只有能确认前一动作未发生时，才允许一次基于实时 DOM 的替代定位。仍不成功则停止，不持续点击或扩大到创建 Project、修改设置。
 
 - `Create image` 菜单项；选择后同时确认图片模式 pill（已观察到 `data-id="picture_v2"`）与 placeholder 变为 `Describe or edit an image`。仅出现文字 `Create image` 不是模式成功证据。
 - 图片上传：`#upload-photos[accept="image/*"]`；通用文件上传：`#upload-files`。
 - Project options：`button[aria-label="Open project options for agents-op"]`，菜单应含 `Share project`、`Rename project`、`Project settings`、`Delete project`。
 
 对 composer：先聚焦 `[aria-label="Add files and more"]`，确认可见 `.ProseMirror.ProseMirror-focused`，再向 ProseMirror 写入。常用可靠写入方式为 `document.execCommand('insertText', false, prompt)`；在该 editor 上分派 Enter 的 `keydown`。已有工具 pill 时，只向 ProseMirror 追加 prompt，不能 `selectAll` 或清空 editor，否则会移除工具模式。通过 CDP eval 以 base64 写入中文时，先将 `atob()` 结果转为 `Uint8Array`，再用 `TextDecoder` 按 UTF-8 解码后 `insertText`。不要对激活后的 inert `textarea` 直接设值或按 Enter。
+
+### 完整发送 / Message Integrity
+
+1. **发送前**：从当前任务得到唯一的期望正文，核对 composer 的完整文本、长度、关键约束和末尾验收要求。只看到首句或 Send 按钮可用不算就绪；正文缺失时在提交前修正。保留工具 pill；现场确认 composer 与用户消息节点，不把本次 selector 当永久契约。
+2. **建立关联**：提交前取得本次消息基线或核验唯一 marker 未出现在既有消息中。完整性比较允许换行编码等明确规范化，不忽略任意空白、丢失段落或约束。临时正文文件仅用于本地比较，放任务临时目录，不提交仓库、不写经验库，终态清理本任务创建的正文临时文件。
+3. **只提交一次**：选择当前有效的发送方式。提交后只读等待本次新增的用户消息，核对完整正文及末尾；assistant 回显、旧消息、全页 marker、composer 清空均不能代替这一证据。完整性不符与提交不明分开报告；两者都不自动重发。
+4. **有界恢复**：发送尝试后，超时或缺证据即停，保留最小诊断。只有有独立证据确认动作未执行，重新发现后才允许一次替代操作；composer 仍有文字不是这种证据。若用户选择补充消息，先说明缺失范围，再核验补充内容进入对话，明确它不是原消息完整发送成功。
+
+`runtime_checks.py message` 是只读验收器，不执行输入或发送；仅 marker 的旧调用不能证明完整交付。发送前状态 `ready` 只表示允许提交一次；发送后只有 `sent` 表示完整送达，`incomplete` 为正文不匹配，`uncertain` 为缺少可靠证据，`interrupted` 为认证中断。基线绑定本次 tab、session、正文摘要和现场选择器；过期或上下文变更时不沿用。脚本当前借助用户角色属性和全文 DOM 读取，页面形态不匹配、历史消息虚拟化或折叠时返回未确认，不用弱信号兜底成功；这些读取线索仍需实网验收。完整参数见根 README。完整参数见根 README。
 
 ## 图片任务 / Image Tasks
 
@@ -147,7 +168,7 @@ ChatGPT UI 会变化。DOM selector 与 agent-browser ref（如 `@e123`）都可
 1. 新建 `agents-op` chat，选择 Create image；确认图片模式 pill 与实时 placeholder 后，向保留 pill 的 ProseMirror 追加执行 prompt。
 2. 把 brief 结构化为中文记录与英文执行 prompt（subject、composition、camera/view、lighting、material、palette、constraints；必要时 negative constraints）。
 3. 默认避免图片内可读文字；若用户要求文字，使用精确字符串并逐字审阅。
-4. 已观察到 composer 清空表示 prompt 被消费，但这不是生成成功证据。优先运行 `runtime_checks.py images --min-width 1000`；每轮先检查 snapshot，已出现 `Generated image` 时立即保存截图并结束检查，不再空等尺寸轮询。随后结合 composer 状态和截图确认。
+4. 已观察到 composer 清空表示 prompt 可能已被消费，但这不是完整发送或生成成功证据。先完成消息验收，再运行 `runtime_checks.py images --min-width 1000`；每轮先检查 snapshot，出现 `Generated image` 时可立即保存截图并结束可见性检查，不再空等尺寸轮询。随后确认图片属于本次请求并审阅质量；历史图片或单独可见性标记不能宣布本次任务成功。
 5. 下载优先走页面可见 `Save`/下载按钮；如无按钮，只有当前页能访问的已渲染资源才可经页面内 fetch/canvas 导出。下载完成条件是目标文件已落盘且非空；通用 download 命令返回 canceled、按钮点击成功或浏览器提示都不能单独作为成功证据。用户指定桌面时，先确认下载文件后再移动/命名到桌面。不要用 host `curl` 直取 ChatGPT CDN（常见 403）。
 
 图像导出辅助脚本：
@@ -157,7 +178,7 @@ python scripts/image_exporter.py -c <port-or-url> --tab <tab-id> --selector 'img
 python scripts/image_exporter.py -c <port-or-url> --tab <tab-id> --url 'https://example.com/image.png' --output 'E:\exports\image.png'
 ```
 
-`--selector` 和 `--url` 都只在当前 Tab 的浏览器上下文读取资源；两者互斥且必须指定 `--output`。selector 匹配多张图时，先排除已滚出视口的候选，再选择与聊天输入框垂直距离最近的可见图；没有聊天框才回退到最后一个可见候选。脚本校验 `image/*`、非空响应并原子落盘，不使用宿主机 `curl`，从而保留当前 Tab 的登录态、Cookie 和 Referer。
+`--selector` 和 `--url` 都只在当前 Tab 的浏览器上下文读取资源；两者互斥且必须指定 `--output`。selector 匹配多张图时，先排除已滚出视口的候选，再选择与聊天输入框垂直距离最近的可见图；没有聊天框才回退到最后一个可见候选。这是候选选择线索，不保证图片属于本次请求。脚本检查响应类型并原子落盘；交付前另行确认最终文件存在且非空。它不使用宿主机 `curl`，从而保留当前 Tab 的登录态、Cookie 和 Referer。
 
 ### 编辑与参考图
 
@@ -167,7 +188,7 @@ python scripts/image_exporter.py -c <port-or-url> --tab <tab-id> --url 'https://
 
 ## 审阅与迭代 / Review and Iteration
 
-默认最多 **3 个图片生成/编辑轮次**，首张也计入。用户明确给出 `N` 轮验证/测试预算时，以 `N` 为硬上限：每次状态改变的 CDP 调用、导航或额外扩展均算一轮；工具/格式失败也消耗预算。预算接近耗尽时停止，汇总已验证证据并交回控制权。
+默认最多 **3 个图片生成/编辑轮次**，首张也计入；每次实际提交生成/编辑请求消耗一轮，生成失败也计入。UI 读取、定位和下载不算图片轮次；浏览器恢复另按“完整发送”和 Live Discovery 的有界规则执行。用户明确给出 `N` 轮图片预算时用 `N`；如果限制的是所有状态改变动作，则按该更严格范围计数。预算耗尽即停止，汇总已验证证据并交回控制权。
 
 每个候选都检查：主体/关键物体/姿态/风格、构图/裁切/比例/清晰度/伪影/边距、要求显示的文字、以及参考任务的 identity/layout/palette/protected anchors。剩余轮次内自动修复明显失败或重大质量缺口；最终向用户指出推荐候选及依据。
 
@@ -205,14 +226,15 @@ Project instructions 是用户可见持久化配置，默认先用中文拟稿�
 - [ ] 如需定位 Project 首页，已由 `project_locator.py` 的实时 sidebar 行匹配和点击取得浏览器实际 URL；未拼接或缓存 Project URL。
 - [ ] 跨命令任务已通过 `browser_task.py` 记录 lease；结束时只释放本次创建的 tab，并重新枚举确认。
 - [ ] 至少两条实时证据确认 `agents-op` Project 归属。
-- [ ] 每次 UI 操作前后均由实时 snapshot 验证；prompt 已确认渲染为用户消息。
+- [ ] 每次 UI 操作后已核验业务后置条件；本次 prompt 已按完整正文、关键约束及末尾确认渲染为用户消息，未用工具成功或 marker 单独判定。
 - [ ] 图片模式（如需要）已由图片模式 pill 与实时 placeholder 共同确认，且执行 prompt 未移除 pill。
 - [ ] 每轮均完成可见结果与质量核验；已向用户说明推荐候选和依据。
 - [ ] 使用 `visual-review` 时，仅上传本次指定的一张图片；模型只返回一个中文 YAML 代码块，且每个 `S` 标准均有有效检查结果。
 - [ ] 本地已按 `critical`、`major`、`minor` 和失败关闭规则计算视觉状态；仅 `VISUAL_PASSED` 可继续后续流程。
 - [ ] `visual-review` 未删除或修改任何 chat、Project 或其他持久设置。
 - [ ] 用户要求下载时，目标文件已落盘且非空；桌面交付已核验最终路径。
-- [ ] 已关闭且重新枚举确认任务 tab 消失；未影响原有 tabs。
-- [ ] ChatGPT Search / Deep Research（如使用）已在发送前获得本次明确授权。
+- [ ] 本任务新建的 tab 已关闭并重新枚举确认消失；复用 tab 保留，原有 tabs 未受影响。
+- [ ] 研究任务已分别报告消息完整送达、回答生成完成、实际搜索、来源支持的证据状态；结论未扩大原目标，关键否决事实优先核验。
+- [ ] ChatGPT Search / Deep Research（如使用）已在发送前获得对应模式的当次明确授权。
 - [ ] 涉及后台请求时，结论来自当前 tab 的网络监听和关联 UI 渲染；未直接调用、重放或持久化 `/backend-api/*` 请求数据。
 - [ ] 未经授权未改变任何持久化 Project 状态。

@@ -44,9 +44,9 @@ canv.toDataURL('image/jpeg', 0.92)
 ## 2026-07-31 — ref 与 Project home 的实时验证
 
 - DOM selector 与 agent-browser ref 均会因页面更新失效；每个 UI 操作前后均以实时 snapshot 验证，不能依赖旧 ref。
-- PowerShell 调用必须给 ref 加引号，如 `click '@e123'`；PowerShell 不支持 `&&`。
-- Enter 不保证发送成功；snapshot 中确认用户消息渲染后才视为已提交。未渲染时重新定位并点击实时 `Send prompt`。
-- Project home 的普通 ref click 无效时，在同一 agent-browser session 通过实时 DOM 定位 `agents-op` 控件并触发 click。仅 Project 首页 URL 以 `/project` 结尾；Project 内既有对话通常为同一路径下的 `/c/<chat-id>`，不能要求其以 `/project` 结尾。进入首页后，再以首页 URL 与 `New chat in agents-op` 共同确认归属。
+- PowerShell 调用必须给 ref 加引号，如 `click '@e123'`；不支持 `&&` 的是 Windows PowerShell 5.1，PowerShell 7 支持。
+- Enter 不保证发送成功。该历史观察只提示核验提交，不能推出“未渲染即可重发”；当前按主文档“完整发送”核对本次用户消息与完整正文，提交不明时只读观察。
+- Project home 的 ref click 返回不明时，先重新发现页面并核对是否已导航；只有独立证据确认动作未执行，才允许同一 session 内一次实时 DOM 替代点击。仅 Project 首页 URL 以 `/project` 结尾；Project 内既有对话通常为同一路径下的 `/c/<chat-id>`，不能要求其以 `/project` 结尾。归属已有充分实时证据时不强制重复打开首页。
 
 ## 2026-07-31 — CLI 配置固化
 
@@ -59,8 +59,8 @@ canv.toDataURL('image/jpeg', 0.92)
 
 ## 2026-08-01 — 提交结果的结构化分类
 
-- Prompt 的成功信号应同时检查 marker 是否离开可见 composer、是否出现在 snapshot，以及是否被认证/登录页中断。
-- `pending` 时不盲目连点 Send，`interrupted` 时停止；这两个状态都不能当作已发送。
+- 当时以 marker 离开 composer、出现在 snapshot 和认证信号分类；该弱判据不能证明本次完整用户消息送达，已由主文档“完整发送”及运行时检查的关联/全文契约替代。
+- 提交不明、正文不完整、认证中断都不能当作已发送，也不能据此自动补点 Send。
 
 ## 2026-08-01 — 跨命令 tab 锁定
 

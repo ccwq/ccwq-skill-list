@@ -23,7 +23,7 @@ from run_agent_browser import (
     session_for_cdp,
     verify_cdp_connection,
 )
-from runtime_checks import evaluate_project
+from runtime_checks import evaluate_project, trusted_chatgpt_url
 from browser_task import acquire_task, release_task
 
 
@@ -145,19 +145,25 @@ def locate_and_click(
     evidence_deadline: float | None = None,
     interval: float = 1.0,
 ) -> dict[str, object]:
+    # 在读取 sidebar 和执行页面 click 之前先拒绝错误站点。
+    if not trusted_chatgpt_url(run_cli(session, cdp, ["get", "url"], tab)):
+        raise RuntimeError("目标不是受信任的 HTTPS ChatGPT 站点")
     expression = LOCATOR_EXPRESSION % json.dumps(project, ensure_ascii=False)
     discovery = parse_json(run_cli(session, cdp, ["eval", expression], tab))
     if discovery.get("matchCount") != 1:
-        raise LookupError(f"未找到唯一可见 Project：{project}（matchCount={discovery.get('matchCount')}）")
+        raise LookupError(f"当前 DOM 未发现唯一可见 Project，归属不明，不代表项目不存在：{project}（matchCount={discovery.get('matchCount')}）")
     if discovery.get("hasHomeControl") is not True:
         raise LookupError(f"Project 行缺少 Open project home 控件：{project}")
 
     click_expression = r"""
     (name => {
+      if (location.protocol !== 'https:' || !['chatgpt.com', 'chat.openai.com'].includes(location.hostname)
+          || (location.port && location.port !== '443')) throw new Error('Untrusted site');
       const rows = Array.from(document.querySelectorAll('[class~="group/project-unfurl-row"]'));
       const matches = rows.filter(row => {
         const item = row.querySelector('[role="button"][data-sidebar-item]');
-        return item && item.textContent.trim() === name;
+        return Boolean(row.offsetWidth || row.offsetHeight || row.getClientRects().length)
+          && item && item.textContent.trim() === name;
       });
       if (matches.length !== 1) throw new Error(`Project 行数量变化：${matches.length}`);
       const control = matches[0].querySelector('button[aria-label="Open project home"]');
@@ -174,8 +180,10 @@ def locate_and_click(
         title = run_cli(session, cdp, ["get", "title"], tab)
         snapshot = run_cli(session, cdp, ["snapshot", "-i"], tab)
         result = evaluate_project(url, title, snapshot, project)
-        if "project_url" in result["evidence"] and int(result["evidence_count"]) >= 2:
+        if result["passed"] is True:
             break
+        if result["conflicts"] or not result["trusted_site"]:
+            raise RuntimeError(f"跳转后 Project 归属冲突或站点不受信任：{json.dumps(result, ensure_ascii=False)}")
         if time.monotonic() >= deadline:
             raise RuntimeError(f"跳转后 Project 证据不足：{json.dumps(result, ensure_ascii=False)}")
         time.sleep(interval)

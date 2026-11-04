@@ -44,7 +44,7 @@ npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code --
 | `agent-human-debug` | Agent 主导、人类执行的跨平台故障诊断；最小只读 probe、脱敏回传 | [速查](#agent-human-debug) · [README](skills/agent-human-debug/README.md) |
 | `aria-filedown` | 手动授权的 aria2 稳定下载，支持代理优先级与项目 `.env` | [速查](#aria-filedown) · [SKILL](skills/aria-filedown/SKILL.md) |
 | `bash-completion` | 配置与排查 Bash 补全：Tab、fzf、ble.sh、zoxide 及启动顺序冲突 | [速查](#bash-completion) · [SKILL](skills/bash-completion/SKILL.md) |
-| `chatgpt-web-skill` | 在指定 ChatGPT Project 中受授权地生图、改图与单图结构化审查 | [速查](#chatgpt-web-skill) · [README](skills/chatgpt-web-skill/README.md) |
+| `chatgpt-web-skill` | 在指定 ChatGPT Project 中受授权地调查、生成/编辑图片与结构化审查，核验归属和完整发送 | [速查](#chatgpt-web-skill) · [README](skills/chatgpt-web-skill/README.md) |
 | `claude-proj-skill-linker` | 把 `.agents/skills` 通过目录链接接入 `.claude/skills`，并整理链接入口 | [速查](#claude-proj-skill-linker) · [SKILL](skills/claude-proj-skill-linker/SKILL.md) |
 | `codex-windows-hooks-fix` | 修复 Windows 上 Codex hooks 的命令入口、包装器与 JSON 输出 | [速查](#codex-windows-hooks-fix) · [README](skills/codex-windows-hooks-fix/README.md) |
 | `debug-instrumentation` | 添加、采集和分析可清理的 token 化调试日志埋点 | [速查](#debug-instrumentation) · [SKILL](skills/debug-instrumentation/SKILL.md) |
@@ -204,7 +204,7 @@ $bash-completion 发行版 fzf 不支持 --bash，但有 key-bindings.bash，要
 
 ### chatgpt-web-skill
 
-在 `agents-op` ChatGPT Project 中生成、编辑或审阅图片。操作依赖 `agent-browser`。
+在 `agents-op` ChatGPT Project 中进行信息调查、生成/编辑图片或结构化审查。操作依赖 `agent-browser`；发送前后核对完整正文。
 
 默认不使用 ChatGPT Search 或 Deep Research。使用前，Agent 必须说明理由并取得当次授权。不得把本 Skill 用作通用外站浏览或抓取工具。
 
@@ -213,6 +213,7 @@ $chatgpt-web-skill 在 agents-op 中生成一张简洁的蓝色立方体图
 $chatgpt-web-skill 审阅当前 chat 附带的商品主图，并给出可执行改图建议
 $chatgpt-web-skill visual-review 上传一张商品主图，按 S1 文字完整、S2 无裁切审查
 $chatgpt-web-skill -t 整理统一经验库
+$chatgpt-web-skill 比较两个方案是否满足这些硬约束，先用普通讨论；需要 Search 时先说明理由
 ```
 
 只接入已登录的浏览器。连接失败时提示配置方式，不启动新浏览器。
@@ -224,12 +225,16 @@ $chatgpt-web-skill -t 整理统一经验库
 
 | 参数 | 说明 | 默认值 |
 |------|------|--------|
-| `[图片任务]` | 生图、编辑或审阅图片的需求；Research 必须另获当次授权 | 无 |
+| `[任务]` | 信息调查、生图、编辑或审阅需求；Search 与 Deep Research 分别取得当次授权，来源未读不算核验 | 无 |
 | `-t [主题]` / `--trim [主题]` | 本地与实时 UI 核验后逐主题讨论统一经验整理；最终 `ok` 后原子改写、合并或删除全库经验 | 全部经验 |
 | `--cdp` / `-c <port-or-url>` / `AGENT_BROWSER_CDP_PORT` | 只接入已登录浏览器；优先级为参数 > 环境变量 > 用户级 `agent-browser` 配置的 `cdp` > `9222` | `9222` |
 | `--tab <tab-id>` | 每次脚本命令前切换到实时 tab list 返回的稳定任务 tab ID | 不传 |
 | `browser_task.py acquire/status/action/release` | 通过已登录 CDP 浏览器运行；以临时 lease 管理 URL 精确复用或 `--force-new` 专用 tab | 同 CDP 优先级 |
-| `runtime_checks.py project/images/message` | 机械验证 Project 双证据、生成图尺寸或 prompt 渲染；仍需实时 snapshot 复核 | 按当前 session |
+| `runtime_checks.py project/images/message` | 检查 Project 站点、归属与冲突，图片可见性，或本次消息完整性；不能代替实时页面与质量核验 | 按当前 session |
+| `message --expected-file <utf8-file> --user-selector <css> --conversation-selector <css> --baseline-file <json>` | 消息正文和选择器从当前任务取得；配合全局 `--tab`，发送前加 `--preflight` 写基线，发送后去掉该选项只读验收 | 缺少完整证据时未确认 |
+| `message --preflight` | 核对完整 composer 与发送前用户消息；成功写入新基线（不覆盖已有文件），15 分钟内用同一基线验收 | 不执行发送 |
+| `message --timeout <seconds> --interval <seconds>` | 只读观察预算：timeout 为 0–300 秒，interval 为大于 0 且不超过 30 秒；超时未确认不自动重发 | 20 秒 / 2 秒 |
+| `message --marker <unique-marker>` | 旧参数仅保留兼容；本次关联以发送前基线和全文摘要为准，不用 marker 单独判定 | 单独调用未确认、非零退出 |
 | `project_locator.py --tab <tab-id> --name <project>` / `--new-tab` | 从实时 sidebar 精确匹配 Project 行并点击同行 `Open project home`；返回浏览器实际导航的 `/project` URL 与页面证据 | `agents-op` |
 | `image_exporter.py --selector <css>` / `--url <image-url>` | 在指定登录 Tab 的浏览器上下文中导出图像到 `--output`；多图时选择靠近聊天框的可见图 | 无 |
 | `visual-review` | 上传一张图片，按 `S` 编号标准获得严格中文 YAML 审查 | `VISUAL_PENDING` fail-closed |
@@ -250,7 +255,15 @@ $chatgpt-web-skill -t 整理统一经验库
 python skills/chatgpt-web-skill/scripts/run_agent_browser.py -c <port-or-url> --tab <tab-id> <command>
 ```
 
-PowerShell 中，元素引用（ref）必须加引号。
+PowerShell 中，元素引用（ref）必须加引号。消息完整性调用示例（选择器先按实时页面发现；正文与基线放任务临时目录）：
+
+```text
+python skills/chatgpt-web-skill/scripts/runtime_checks.py --tab <tab-id> message --expected-file <prompt.txt> --user-selector <css> --conversation-selector <css> --baseline-file <baseline.json> --preflight
+# 上一步就绪后通过 UI 提交一次，再用同一组参数验收：
+python skills/chatgpt-web-skill/scripts/runtime_checks.py --tab <tab-id> message --expected-file <prompt.txt> --user-selector <css> --conversation-selector <css> --baseline-file <baseline.json>
+```
+
+本地检查通过不代表当前真实页面已验证；搜索启动、生成完成、来源核验分别报告，实网测试另行授权。
 
 详情见 [README.md](skills/chatgpt-web-skill/README.md)。
 
