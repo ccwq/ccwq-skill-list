@@ -37,7 +37,7 @@ node <skill-path>/runtime-dist/psm-cli.js <command> [options]
 node <skill-path>/runtime-dist/psm-cli.js preview [--port N] [--no-open]
 ```
 
-前台长驻子命令。默认分配可用端口；端口被占用或参数非法时明确失败退出，不留下后台服务。
+前台长驻子命令。默认分配可用端口；端口被占用或参数非法时明确失败退出，不留下后台服务。启动参数与环境变量的唯一维护处是[根 README](../../../README.md#project-self-memory)，本页只定义行为契约。
 
 启动输出：
 
@@ -45,7 +45,7 @@ node <skill-path>/runtime-dist/psm-cli.js preview [--port N] [--no-open]
 PSM_VIEWER_URL: http://127.0.0.1:<port>/#token=<token>
 ```
 
-默认用系统默认浏览器打开该地址。`--no-open` 或 `PSM_VIEWER_OPEN=0` 禁止打开；`PSM_VIEWER_OPEN=echo` 只打印待打开地址（无头环境与测试诊断用，优先级最高）。浏览器打开失败不影响已经就绪的服务，用户可手动访问。
+默认用系统默认浏览器打开该地址；打开失败不影响已经就绪的服务，用户可手动访问。诊断模式只打印待打开地址、不执行浏览器命令，供无头环境与测试使用。
 
 安全与数据模型与旧查看器一致：只监听本机回环，随机令牌通过 URL fragment 交接，API 全部要求 Bearer 令牌，写操作校验 Origin 与 Host，请求体限长，不提供任意文件服务。缺库或损坏库时保持可诊断的只读状态，不隐式初始化、修复或迁移。
 

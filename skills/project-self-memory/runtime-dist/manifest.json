@@ -35,6 +35,18 @@
         "viewer-page.mjs",
         "psm-cli-core.mjs"
       ]
+    },
+    "c1445e32c3838f00eea2c465565e6cde8011de69c8e10990405e251057b7a907": {
+      "built_from": [
+        "memory-store.mjs",
+        "memory-lock.mjs",
+        "evidence-ledger.mjs",
+        "memory-tags.mjs",
+        "memory-cache.mjs",
+        "viewer-server.mjs",
+        "viewer-page.mjs",
+        "psm-cli-core.mjs"
+      ]
     }
   },
   "name": "psm-cli.js",

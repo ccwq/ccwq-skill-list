@@ -167,7 +167,7 @@ test('runtime update replaces a known official older copy after backing it up', 
   run(root, 'init');
   // 构造一个「已发布的官方旧版」：用改了版本号的发行信息重新构建一次产物，
   // 并把上一版的哈希登记为已知官方哈希。
-  const older = buildOlderRelease();
+  const older = buildRelease({ version: '0.9.0' });
   fs.writeFileSync(target(root), older.bytes);
   const memory = path.join(root, '.project-self-memory', 'memory.md');
   const memoryBefore = fs.readFileSync(memory);
@@ -176,13 +176,41 @@ test('runtime update replaces a known official older copy after backing it up', 
   assert.ok(error, '当前发行信息未登记该旧版时应拒绝升级');
 
   // 用登记了旧版哈希的发行产物执行升级。
-  const newer = buildReleaseWithKnown(older.hash);
+  const newer = buildRelease({ knownHashes: [older.hash] });
   const result = execFileSync(process.execPath, [newer.path, 'runtime', 'update', '--project-root', root], { encoding: 'utf8' });
   assert.match(result, /PSM_RUNTIME_UPDATED/);
   assert.equal(fs.readFileSync(target(root)).equals(newer.bytes), true);
   const backups = fs.readdirSync(path.join(root, '.project-self-memory', 'backups'));
   assert.ok(backups.some((name) => name.startsWith('psm-cli-')));
   assert.ok(fs.readFileSync(memory).equals(memoryBefore));
+});
+
+/**
+ * Given：项目里已有官方旧版运行时副本，但备份目录不可用
+ * When：runtime update
+ * Then：升级失败并保留原文件，不留下半替换状态
+ * 防回归：备份阶段失败仍继续替换，原文件丢失
+ */
+test('runtime update keeps the original file when the backup cannot be written', () => {
+  const root = temp();
+  run(root, 'init');
+  const older = buildRelease({ version: '0.9.0' });
+  fs.writeFileSync(target(root), older.bytes);
+  const before = fs.readFileSync(target(root));
+
+  // 用同名普通文件占住备份目录，使备份写入必然失败。
+  const backups = path.join(root, '.project-self-memory', 'backups');
+  fs.writeFileSync(backups, 'not a directory');
+
+  const newer = buildRelease({ knownHashes: [older.hash] });
+  const error = (() => {
+    try {
+      execFileSync(process.execPath, [newer.path, 'runtime', 'update', '--project-root', root], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+      return null;
+    } catch (failure) { return failure; }
+  })();
+  assert.ok(error, '备份不可写时升级应当失败');
+  assert.ok(fs.readFileSync(target(root)).equals(before), '原文件应保持不变');
 });
 
 /**
@@ -270,6 +298,14 @@ test('runtime build is reproducible and drift-checkable', () => {
   // 比对按内容归一化行尾：产物本身是 LF，Windows 检出后磁盘上可能是 CRLF。
   const normalize = (bytes) => bytes.toString('utf8').replace(/\r\n/g, '\n');
   assert.equal(normalize(before), normalize(after));
+  // 一致性检查能发现真实漂移：改动产物后 --check 必须失败。
+  fs.writeFileSync(distribution, `${after.toString('utf8')}\n// 漂移\n`);
+  const drift = (() => {
+    try { execFileSync(process.execPath, [runtimeBuilder, '--check'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }); return null; }
+    catch (failure) { return failure; }
+  })();
+  assert.ok(drift, '产物与源码漂移时 --check 必须失败');
+  assert.match(String(drift.stderr), /PSM_RUNTIME_DRIFT/);
   // 还原工作区原始字节，测试不把仓库变成 dirty。
   fs.writeFileSync(distribution, before);
   const check = execFileSync(process.execPath, [runtimeBuilder, '--check'], { encoding: 'utf8' });
@@ -277,10 +313,11 @@ test('runtime build is reproducible and drift-checkable', () => {
 });
 
 /**
- * 构造一个「已发布官方旧版」运行时：在临时目录复制脚本源，改版本号后重新构建。
- * 返回 { bytes, hash }，用于登记到下一次发行的已知官方哈希列表。
+ * 在临时目录复制脚本源并重新构建一个发行产物。
+ * @param {{version?: string, knownHashes?: string[]}} options 版本号与已知官方旧版哈希
+ * @returns {{path: string, bytes: Buffer, hash: string}} 产物路径、字节与发布形态哈希
  */
-function buildOlderRelease() {
+function buildRelease({ version, knownHashes = [] } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'psm-release-'));
   const scripts = path.join(dir, 'scripts');
   fs.mkdirSync(scripts);
@@ -288,27 +325,15 @@ function buildOlderRelease() {
     fs.copyFileSync(path.resolve(here, '../scripts', name), path.join(scripts, name));
   }
   const info = path.join(scripts, 'release-info.mjs');
-  const source = fs.readFileSync(info, 'utf8');
-  fs.writeFileSync(info, source.replace(/runtimeVersion = '[^']*'/, "runtimeVersion = '0.9.0'"));
-  execFileSync(process.execPath, [path.join(scripts, 'build-runtime.mjs'), '--out-dir', dir], { encoding: 'utf8' });
-  const bytes = fs.readFileSync(path.join(dir, 'runtime-dist', 'psm-cli.js'));
-  return { bytes, hash: sha(bytes), dir };
-}
-
-/**
- * 构造一个把给定哈希登记为「已知官方旧版」的发行产物。
- */
-function buildReleaseWithKnown(knownHash) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'psm-release-'));
-  const scripts = path.join(dir, 'scripts');
-  fs.mkdirSync(scripts);
-  for (const name of fs.readdirSync(path.resolve(here, '../scripts'))) {
-    fs.copyFileSync(path.resolve(here, '../scripts', name), path.join(scripts, name));
+  let source = fs.readFileSync(info, 'utf8');
+  if (version) source = source.replace(/runtimeVersion = '[^']*'/, `runtimeVersion = '${version}'`);
+  if (knownHashes.length) {
+    const list = knownHashes.map((hash) => `  '${hash}',`).join('\n');
+    source = source.replace(/knownRuntimeHashes = \[/, `knownRuntimeHashes = [\n${list}`);
   }
-  const info = path.join(scripts, 'release-info.mjs');
-  const source = fs.readFileSync(info, 'utf8');
-  fs.writeFileSync(info, source.replace(/knownRuntimeHashes = \[/, `knownRuntimeHashes = [\n  '${knownHash}',`));
+  fs.writeFileSync(info, source);
   execFileSync(process.execPath, [path.join(scripts, 'build-runtime.mjs'), '--out-dir', dir], { encoding: 'utf8' });
   const file = path.join(dir, 'runtime-dist', 'psm-cli.js');
-  return { path: file, bytes: fs.readFileSync(file) };
+  const bytes = fs.readFileSync(file);
+  return { path: file, bytes, hash: sha(bytes) };
 }

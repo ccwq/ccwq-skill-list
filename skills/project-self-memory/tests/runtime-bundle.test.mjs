@@ -146,7 +146,45 @@ test('paths with spaces and Chinese characters are handled', () => {
 });
 
 /**
- * Given：一个没有 memory.md 的目录
+ * Given：项目里的运行时副本是指向全局产物的符号链接
+ * When：在无关 cwd 启动该链接
+ * Then：不绑定到该项目（链接不冒充项目独立副本），落到启动 cwd 的记忆库
+ * 防回归：链接被当成项目副本，误读写别的项目的记忆
+ */
+test('a symlinked runtime does not pretend to be a project copy', () => {
+  const project = temp();
+  const link = path.join(project, '.project-self-memory', 'psm-cli.js');
+  fs.mkdirSync(path.dirname(link), { recursive: true });
+  fs.symlinkSync(distribution, link);
+
+  const elsewhere = temp();
+  runIn(elsewhere, link, 'init');
+  assert.ok(fs.existsSync(path.join(elsewhere, '.project-self-memory', 'memory.md')));
+  assert.equal(fs.existsSync(path.join(project, '.project-self-memory', 'memory.md')), false);
+});
+
+/**
+ * Given：项目在 A 目录，正文文件在启动 cwd 下用相对路径给出
+ * When：运行时绑定 A 项目并用相对 --content-file 写入
+ * Then：正文按启动 cwd 解析，不因项目绑定被改写成相对记忆目录
+ * 防回归：新增项目绑定后，相对输入路径被重新解释到别处
+ */
+test('relative content files stay relative to the launch cwd', () => {
+  const project = temp();
+  const deployed = path.join(project, '.project-self-memory', 'psm-cli.js');
+  fs.mkdirSync(path.dirname(deployed), { recursive: true });
+  fs.copyFileSync(distribution, deployed);
+  runIn(project, deployed, 'init');
+
+  const workdir = temp();
+  fs.writeFileSync(path.join(workdir, 'conclusion.txt'), '相对路径正文');
+  const out = execFileSync(process.execPath, [deployed, 'add', '--type', 'fact', '--content-file', 'conclusion.txt'], { encoding: 'utf8', cwd: workdir });
+  assert.equal(out.trim(), '0001');
+  assert.match(fs.readFileSync(path.join(project, '.project-self-memory', 'memory.md'), 'utf8'), /相对路径正文/);
+});
+
+/**
+ * Given：项目里没有 memory.md 的目录
  * When：启动 preview 并读取快照
  * Then：只读诊断说明缺库，且不隐式初始化或写入任何文件
  * 防回归：预览把「检查」变成「建库」

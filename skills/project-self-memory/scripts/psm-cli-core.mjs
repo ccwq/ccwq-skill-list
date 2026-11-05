@@ -341,8 +341,13 @@ min_freshness: ${config.min_freshness}
     }
     fs.mkdirSync(paths().base, { recursive: true });
     const temp = `${target}.psm-${process.pid}.tmp`;
-    fs.writeFileSync(temp, fs.readFileSync(source));
-    fs.renameSync(temp, target);
+    try {
+      fs.writeFileSync(temp, fs.readFileSync(source));
+      fs.renameSync(temp, target);
+    } catch (error) {
+      if (fs.existsSync(temp)) fs.unlinkSync(temp);
+      throw error;
+    }
     console.log(`PSM_RUNTIME_INSTALLED: ${target}`);
   }
   function runtimeStatus() {
@@ -385,8 +390,13 @@ min_freshness: ${config.min_freshness}
     fs.writeFileSync(backup, fs.readFileSync(target));
     if (shaBytes(fs.readFileSync(backup)) !== hash) throw Error('PSM_RUNTIME_REFUSED: 备份校验失败，未替换原文件');
     const temp = `${target}.psm-${process.pid}.tmp`;
-    fs.writeFileSync(temp, fs.readFileSync(source));
-    fs.renameSync(temp, target);
+    try {
+      fs.writeFileSync(temp, fs.readFileSync(source));
+      fs.renameSync(temp, target);
+    } catch (error) {
+      if (fs.existsSync(temp)) fs.unlinkSync(temp);
+      throw error;
+    }
     console.log(`PSM_RUNTIME_UPDATED: ${target}`);
     console.log(`PSM_BACKUP: ${backup}`);
   }
