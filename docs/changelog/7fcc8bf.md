@@ -30,3 +30,4 @@
 - **2026-10-24**：同步上述暂存语义和脚本路径说明，明确 Skill 自身位置与被操作项目根目录不同，避免从当前工作目录误找 CLI。[b04785f](https://github.com/ccwq/ccwq-skill-list/commit/b04785f)
 - **2026-10-26**：增加 `-a` 显式暂存入口，细化任务收尾时机与提示词宿主行为：最终答复前只暂存本次任务已验证的新增结论，报告候选 ID，并说明尚未落库；连用 `-a -c` 时先暂存、再逐条确认。[5426028](https://github.com/ccwq/ccwq-skill-list/commit/5426028)
 - **2026-10-27**：查看器加入暂存区面板及配套服务路由，可以查看、编辑并入、丢弃和清理候选；这是 cache 入库流程的可视化入口，不取消写入安全校验。[5c24779](https://github.com/ccwq/ccwq-skill-list/commit/5c24779) · [48d854c](https://github.com/ccwq/ccwq-skill-list/commit/48d854c) · [c65f7f7](https://github.com/ccwq/ccwq-skill-list/commit/c65f7f7)
+- **2026-11-05**：新增随 Skill 安装的自包含单文件运行时 `runtime-dist/psm-cli.js`，把全部业务命令与 Web 预览合并为一个入口；写明运行时定位契约：按宿主加载位置定位，项目里没有 Skill 目录不等于工具不可用，不再建议把整套 Skill 装进项目。`init` 不再部署任何可执行文件；需要项目独立运行时才显式部署一个 `psm-cli.js`，升级只替换可识别的官方旧产物；旧独立查看器保留原样，其部署与升级命令退出并说明未执行。[d875a50](https://github.com/ccwq/ccwq-skill-list/commit/d875a50) · [6f354b3](https://github.com/ccwq/ccwq-skill-list/commit/6f354b3)
