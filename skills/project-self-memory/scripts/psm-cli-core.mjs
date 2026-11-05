@@ -1,0 +1,987 @@
+#!/usr/bin/env node
+/**
+ * PSM CLI 核心实现（源码维护版）。
+ *
+ * 本文件只导出 createCli 工厂：所有依赖（Node 内建模块、同目录存储模块、
+ * 查看器服务与页面、发行信息）都由调用方显式注入，因此同一份业务实现既能
+ * 被源码入口 scripts/memory.mjs 直接使用，也能被单文件产物 runtime-dist/psm-cli.js
+ * 内联打包，不产生第二套存储逻辑。
+ *
+ * 交付形态与契约见 references/cli-contract.md。
+ */
+export function createCli(deps) {
+  // Node 内建模块。
+  const { fs, path, crypto, process, http } = deps;
+  // 同目录存储模块（命名空间直传，便于 preview 复用同一套核心）。
+  const { store, lock, ledger, tags, cache } = deps;
+  // 查看器服务与页面：preview 直接复用，不另造一套读写核心。
+  const { server, page } = deps;
+  // 发行信息：已知官方产物哈希与版本。
+  const { release } = deps;
+  // 运行形态：bundle 表示当前进程跑的是单文件产物。
+  const { bundle, selfPath } = deps;
+  // 存储模块的具体导出：与源码入口的 import 列表一一对应。
+  const {
+    appendEvent, initializeLedger, inspectLedger, migrateLegacyScores,
+    projectEvents, projectRecord, readLedger, recordVersion, validateLedger,
+  } = ledger;
+  const {
+    GROUP_KEYS, RECORD_KEYS, STATUS, STORE_KEYS, TYPE_LABEL, TYPES,
+    assertContentContract, canonicalId, contentContractErrors, escapeXml, issue,
+    parseStore, serialize, timestamp, validateModel, writeErrors,
+  } = store;
+  const { acquireLockSync, acquireMemoryLockSync, atomicReplace, backupMemoryFile } = lock;
+  const { loadTagTaxonomy, normaliseTaxonomy, tagRecords, suggestTaxonomy } = tags;
+  const {
+    AUTOMATIC_EVIDENCE_KINDS, CACHE_OPS, CACHE_VERSION, PENDING_WARNING_THRESHOLD,
+    cacheEventId, cachePaths, deriveStale, groupEntries, normaliseEntry,
+    normaliseEvidence, payloadFingerprint, readCache, writeCache,
+  } = cache;
+
+  // 参数解析状态：由 run(argv) 每次调用重置。
+  let raw = [];
+  let args = [];
+  let opt = () => null;
+  let has = () => false;
+
+  const CONFIG_DEFAULT = {
+    version: 1, auto_load: true, auto_save: true, auto_rate: true,
+    load_mode: 'relevant', max_context_tokens: 4096, max_records: 24,
+    min_confidence: 0, min_utility: 0, min_freshness: 0,
+  };
+  const die = (message) => { console.error(`PSM_ERROR: ${message}`); process.exit(1); };
+  const json = (data) => console.log(JSON.stringify(data, null, 2));
+  /**
+   * 运行时绑定：单文件产物落在某项目的 .project-self-memory/ 内时，该项目就是
+   * 默认记忆库。用真实路径判定，指向全局产物的链接不会伪装成项目独立副本。
+   */
+  let boundRootCache;
+  function boundProjectRoot() {
+    if (boundRootCache !== undefined) return boundRootCache;
+    boundRootCache = null;
+    try {
+      const real = fs.realpathSync(selfPath);
+      const dir = path.dirname(real);
+      if (path.basename(dir) === '.project-self-memory') boundRootCache = path.dirname(dir);
+    } catch { /* 运行时文件不可读：按未绑定处理 */ }
+    return boundRootCache;
+  }
+  /**
+   * 项目解析优先级：显式 --project-root → 运行时绑定所属项目 → 启动 cwd。
+   * 相对 --project-root 按启动 cwd 解析。
+   */
+  function paths() { const root = path.resolve(opt('--project-root') || boundProjectRoot() || process.cwd()); const base = path.join(root, '.project-self-memory'); return { root, base, memory: path.join(base, 'memory.md'), config: path.join(base, 'config.yaml'), legacy: path.join(root, 'self-memory', 'memory.md') }; }
+  function contentInput() {
+    const file = opt('--content-file');
+    const value = file ? fs.readFileSync(path.resolve(file), 'utf8') : !process.stdin.isTTY ? fs.readFileSync(0, 'utf8') : null;
+    if (!value?.trim()) throw Error('正文必须通过 --content-file 或标准输入提供');
+    // 契约只约束“新正文”：去除外围空白（含文本文件末尾换行）后必须单行。
+    // 历史多行正文与磁盘字节一致地重新提交时走 unchangedFor 路径豁免。
+    assertContentContract(value);
+    return value.trim();
+  }
+
+  /** Same as contentInput but allows resubmitting a record's own on-disk body verbatim. */
+  function contentInputFor(model, recordId) {
+    const file = opt('--content-file');
+    const value = file ? fs.readFileSync(path.resolve(file), 'utf8') : !process.stdin.isTTY ? fs.readFileSync(0, 'utf8') : null;
+    if (!value?.trim()) throw Error('正文必须通过 --content-file 或标准输入提供');
+    const record = model.records.find((item) => item.id === recordId);
+    const next = value.trim();
+    if (record && next === String(record.content || '').trim()) return next; // no-op metadata-style update
+    assertContentContract(value);
+    return next;
+  }
+
+  function loadStore() { const file = paths().memory; if (!fs.existsSync(file)) throw Error('缺少 memory.md；先运行 init'); const model = withBaseline(parseStore(fs.readFileSync(file, 'utf8'))); model.records = tagRecords(model.records, loadTagTaxonomy(paths().root)); return model; }
+  function mustWritable(model) { const errors = writeErrors(model); try { validateLedger(paths().root); } catch (error) { errors.push(issue('evidence', error.message, { impact: 'fatal' })); } if (errors.length) throw Error(`拒绝写入损坏库: ${errors.map((x) => x.message).join('；')}`); }
+
+  /**
+   * Durable write path shared by every CLI command and (via the same factory
+   * sources) the viewer server: lock → re-read → optimistic check → validate →
+   * backup → atomic replace. A model that no longer matches the file on disk is
+   * rejected as PSM_CONFLICT instead of silently overwriting another writer.
+   */
+  function save(model) {
+    mustWritable(model);
+    syncProjections(model);
+    const root = paths().root;
+    const file = paths().memory;
+    const lease = acquireMemoryLockSync(root);
+    try {
+      const onDisk = fs.existsSync(file) ? fs.readFileSync(file) : Buffer.alloc(0);
+      const fresh = onDisk.length ? parseStore(onDisk.toString('utf8')) : null;
+      if (!fresh || !fresh.store) throw Error('拒绝写入损坏库: 加锁后重读失败');
+      // Optimistic concurrency: the model the caller edited must have been read
+      // from this exact file. Compare next_id and per-record identity+content;
+      // a mismatch means an external writer won the race.
+      const before = new Map((fresh.records || []).map((r) => [r.id, `${r.type}|${r.status}|${r.content}`]));
+      const edited = new Map(model.records.map((r) => [r.id, `${r.type}|${r.status}|${r.content}`]));
+      const overlap = [...edited.keys()].filter((id) => before.has(id));
+      const changedOverlap = overlap.filter((id) => before.get(id) !== edited.get(id));
+      const removed = [...before.keys()].filter((id) => !edited.has(id));
+      const baselineKnown = model.__baseline === shaBytes(onDisk);
+      if (!baselineKnown) {
+        // 保守策略（规格）：基线外任何字段（next_id、分组、分配、其他记录）被外部
+        // 改动都返回冲突，而不是自动合并。
+        const diverged = [];
+        if (String(fresh.store.next_id) !== String(model.store.next_id)) diverged.push('next_id');
+        const groupShape = (m) => JSON.stringify(m.groups || []) + '|' + (m.store.group_dimension || '');
+        if (groupShape(fresh) !== groupShape(model)) diverged.push('groups');
+        const freshAssign = new Map((fresh.records || []).map((r) => [r.id, r.group || null]));
+        const assignChanged = model.records.filter((r) => freshAssign.has(r.id) && freshAssign.get(r.id) !== (r.group || null)).map((r) => r.id);
+        if (assignChanged.length) diverged.push(`分组归属 ${assignChanged.join(', ')}`);
+        if (diverged.length || changedOverlap.length || removed.length) {
+          throw Error(`PSM_CONFLICT: memory.md 已被外部修改（${changedOverlap.concat(removed, diverged).join(', ') || '?'}）；重读后重试`);
+        }
+      }
+      const bytes = Buffer.from(serialize(model), 'utf8');
+      if (onDisk.equals(bytes)) return false; // no change: no backup, no rewrite
+      const backup = backupMemoryFile(root, onDisk);
+      atomicReplace(file, bytes);
+      process.env.PSM_QUIET || console.error(`PSM_BACKUP: ${backup.file}`);
+      return true;
+    } finally {
+      lease.release();
+    }
+  }
+
+  /** Stamp the baseline digest on a freshly loaded model (see save). */
+  function withBaseline(model) { model.__baseline = shaBytes(fs.readFileSync(paths().memory)); return model; }
+
+  /**
+   * 乐观并发预检：模型基线必须仍与磁盘一致。
+   * 用于「先写账本、后写记忆库」这类顺序：先在这里挡住并发改动，
+   * 避免校验失败时账本已被改写。
+   */
+  function assertBaselineFresh(model) {
+    const file = paths().memory;
+    if (!fs.existsSync(file)) throw Error('PSM_CONFLICT: memory.md 已不存在；重读后重试');
+    if (model.__baseline !== shaBytes(fs.readFileSync(file))) {
+      throw Error('PSM_CONFLICT: memory.md 已被外部修改；重读后重试');
+    }
+  }
+  function shaBytes(bytes) { return crypto.createHash('sha256').update(bytes).digest('hex'); }
+  function find(model, id) { const record = model.records.find((x) => x.id === id); if (!record) throw Error(`不存在记录: ${id}`); return record; }
+  function newId(model) { const id = model.store.next_id; model.store.next_id = (BigInt(id) + 1n).toString().padStart(id.length, '0'); return id; }
+
+  // positive/negative/last_scored_at are compatibility projections.  The ledger
+  // remains the only source of truth, including when an unrelated record is
+  // written after an external evidence append.
+  function syncProjections(model) {
+    const ledger = readLedger(paths().root);
+    for (const record of model.records) {
+      const projection = projectEvents(ledger.events, record.id, recordVersion(record));
+      record.positive = projection.positive;
+      record.negative = projection.negative;
+      record.last_scored_at = projection.last_scored_at;
+    }
+    return model;
+  }
+
+  function configText(config) { return `# project-self-memory 自动化配置，仅控制行为，不保存经验。
+# 请通过 memory.mjs config 命令修改；未知、重复或非法值会使自动行为 fail-closed。
+
+# Given：配置格式需要与当前运行时兼容。
+# When：init、config reset 或 config repair 生成文件。
+# Then：必须为 1；其他版本拒绝自动加载、保存和评分。
+# 防回归：旧/未来 schema 被静默当作可用配置。
+# 取值：固定为 1。参考值：1。
+version: ${config.version}
+
+# Given：任务开始且 store/ledger 校验通过。
+# When：auto_load 为 true。
+# Then：按 load_mode 和预算选择记忆；false 时不读取正文、不注入上下文。
+# 防回归：关闭加载后 sentinel 仍进入 Agent payload。
+# 取值：true | false。参考值：true；敏感或零上下文任务用 false。
+auto_load: ${config.auto_load}
+
+# Given：宿主显式提交且已确认的保存候选。
+# When：auto_save 为 true。
+# Then：仅把 verified、isNew、conflictFree 的 host 候选暂存到 cache；不直接写记忆库。
+# 防回归：Agent 自报 conclusion 或未验证内容被自动写入。
+# 取值：true | false。参考值：true；只读任务用 false。
+auto_save: ${config.auto_save}
+
+# Given：当前任务已加载某条记忆，宿主提交直接、可归因的结果。
+# When：auto_rate 为 true。
+# Then：把带方向的证据暂存为 cache 投票候选；不直接追加 evidence。
+# 防回归：重试刷分、Agent 自述或旧版本证据改变当前分数。
+# 取值：true | false。参考值：true；人工审核优先时用 false。
+auto_rate: ${config.auto_rate}
+
+# Given：auto_load 为 true。
+# When：开始选择记忆。
+# Then：off 不加载；relevant 仅加载相关记录；all 仅允许显式 maintenance/diagnostic 任务。
+# 防回归：损坏配置或普通任务静默退回全量加载。
+# off 特点：上下文占用为 0；适合敏感、纯业务或明确禁用记忆的任务。
+# relevant 特点：先做相关性、质量和预算筛选；适合绝大多数日常任务，能减少无关历史。
+# all 特点：读取所有 active 记录，排障/人工维护可完整查看；上下文成本最高，普通任务不可隐式启用。
+# 取值：off | relevant | all。参考值：relevant。
+load_mode: ${config.load_mode}
+
+# Given：相关候选多于上下文可容纳内容。
+# When：生成最终 Agent payload。
+# Then：估算 token 总量不得超过此上限。
+# 防回归：单次任务把全部历史记忆塞进上下文。
+# 取值：正整数。参考值：4096；紧凑任务可用 1024 或 2048。
+max_context_tokens: ${config.max_context_tokens}
+
+# Given：通过相关性和质量门槛的记录多于需要。
+# When：选择最终记忆列表。
+# Then：选中记录数不得超过此上限。
+# 防回归：短记录绕过 token 限制造成上下文主题过多。
+# 取值：正整数。参考值：24；小任务可用 8 或 12。
+max_records: ${config.max_records}
+
+# Given：记录与当前任务相关。
+# When：判断其当前版本是否有足够验证支持。
+# Then：confidence 低于此阈值时排除并写入 selection audit。
+# 防回归：低样本偶然成功压过长期已验证记录。
+# 取值：0..1。参考值：0；需要更保守筛选时可用 0.25 或 0.5。
+min_confidence: ${config.min_confidence}
+
+# Given：记录与当前任务相关且具有当前版本评分。
+# When：判断其历史实际使用价值。
+# Then：utility 低于此阈值时排除并写入 selection audit。
+# 防回归：历史上无效的记忆仅因相关而持续占用上下文。
+# 取值：0..1。参考值：0；需要效果门槛时可用 0.25 或 0.5。
+min_utility: ${config.min_utility}
+
+# Given：记录属于会随时间变化的事实、经验或避坑。
+# When：判断其是否仍可能有效。
+# Then：freshness 低于此阈值时排除或进入复核；决策/约束不会仅因时间自动失效。
+# 防回归：过时高分事实持续进入任务上下文。
+# 取值：0..1。参考值：0；易变项目可用 0.25 或 0.5。
+min_freshness: ${config.min_freshness}
+  `; }
+  function parseConfig(text, allowMissing = false) {
+    const out = {}; const errors = [];
+    const integerKeys = new Set(['max_context_tokens', 'max_records']);
+    const floatKeys = new Set(['min_confidence', 'min_utility', 'min_freshness']);
+    for (const [index, line] of text.split(/\r?\n/).entries()) {
+      const s = line.trim(); if (!s || s.startsWith('#')) continue;
+      const m = s.match(/^([a-z_]+):\s*(\S+)\s*$/);
+      if (!m || !Object.hasOwn(CONFIG_DEFAULT, m[1]) || Object.hasOwn(out, m[1])) {
+        errors.push(issue('config', `配置非法、重复或未知键: ${s}`, { line: index + 1, impact: 'fatal' })); continue;
+      }
+      const [key, value] = [m[1], m[2]];
+      if (key === 'version') out[key] = Number(value);
+      else if (key.startsWith('auto_')) {
+        if (value !== 'true' && value !== 'false') errors.push(issue('config', `布尔值只能为 true/false: ${key}`, { line: index + 1, impact: 'fatal' }));
+        else out[key] = value === 'true';
+      } else if (key === 'load_mode') {
+        if (!['off', 'relevant', 'all'].includes(value)) errors.push(issue('config', `load_mode 只能为 off/relevant/all`, { line: index + 1, impact: 'fatal' }));
+        else out[key] = value;
+      } else if (integerKeys.has(key)) {
+        const parsed = Number(value);
+        if (!Number.isSafeInteger(parsed) || parsed < 1 || parsed > 10000000) errors.push(issue('config', `${key} 必须是 1..10000000 的安全整数`, { line: index + 1, impact: 'fatal' }));
+        else out[key] = parsed;
+      } else if (floatKeys.has(key)) {
+        const parsed = Number(value);
+        if (!Number.isFinite(parsed) || parsed < 0 || parsed > 1) errors.push(issue('config', `${key} 必须是 0..1 的数字`, { line: index + 1, impact: 'fatal' }));
+        else out[key] = parsed;
+      }
+    }
+    if (out.version !== undefined && out.version !== 1) errors.push(issue('config', 'version 必须为 1', { impact: 'fatal' }));
+    const missing = Object.keys(CONFIG_DEFAULT).filter((key) => !Object.hasOwn(out, key));
+    if (!allowMissing && missing.length) errors.push(issue('config', `缺少配置键: ${missing.join(', ')}`, { impact: 'repairable' }));
+    return { config: { ...CONFIG_DEFAULT, ...out }, errors, missing };
+  }
+  function loadConfig() { const file = paths().config; if (!fs.existsSync(file)) return { config: CONFIG_DEFAULT, errors: [issue('config', '缺少 config.yaml', { impact: 'repairable' })], missing: Object.keys(CONFIG_DEFAULT) }; return parseConfig(fs.readFileSync(file, 'utf8')); }
+  function initialize() { const p = paths(); fs.mkdirSync(p.base, { recursive: true }); if (!fs.existsSync(p.config)) fs.writeFileSync(p.config, configText(CONFIG_DEFAULT)); if (!fs.existsSync(p.memory)) fs.writeFileSync(p.memory, '<!-- <psm-store version="1" next_id="0001" group_dimension="" /> -->\n'); initializeLedger(p.root); ensureCacheIgnored(p.root); console.log('PSM_INITIALIZED'); }
+
+  // --- 项目运行时部署与升级 -----------------------------------------------
+  // 运行时是单个自包含文件 psm-cli.js，承载全部业务命令与 preview。部署与升级
+  // 都需要用户明确要求：普通 init/read/validate/preview 不构成部署授权。
+  // 官方识别基于「发行文件字节哈希」，不信任待更新文件自报版本；哈希只用于
+  // 识别已知产物，不是可独立认证来源的签名机制。
+  const RUNTIME_FILE = 'psm-cli.js';
+
+  /**
+   * 官方产物以 LF 形态发布。哈希按发布形态计算：先归一化行尾再取摘要，
+   * 避免 Windows 检出（autocrlf）把 CRLF 副本误判成非官方内容。
+   */
+  function publishedSha(file) {
+    return shaBytes(Buffer.from(fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n'), 'utf8'));
+  }
+
+  /** 官方发行物位置：单文件产物自身；源码入口指向同一发行目录的构建产物。 */
+  function distributionPath() {
+    return bundle
+      ? path.resolve(selfPath)
+      : path.resolve(path.dirname(selfPath), '..', 'runtime-dist', RUNTIME_FILE);
+  }
+  function runtimeTarget() { return path.join(paths().base, RUNTIME_FILE); }
+  function knownRuntimeHashes() { return (release && release.knownRuntimeHashes) || []; }
+  function currentRuntimeHash() {
+    const source = distributionPath();
+    return fs.existsSync(source) ? publishedSha(source) : null;
+  }
+  function runtimeState() {
+    const target = runtimeTarget();
+    const stat = fs.lstatSync(target, { throwIfNoEntry: false });
+    if (!stat) return { exists: false, symlink: false, hash: null, official: false, up_to_date: false };
+    const symlink = stat.isSymbolicLink();
+    const hash = stat.isFile() && !symlink ? publishedSha(target) : null;
+    const current = currentRuntimeHash();
+    const official = hash ? (hash === current || knownRuntimeHashes().includes(hash)) : false;
+    return { exists: true, symlink, hash, official, up_to_date: hash !== null && hash === current };
+  }
+  function runtimeInstall() {
+    const source = distributionPath();
+    if (!fs.existsSync(source)) throw Error(`PSM_RUNTIME_REFUSED: 发行产物缺失 ${source}；请先构建 runtime-dist/${RUNTIME_FILE}`);
+    const target = runtimeTarget();
+    const stat = fs.lstatSync(target, { throwIfNoEntry: false });
+    if (stat) {
+      if (stat.isSymbolicLink()) throw Error('PSM_RUNTIME_REFUSED: 目标是符号链接，拒绝写入');
+      const hash = stat.isFile() ? publishedSha(target) : null;
+      if (hash && hash === currentRuntimeHash()) { console.log('PSM_RUNTIME_CURRENT: 已是当前官方产物，无需变更'); return; }
+      throw Error('PSM_RUNTIME_REFUSED: 目标已存在且不是当前官方产物，保持原样；请使用 runtime update（仅升级官方旧版）或人工处理');
+    }
+    fs.mkdirSync(paths().base, { recursive: true });
+    const temp = `${target}.psm-${process.pid}.tmp`;
+    fs.writeFileSync(temp, fs.readFileSync(source));
+    fs.renameSync(temp, target);
+    console.log(`PSM_RUNTIME_INSTALLED: ${target}`);
+  }
+  function runtimeStatus() {
+    const state = runtimeState();
+    const diagnostics = [];
+    if (!state.exists) diagnostics.push('项目尚未部署运行时副本');
+    else if (state.symlink) diagnostics.push('目标是符号链接，不视为项目独立副本');
+    else if (!state.official) diagnostics.push('目标内容与已知官方产物哈希不符（可能是本地修改）');
+    else if (!state.up_to_date) diagnostics.push('目标是官方旧版，可显式升级');
+    json({
+      exists: state.exists,
+      symlink: state.symlink,
+      hash: state.hash,
+      official: state.official,
+      up_to_date: state.up_to_date,
+      target: runtimeTarget(),
+      distribution: distributionPath(),
+      runtime_version: (release && release.runtimeVersion) || null,
+      diagnostics,
+    });
+  }
+  function runtimeUpdate() {
+    const source = distributionPath();
+    if (!fs.existsSync(source)) throw Error(`PSM_RUNTIME_REFUSED: 发行产物缺失 ${source}；请先构建 runtime-dist/${RUNTIME_FILE}`);
+    const target = runtimeTarget();
+    const stat = fs.lstatSync(target, { throwIfNoEntry: false });
+    if (!stat) throw Error('PSM_RUNTIME_REFUSED: 项目未部署运行时副本；请先运行 runtime install');
+    if (stat.isSymbolicLink()) throw Error('PSM_RUNTIME_REFUSED: 目标是符号链接，拒绝覆盖');
+    if (!stat.isFile()) throw Error('PSM_RUNTIME_REFUSED: 目标不是普通文件，拒绝覆盖');
+    const hash = publishedSha(target);
+    const current = currentRuntimeHash();
+    if (hash === current) { console.log('PSM_RUNTIME_CURRENT: 已是当前官方产物，无需变更'); return; }
+    if (!knownRuntimeHashes().includes(hash)) {
+      throw Error('PSM_RUNTIME_REFUSED: 目标不是已知官方旧产物（可能已本地修改），拒绝覆盖');
+    }
+    // 先备份再原子替换：备份或准备阶段失败时原文件保持不变。
+    const backups = path.join(paths().base, 'backups');
+    fs.mkdirSync(backups, { recursive: true });
+    const backup = path.join(backups, `psm-cli-${hash.slice(0, 12)}.js`);
+    fs.writeFileSync(backup, fs.readFileSync(target));
+    if (shaBytes(fs.readFileSync(backup)) !== hash) throw Error('PSM_RUNTIME_REFUSED: 备份校验失败，未替换原文件');
+    const temp = `${target}.psm-${process.pid}.tmp`;
+    fs.writeFileSync(temp, fs.readFileSync(source));
+    fs.renameSync(temp, target);
+    console.log(`PSM_RUNTIME_UPDATED: ${target}`);
+    console.log(`PSM_BACKUP: ${backup}`);
+  }
+  function runtimeCommand() {
+    const sub = args[1] || 'status';
+    if (sub === 'install') return runtimeInstall();
+    if (sub === 'status') return runtimeStatus();
+    if (sub === 'update') return runtimeUpdate();
+    throw Error('未知 runtime 子命令');
+  }
+
+  // --- preview（统一 Web 查看器入口）---------------------------------------
+  // 复用既有查看器服务与页面：同一套存储核心、锁、备份、乐观并发与安全边界。
+  // 缺库或损坏库保持只读诊断，不隐式 init、修复或迁移。
+  async function preview() {
+    const portFlag = args.indexOf('--port');
+    const port = portFlag >= 0 ? Number(args[portFlag + 1]) : 0;
+    if (!Number.isInteger(port) || port < 0 || port > 65535) {
+      console.error('PSM_VIEWER_ERROR: --port 必须是 0..65535 的整数');
+      process.exit(1);
+    }
+    // 默认用系统默认浏览器打开带令牌的地址；--no-open 或 PSM_VIEWER_OPEN=0 禁止，
+    // PSM_VIEWER_OPEN=echo 只打印地址（无头环境与测试诊断用）。
+    const openMode = process.env.PSM_VIEWER_OPEN === 'echo'
+      ? 'echo'
+      : (args.includes('--no-open') || process.env.PSM_VIEWER_OPEN === '0' ? '' : 'open');
+    const root = paths().root;
+    const token = crypto.randomBytes(32).toString('hex');
+    const { server: httpServer } = server.createViewerServer({
+      fs, path, crypto, http, store, lock, ledger, tags, cache,
+      projectRoot: root, token, pageHtml: page.VIEWER_PAGE_HTML,
+    });
+    try {
+      await new Promise((resolve, reject) => {
+        httpServer.once('error', reject);
+        httpServer.listen(port, '127.0.0.1', resolve);
+      });
+    } catch (error) {
+      console.error(`PSM_VIEWER_ERROR: ${error.code === 'EADDRINUSE' ? '端口被占用' : error.message}`);
+      process.exit(1);
+    }
+    const url = 'http://127.0.0.1:' + httpServer.address().port + '/#token=' + token;
+    console.log('PSM_VIEWER_URL: ' + url);
+    console.log('记忆目录: ' + path.join(root, '.project-self-memory'));
+    console.log('只监听本机回环；停止服务请按 Ctrl+C。');
+    if (openMode) launchBrowser(url, openMode);
+    return new Promise(() => {}); // 前台长驻：由 HTTP 服务持有事件循环
+  }
+  function launchBrowser(url, openMode) {
+    if (openMode === 'echo') { console.log('PSM_VIEWER_OPEN_URL: ' + url); return; }
+    const command = process.platform === 'win32'
+      ? ['cmd', ['/c', 'start', '""', url]]
+      : process.platform === 'darwin'
+        ? ['open', [url]]
+        : ['xdg-open', [url]];
+    import('node:child_process').then(({ spawn }) => {
+      const child = spawn(command[0], command[1], { detached: true, stdio: 'ignore', shell: false });
+      child.on('error', () => console.log('PSM_VIEWER_OPEN_FAILED: 请手动复制上方地址到浏览器'));
+      child.unref();
+    }).catch(() => console.log('PSM_VIEWER_OPEN_FAILED: 请手动复制上方地址到浏览器'));
+  }
+
+  // --- 旧独立查看器（保留兼容，不再部署）---------------------------------
+  // 旧产物 view-memoery.js 原字节保留、可自行运行；新版 init 不再部署它，
+  // 写命令进入弃用分支并明确未执行，不以其它部署冒充成功。
+  function legacyViewerSource() {
+    return path.resolve(path.dirname(selfPath), '..', 'viewer-dist', 'view-memoery.js');
+  }
+  function legacyViewerState() {
+    const target = path.join(paths().base, 'view-memoery.js');
+    const source = legacyViewerSource();
+    const current = fs.existsSync(source) ? publishedSha(source) : null;
+    const stat = fs.lstatSync(target, { throwIfNoEntry: false });
+    if (!stat) return { exists: false, symlink: false, hash: null, official: false, current, up_to_date: false };
+    const symlink = stat.isSymbolicLink();
+    const hash = stat.isFile() && !symlink ? publishedSha(target) : null;
+    const official = hash ? ((release && release.knownViewerHashes) || []).includes(hash) : false;
+    return { exists: true, symlink, hash, official, current, up_to_date: hash !== null && current !== null && hash === current };
+  }
+  function viewerCommand() {
+    const sub = args[1] || 'status';
+    if (sub === 'status') {
+      const state = legacyViewerState();
+      const diagnostics = ['旧独立查看器部署已弃用：统一 preview 无需部署脚本'];
+      if (state.exists && !state.official) diagnostics.push('旧查看器内容与已知官方产物哈希不符，无法判定官方版本');
+      return json({ ...state, deprecated: true, diagnostics });
+    }
+    if (sub === 'install' || sub === 'update') {
+      console.error('PSM_VIEWER_DEPRECATED: 旧独立查看器部署/升级已弃用，未执行任何变更');
+      console.error('迁移方向：用 preview 启动统一查看器（无需部署）；确需项目独立运行时用 runtime install。');
+      process.exit(1);
+    }
+    throw Error('未知 viewer 子命令');
+  }
+
+  function validate() { const config = loadConfig(); let store; try { store = loadStore(); validateLedger(paths().root); } catch (e) { die(e.message); } const errors = [...config.errors, ...validateModel(store)]; if (errors.length) die(errors.map((x) => `${x.kind}: ${x.message}`).join('\n')); console.log('PSM_VALID'); }
+  function diagnose() { const config = loadConfig(); let model; let evidenceError = null; try { model = loadStore(); try { validateLedger(paths().root); } catch (error) { evidenceError = issue('evidence', error.message, { impact: 'fatal' }); } } catch (e) { return json({ config: config.errors, store: [issue('store', e.message, { impact: 'fatal' })], group: [], record: [], legacy: [], evidence: [], valid_records: 0, write_safe: false }); } const errors = writeErrors(model); if (evidenceError) errors.push(evidenceError); const by = (kind) => errors.filter((x) => x.kind === kind); const badIds = new Set(by('record').map((x) => x.id)); json({ config: config.errors, store: by('store'), group: by('group'), record: by('record'), legacy: model.legacy.map((content, index) => ({ line: index + 1, content })), evidence: by('evidence'), tags: loadTagTaxonomy(paths().root).diagnostics, valid_records: Math.max(0, model.records.filter((x) => !badIds.has(x.id)).length), write_safe: errors.length === 0 }); }
+  function read() { const model = loadStore(); const ledger = readLedger(paths().root); const errors = validateModel(model); if (errors.some((x) => x.impact === 'fatal')) die(errors.map((x) => x.message).join('；')); const invalid = new Set(errors.filter((x) => x.kind === 'record').map((x) => x.id)); const wanted = new Set((opt('--ids') || '').split(',').filter(Boolean)); const wantedGroups = new Set((opt('--group') || '').split(',').filter(Boolean)); const wantedTags = new Set((opt('--tag') || '').split(',').filter(Boolean)); const type = opt('--type'); const visible = model.records.filter((x) => x.status === 'active' && !invalid.has(x.id) && (!wantedTags.size || x.tags.some((tag) => wantedTags.has(tag))) && (!wanted.size || wanted.has(x.id)) && (!wantedGroups.size || wantedGroups.has(x.group)) && (!type || x.type === type)); let lastGroup = Symbol('none'); for (const record of visible) { const version = recordVersion(record); const projection = projectEvents(ledger.events, record.id, version); if (record.group !== lastGroup) { const group = model.groups.find((x) => x.id === record.group); if (group) console.log(`## ${group.title}`); lastGroup = record.group; } console.log(`[${record.id}][${TYPE_LABEL[record.type]}] ${record.content}`); } }
+  function add() { const type = opt('--type'); if (!TYPES.has(type)) throw Error('--type 必须是合法类型'); const model = loadStore(); mustWritable(model); const group = opt('--group'); if (group && !model.groups.some((x) => x.id === group)) throw Error(`未知分组: ${group}`); const id = newId(model); model.records.push({ id, type, status: 'active', positive: 0, negative: 0, created_at: timestamp(), last_scored_at: '', content: contentInput(), group }); save(model); console.log(id); }
+  function update() {
+    const model = loadStore(); mustWritable(model); const record = find(model, args[1]);
+    const old = projectRecord(paths().root, record);
+    record.content = contentInputFor(model, record.id);
+    if (has('--keep-score')) {
+      appendEvent(paths().root, {
+        record_id: record.id,
+        record_version: recordVersion(record),
+        task_id: `manual-${process.pid}`,
+        kind: 'projection_repair',
+        source: 'system',
+        projection: { positive: old.positive, negative: old.negative },
+      });
+    } else {
+      record.positive = 0; record.negative = 0; record.last_scored_at = '';
+    }
+    save(model); console.log(record.id);
+  }
+  function score(mode) {
+    const model = loadStore();
+    mustWritable(model);
+    const record = find(model, args[1]);
+    const version = recordVersion(record);
+    const common = { record_id: record.id, record_version: version, task_id: opt('--task-id') || `manual-${process.pid}`, event_id: opt('--event-id') || undefined, observed_at: opt('--observed-at') || undefined };
+    let input;
+    if (mode === 'reset') {
+      input = { ...common, kind: 'projection_reset', source: 'system' };
+    } else if (mode === 'repair') {
+      const positive = Number(opt('--positive')); const negative = Number(opt('--negative'));
+      if (!Number.isSafeInteger(positive) || positive < 0 || !Number.isSafeInteger(negative) || negative < 0) throw Error('评分必须为非负整数');
+      input = { ...common, kind: 'projection_repair', source: 'system', projection: { positive, negative } };
+    } else {
+      const vote = args[2];
+      if (vote !== '+1' && vote !== '-1') throw Error('日常评分只接受 +1 或 -1');
+      input = { ...common, kind: vote === '+1' ? 'human_positive' : 'human_negative', source: 'manual' };
+    }
+    appendEvent(paths().root, input);
+    save(model);
+    json(projectRecord(paths().root, record));
+  }
+  function merge() {
+    const model = loadStore(); mustWritable(model);
+    const keep = opt('--keep'); const remove = opt('--remove');
+    if (!keep || !remove || keep === remove) throw Error('merge 的 keep 与 remove 必须为两个不同 ID');
+    if (BigInt(keep) >= BigInt(remove)) throw Error('keep 必须是较早的永久 ID');
+    const record = find(model, keep); const removed = find(model, remove);
+    const keepVersion = recordVersion(record); const removedVersion = recordVersion(removed);
+    record.content = contentInputFor(model, keep); record.positive = 0; record.negative = 0; record.last_scored_at = '';
+    const mergedVersion = recordVersion(record);
+    appendEvent(paths().root, {
+      event_id: `merge-${keep}-${remove}-${mergedVersion.slice(0, 16)}`,
+      record_id: keep, record_version: mergedVersion, task_id: `merge-${keep}-${remove}`,
+      kind: 'merge_lineage', source: 'system', lineage: [
+        { record_id: keep, record_version: keepVersion },
+        { record_id: remove, record_version: removedVersion },
+      ],
+    });
+    model.records = model.records.filter((x) => x.id !== remove); save(model); console.log(keep);
+  }
+  /** Explicit taxonomy writes share the memory lock; never serialize the main store. */
+  function saveTaxonomy(makeNext) {
+    const p = paths();
+    const lease = acquireMemoryLockSync(p.root);
+    try {
+      const target = path.join(p.base, 'tags.json');
+      if (fs.existsSync(target) && fs.lstatSync(target).isSymbolicLink()) throw Error('拒绝替换 tags.json 符号链接');
+      const current = loadTagTaxonomy(p.root);
+      const next = normaliseTaxonomy(makeNext(current));
+      const bytes = Buffer.from(JSON.stringify(next, null, 2) + '\n');
+      if (bytes.length > 1024 * 1024) throw Error('tags.json 超过 1 MiB，拒绝写入');
+      if (fs.existsSync(target)) {
+        const original = fs.readFileSync(target);
+        if (original.equals(bytes)) return false;
+        const backups = path.join(p.base, 'backups');
+        fs.mkdirSync(backups, { recursive: true });
+        const backup = path.join(backups, `tags-${crypto.randomUUID()}.json`);
+        fs.writeFileSync(backup, original, { flag: 'wx' });
+        if (!fs.readFileSync(backup).equals(original)) throw Error('标签备份校验失败');
+      }
+      atomicReplace(target, bytes);
+      return true;
+    } finally { lease.release(); }
+  }
+  function tagCatalog(records) {
+    const counts = new Map();
+    for (const record of records) for (const tag of record.tags || []) counts.set(tag, (counts.get(tag) || 0) + 1);
+    return [...counts].sort(([a], [b]) => a.localeCompare(b, 'en')).map(([name, count]) => ({ name, count }));
+  }
+  function tagsCommand() {
+    const sub = args[1] || 'show';
+    const model = loadStore();
+    const loaded = loadTagTaxonomy(paths().root);
+    if (sub === 'show') return json(loaded);
+    if (sub === 'suggest') return json(suggestTaxonomy(model.records, loaded));
+    if (sub === 'stats') return json({ total_records: model.records.length, tagged_records: model.records.filter((r) => r.tags.length).length, tags: tagCatalog(model.records), diagnostics: loaded.diagnostics });
+    mustWritable(model);
+    if (sub === 'apply') {
+      if (!opt('--plan-file')) throw Error('缺少 --plan-file');
+      const plan = normaliseTaxonomy(JSON.parse(fs.readFileSync(path.resolve(opt('--plan-file')), 'utf8')));
+      if (Object.keys(plan.overrides).some((id) => !model.records.some((record) => record.id === id))) throw Error('override 引用未知记录');
+      return json({ applied: saveTaxonomy(() => plan) });
+    }
+    if (sub === 'set') {
+      find(model, args[2]);
+      if (!has('--add') && !has('--remove')) throw Error('必须提供 --add 或 --remove');
+      const add = (opt('--add') || '').split(',').filter(Boolean);
+      const remove = (opt('--remove') || '').split(',').filter(Boolean);
+      return json({ applied: saveTaxonomy((current) => {
+        if (!current.enabled) throw Error('分类标准损坏；先用 tags apply 显式修复');
+        const next = current.taxonomy;
+        const prior = next.overrides[args[2]] || { add: [], remove: [] };
+        next.overrides[args[2]] = {
+          add: [...new Set([...prior.add.filter((tag) => !remove.includes(tag)), ...add])],
+          remove: [...new Set([...prior.remove.filter((tag) => !add.includes(tag)), ...remove])],
+        };
+        return next;
+      }) });
+    }
+    throw Error('未知 tags 子命令');
+  }
+
+  function groups() { const sub = args[1]; const model = loadStore(); mustWritable(model); if (sub === 'show') return json({ dimension: model.store.group_dimension, groups: model.groups }); if (sub === 'apply') { const plan = JSON.parse(fs.readFileSync(path.resolve(opt('--plan-file')), 'utf8')); if (!plan.group_dimension || !Array.isArray(plan.groups) || !plan.assignments || typeof plan.assignments !== 'object') throw Error('分组计划必须包含非空 group_dimension、groups、assignments'); const ids = new Set(); for (const g of plan.groups) { if (!g || !/^[a-z0-9][a-z0-9-]*$/.test(g.id) || !g.title || !g.scope || ids.has(g.id)) throw Error('分组计划含非法或重复 group'); ids.add(g.id); } const old = new Set(model.groups.map((x) => x.id)); if ([...old].some((id) => !ids.has(id))) throw Error('groups apply 不得删除既有稳定 group ID'); const recordIds = new Set(model.records.map((x) => x.id)); if (Object.keys(plan.assignments).length !== recordIds.size || Object.keys(plan.assignments).some((id) => !recordIds.has(id))) throw Error('assignments 必须完整且仅覆盖现存记录'); for (const id of recordIds) { const target = plan.assignments[id]; if (target !== null && !ids.has(target)) throw Error(`记录 ${id} 指向未知分组`); } model.groups = plan.groups; model.store.group_dimension = plan.group_dimension; for (const record of model.records) record.group = plan.assignments[record.id]; save(model); return console.log('PSM_GROUPS_APPLIED'); } if (sub === 'rename') { const group = model.groups.find((x) => x.id === args[2]); if (!group) throw Error('未知分组'); group.title = opt('--title') || group.title; group.scope = opt('--scope') || group.scope; save(model); return console.log('PSM_GROUP_RENAMED'); } if (sub === 'move') { const target = opt('--to'); if (target !== null && !model.groups.some((x) => x.id === target)) throw Error('未知目标分组'); for (const id of (opt('--ids') || '').split(',').filter(Boolean)) find(model, id).group = target; save(model); return console.log('PSM_GROUP_MOVED'); } throw Error('未知 groups 子命令'); }
+  function sha(bytes) { return crypto.createHash('sha256').update(bytes).digest('hex'); }
+  function legacySource() {
+    const file = paths().legacy; const bytes = fs.existsSync(file) ? fs.readFileSync(file) : Buffer.alloc(0);
+    const text = bytes.toString('utf8'); const split = /(?:\r?\n)[ \t]*(?:\r?\n)/g; const items = []; let start = 0; let match;
+    while ((match = split.exec(text))) { const raw = text.slice(start, match.index); if (raw.trim()) { const begin = Buffer.byteLength(text.slice(0, start)); const end = Buffer.byteLength(text.slice(0, match.index)); const segment = bytes.subarray(begin, end); items.push({ start: begin, end, bytes: segment, source_hash: sha(segment) }); } start = match.index + match[0].length; }
+    const tail = text.slice(start); if (tail.trim()) { const begin = Buffer.byteLength(text.slice(0, start)); items.push({ start: begin, end: bytes.length, bytes: bytes.subarray(begin), source_hash: sha(bytes.subarray(begin)) }); }
+    return { bytes, snapshot: sha(bytes), items };
+  }
+  function writePrepared(file, bytes) { const temp = `${file}.psm-${process.pid}-${Date.now()}.tmp`; fs.writeFileSync(temp, bytes); return temp; }
+  function legacy() { const sub = args[1]; const source = legacySource(); if (sub === 'scan') return json({ snapshot: source.snapshot, items: source.items.map((item, i) => ({ temporary_id: `U${String(i + 1).padStart(3, '0')}`, source_hash: item.source_hash, content: item.bytes.toString('utf8') })) }); if (sub !== 'migrate') throw Error('未知 legacy 子命令'); const plan = JSON.parse(fs.readFileSync(path.resolve(opt('--plan-file')), 'utf8')); if (plan.snapshot !== source.snapshot || !Array.isArray(plan.items)) throw Error('legacy 计划快照不匹配或缺少 items'); const seen = new Set();
+    for (const item of plan.items) { const index = Number(String(item.temporary_id).slice(1)) - 1; const sourceItem = source.items[index]; if (!/^U\d{3,}$/.test(item.temporary_id) || seen.has(item.temporary_id)) throw Error('temporary_id 必须唯一'); seen.add(item.temporary_id); if (!sourceItem || sourceItem.source_hash !== item.source_hash) throw Error(`legacy 原始范围或 hash 不匹配: ${item.temporary_id}`); }
+    const model = loadStore(); mustWritable(model); const removed = []; const result = [];
+    for (const item of plan.items) { const index = Number(item.temporary_id.slice(1)) - 1; if (!TYPES.has(item.type) || !item.content || (item.group && !model.groups.some((x) => x.id === item.group))) { result.push({ temporary_id: item.temporary_id, ok: false, reason: '类型、正文或分组非法' }); continue; }
+      const contractErrors = contentContractErrors(item.content);
+      if (contractErrors.length) { result.push({ temporary_id: item.temporary_id, ok: false, reason: `新正文不符合单行契约：${contractErrors.join('；')}` }); continue; }
+      const id = newId(model); model.records.push({ id, type: item.type, status: 'active', positive: 0, negative: 0, created_at: timestamp(), last_scored_at: '', content: String(item.content).trim(), group: item.group || null }); removed.push(source.items[index]); result.push({ temporary_id: item.temporary_id, ok: true, id }); }
+    // Validate both output bytes before either durable replacement; legacy is renamed first so memory is never ahead of it.
+    mustWritable(model); const newMemory = Buffer.from(serialize(model), 'utf8'); const pieces = []; let cursor = 0; for (const item of [...removed].sort((a, b) => a.start - b.start)) { pieces.push(source.bytes.subarray(cursor, item.start)); cursor = item.end; } pieces.push(source.bytes.subarray(cursor)); const newLegacy = Buffer.concat(pieces);
+    const p = paths(); const legacyTemp = writePrepared(p.legacy, newLegacy); const memoryTemp = writePrepared(p.memory, newMemory); try { fs.renameSync(legacyTemp, p.legacy); fs.renameSync(memoryTemp, p.memory); } catch (e) { if (fs.existsSync(legacyTemp)) fs.unlinkSync(legacyTemp); if (fs.existsSync(memoryTemp)) fs.unlinkSync(memoryTemp); throw e; } json(result); }
+  function evidence() {
+    const sub = args[1];
+    if (sub === 'validate') return json(validateLedger(paths().root));
+    if (sub === 'inspect') {
+      return json(inspectLedger(paths().root, {
+        event_id: opt('--event-id'), record_id: opt('--record-id'), record_version: opt('--record-version'),
+      }));
+    }
+    if (sub === 'migrate') {
+      const model = loadStore();
+      const errors = writeErrors(model);
+      if (errors.length) throw Error(`拒绝迁移损坏库: ${errors.map((x) => x.message).join('；')}`);
+      initializeLedger(paths().root);
+      const result = migrateLegacyScores(paths().root, model.records);
+      save(model);
+      return json(result);
+    }
+    if (sub === 'append') {
+      const model = loadStore();
+      mustWritable(model);
+      const supplied = opt('--event-json');
+      let payload = {};
+      if (supplied) {
+        try { payload = JSON.parse(supplied); } catch (error) { throw Error(`event-json 不是合法 JSON: ${error.message}`); }
+      }
+      const recordId = String(payload.record_id || payload.recordId || opt('--record-id') || '');
+      if (!recordId) throw Error('evidence append 必须提供 --record-id');
+      const record = find(model, recordId);
+      const input = {
+        ...payload,
+        event_id: payload.event_id || opt('--event-id') || undefined,
+        record_id: recordId,
+        record_version: payload.record_version || payload.recordVersion || opt('--record-version') || recordVersion(record),
+        task_id: payload.task_id || payload.taskId || opt('--task-id') || `manual-${process.pid}`,
+        kind: payload.kind || opt('--kind') || '',
+        observed_at: payload.observed_at || payload.observedAt || opt('--observed-at') || undefined,
+        source: payload.source || opt('--source') || 'manual',
+      };
+      if (opt('--quantity') !== null) input.quantity = Number(opt('--quantity'));
+      if (opt('--projection') !== null) {
+        try { input.projection = JSON.parse(opt('--projection')); } catch (error) { throw Error(`projection 不是合法 JSON: ${error.message}`); }
+      }
+      const result = appendEvent(paths().root, input);
+      save(model);
+      return json(result);
+    }
+    throw Error('未知 evidence 子命令');
+  }
+  function config() {
+    const sub = args[1]; const parsed = loadConfig();
+    if (sub === 'show') return json({ ...parsed, auto_enabled: parsed.errors.length === 0 ? parsed.config : { auto_load: false, auto_save: false, auto_rate: false, load_mode: 'off' } });
+    if (sub === 'validate') { if (parsed.errors.length) throw Error(parsed.errors.map((x) => x.message).join('；')); return console.log('PSM_CONFIG_VALID'); }
+    if (sub === 'set') {
+      if (parsed.errors.length) throw Error('配置损坏；先运行 config repair 或 reset');
+      const key = args[2]; const value = args[3];
+      if (!Object.hasOwn(CONFIG_DEFAULT, key) || value === undefined) throw Error('未知配置键或缺少值');
+      const candidate = { ...parsed.config, [key]: value };
+      const checked = parseConfig(configText({ ...parsed.config, [key]: key === 'version' || key.startsWith('max_') ? Number(value) : key.startsWith('min_') ? Number(value) : value }), false);
+      if (checked.errors.length) throw Error(checked.errors.map((x) => x.message).join('；'));
+      parsed.config[key] = checked.config[key]; fs.writeFileSync(paths().config, configText(parsed.config)); return console.log('PSM_CONFIG_UPDATED');
+    }
+    if (sub === 'reset') { fs.mkdirSync(paths().base, { recursive: true }); fs.writeFileSync(paths().config, configText(CONFIG_DEFAULT)); return console.log('PSM_CONFIG_RESET'); }
+    if (sub === 'repair') {
+      if (parsed.errors.some((x) => x.impact === 'fatal')) return json({ applied: false, repair_preview: { ...CONFIG_DEFAULT, auto_load: false, auto_save: false, auto_rate: false }, reason: parsed.errors.map((x) => x.message), apply: '运行 config reset 显式重置' });
+      fs.mkdirSync(paths().base, { recursive: true }); fs.writeFileSync(paths().config, configText(parsed.config)); return console.log('PSM_CONFIG_REPAIRED');
+    }
+    throw Error('未知 config 子命令');
+  }
+  // --- cache (跨会话暂存区) -----------------------------------------------
+  // 自动流程（auto_save / auto_rate）只写 cache；cache 进记忆库的唯一入口是
+  // `cache apply`（skill 层 `-c`）。cache 与记忆库用独立的 cache.lock 分层：
+  // cache.lock → memory.lock，绝不反向。
+  const CACHE_IGNORE_START = '# >>> project-self-memory cache >>>';
+  const CACHE_IGNORE_END = '# <<< project-self-memory cache <<<';
+
+  function ensureCacheIgnored(root) {
+    const file = path.join(root, '.gitignore');
+    // 运行时产物一律不入库：暂存区、锁文件与备份目录。
+    const block = `${CACHE_IGNORE_START}\n# 运行时产物：跨会话暂存与并发锁，不入版本库\n/.project-self-memory/cache.jsonl\n/.project-self-memory/cache.lock\n/.project-self-memory/memory.lock\n/.project-self-memory/evidence.lock\n/.project-self-memory/backups\n${CACHE_IGNORE_END}\n`;
+    const current = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
+    const from = current.indexOf(CACHE_IGNORE_START);
+    const to = current.indexOf(CACHE_IGNORE_END);
+    let next;
+    if (from >= 0 && to > from) next = current.slice(0, from) + block + current.slice(to + CACHE_IGNORE_END.length).replace(/^\n/, '');
+    else if (current.trim()) next = `${current.replace(/\s*$/, '\n')}\n${block}`;
+    else next = block;
+    if (next !== current) fs.writeFileSync(file, next);
+  }
+
+  /**
+   * 读当前记忆库与其版本快照。
+   * 库不可读时 model 为 null：stale 判定记为未知（null），不猜。
+   */
+  function cacheStoreSnapshot() {
+    let model = null;
+    try { model = loadStore(); } catch { model = null; }
+    const versions = model ? new Map(model.records.map((record) => [record.id, recordVersion(record)])) : null;
+    return { model, versions };
+  }
+
+  function cacheEntryIndex(entries, id) {
+    const index = entries.findIndex((entry) => entry.event_id === id);
+    if (index < 0) throw Error(`不存在 cache 条目: ${id}`);
+    return index;
+  }
+
+  /** 读 cache 内容；库不可用时 stale 记为 null（未知，不猜）。 */
+  function cacheTargetSnapshot(model, refid) {
+    const record = model ? model.records.find((item) => item.id === refid) : null;
+    if (!record) return { exists: false, record_version: null, content: '', type: null };
+    return { exists: true, record_version: recordVersion(record), content: String(record.content || ''), type: record.type };
+  }
+
+  function cacheAdd() {
+    const op = opt('--op');
+    if (!CACHE_OPS.has(op)) throw Error('--op 必须是 add/update/delete/+1/-1');
+    const source = String(opt('--source') || 'manual');
+    const target = opt('--target') || null;
+    const model = loadStore();
+    let payload = null;
+    let targetVersion = null;
+    let baseContent = null;
+    if (op === 'add' || op === 'update') {
+      const content = contentInput(); // 单行契约：改写失败的候选不入 cache
+      const recordType = op === 'add' ? opt('--record-type') : null;
+      if (op === 'add' && !TYPES.has(recordType)) throw Error('--record-type 必须是合法类型');
+      const group = op === 'add' ? (opt('--group') || null) : null;
+      if (group && !model.groups.some((item) => item.id === group)) throw Error(`未知分组: ${group}`);
+      payload = { content, record_type: recordType, group };
+    }
+    if (op !== 'add') {
+      if (!target) throw Error(`${op} 必须提供 --target`);
+      const record = model.records.find((item) => item.id === target);
+      if (!record) throw Error(`不存在记录: ${target}`);
+      targetVersion = recordVersion(record);
+      // 原基准正文：暂存时的目标正文，供 -c 展示「原正文 vs 新正文」与失效对照。
+      baseContent = String(record.content || '');
+    }
+    const evidenceJson = opt('--evidence-json');
+    const evidenceFile = opt('--evidence-file');
+    const evidence = evidenceJson
+      ? normaliseEvidence(JSON.parse(evidenceJson))
+      : (evidenceFile ? normaliseEvidence(JSON.parse(fs.readFileSync(path.resolve(evidenceFile), 'utf8'))) : normaliseEvidence(null));
+    const fingerprint = op === 'add' || op === 'update'
+      ? payloadFingerprint(payload)
+      : '';
+    const eventId = cacheEventId({ type: op, target_refid: target || '', fingerprint, source });
+    const entry = normaliseEntry({
+      event_id: eventId, type: op, target_refid: target, target_record_version: targetVersion,
+      base_content: baseContent, payload, evidence, source, created_at: timestamp(),
+      processed_at: null, status: 'pending',
+    });
+    const lease = acquireLockSync(cachePaths(paths().root).lock);
+    try {
+      const entries = readCache(paths().root);
+      const existing = entries.find((item) => item.event_id === eventId);
+      if (existing) return json({ event_id: eventId, status: existing.status, duplicate: true });
+      entries.push(entry);
+      writeCache(paths().root, entries);
+      return json({ event_id: eventId, status: 'pending', duplicate: false });
+    } finally { lease.release(); }
+  }
+
+  function cacheList() {
+    const entries = readCache(paths().root);
+    const scoped = entries.filter((entry) => entry.status === 'pending');
+    const { model, versions } = cacheStoreSnapshot();
+    const derived = deriveStale(scoped, versions);
+    const groups = groupEntries(derived).map((group) => ({
+      ...group,
+      current: group.refid ? cacheTargetSnapshot(model, group.refid) : null,
+    }));
+    const warning = scoped.length > PENDING_WARNING_THRESHOLD
+      ? `pending 条目过多（${scoped.length} > ${PENDING_WARNING_THRESHOLD}），建议尽快处理或 prune`
+      : null;
+    if (warning) console.error(`PSM_WARNING: ${warning}`);
+    return json({ version: CACHE_VERSION, count: scoped.length, warning, groups });
+  }
+
+  function cacheShow() {
+    const entries = readCache(paths().root);
+    const index = cacheEntryIndex(entries, args[2]);
+    const entry = entries[index];
+    const { model, versions } = cacheStoreSnapshot();
+    const [derived] = deriveStale([entry], versions);
+    return json({
+      ...derived,
+      current: derived.target_refid ? cacheTargetSnapshot(model, derived.target_refid) : null,
+    });
+  }
+
+  /**
+   * 标 discarded：只允许从 pending 走，不覆盖已落库条目。
+   * `cache discard <id>` 与 `cache apply --id <id> --decision discard` 共用此实现。
+   */
+  function cacheMarkDiscarded(id) {
+    const lease = acquireLockSync(cachePaths(paths().root).lock);
+    try {
+      const entries = readCache(paths().root);
+      const index = cacheEntryIndex(entries, id);
+      const entry = entries[index];
+      if (entry.status === 'applied') throw Error(`cache 条目已落库，不能再丢弃: ${id}`);
+      if (entry.status !== 'discarded') {
+        entries[index] = { ...entry, status: 'discarded', processed_at: timestamp() };
+        writeCache(paths().root, entries);
+      }
+      return json({ event_id: id, status: 'discarded' });
+    } finally { lease.release(); }
+  }
+
+  /**
+   * 落库正文：优先用 `--content-file` 提供的「改写后写入」版本，
+   * 否则用条目里暂存的正文。两条路径都在落库这一刻再过一次单行契约校验。
+   */
+  function cacheLandingContent(entry) {
+    const content = opt('--content-file') === null ? entry.payload.content : contentInput();
+    assertContentContract(content);
+    return content;
+  }
+
+  function cacheApply() {
+    const id = opt('--id');
+    const decision = opt('--decision');
+    if (!id) throw Error('必须提供 --id');
+    if (decision !== 'write' && decision !== 'discard') throw Error('--decision 必须是 write 或 discard');
+    if (decision === 'discard') return cacheMarkDiscarded(id);
+    const lease = acquireLockSync(cachePaths(paths().root).lock);
+    try {
+      const entries = readCache(paths().root);
+      const index = cacheEntryIndex(entries, id);
+      const entry = entries[index];
+      if (entry.status !== 'pending') throw Error(`cache 条目不是 pending（${entry.status}），拒绝落库: ${id}`);
+      const model = loadStore();
+      mustWritable(model);
+      // 失效判定：目标记录在暂存后被改或被删，不得直接落库。
+      if (entry.target_refid) {
+        const record = model.records.find((item) => item.id === entry.target_refid);
+        if (!record) throw Error(`PSM_CONFLICT: 目标记录已不存在（${entry.target_refid}）；请基于现状重新评估`);
+        if (recordVersion(record) !== entry.target_record_version) throw Error(`PSM_CONFLICT: 目标记录已变更（${entry.target_refid}）；请基于现状重新评估`);
+      }
+      const result = cacheWriteThrough(entry, model);
+      const next = entries.slice();
+      next[index] = { ...entry, status: 'applied', processed_at: timestamp() };
+      writeCache(paths().root, next);
+      return json({ event_id: id, status: 'applied', ...result });
+    } finally { lease.release(); }
+  }
+
+  /** 把一条 cache 条目落到记忆库；走与 CLI add/update/score 相同的写入栈。 */
+  function cacheWriteThrough(entry, model) {
+    if (entry.type === 'add') {
+      const content = cacheLandingContent(entry);
+      const id = newId(model);
+      model.records.push({
+        id, type: entry.payload.record_type, status: 'active', positive: 0, negative: 0,
+        created_at: timestamp(), last_scored_at: '', content, group: entry.payload.group,
+      });
+      save(model);
+      return { record_id: id, record_version: recordVersion(model.records[model.records.length - 1]) };
+    }
+    if (entry.type === 'update') {
+      const record = find(model, entry.target_refid);
+      record.content = cacheLandingContent(entry);
+      // 与 CLI update 一致：正文变更后 record_version 变化，旧投影不再适用。
+      record.positive = 0; record.negative = 0; record.last_scored_at = '';
+      save(model);
+      return { record_id: record.id, record_version: recordVersion(record) };
+    }
+    if (entry.type === 'delete') {
+      const record = find(model, entry.target_refid);
+      model.records = model.records.filter((item) => item.id !== record.id);
+      save(model);
+      return { record_id: record.id, deleted: true };
+    }
+    const record = find(model, entry.target_refid);
+    const version = recordVersion(record);
+    const positive = entry.type === '+1';
+    const kind = entry.evidence.kind && (positive
+      ? ['applied_success', 'still_valid', 'human_positive'].includes(entry.evidence.kind)
+      : ['applied_failure', 'human_negative'].includes(entry.evidence.kind))
+      ? entry.evidence.kind
+      : (positive ? 'human_positive' : 'human_negative');
+    const taskId = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/.test(entry.source) ? entry.source : 'cache';
+    // 账本事件在记忆库写入之前落盘，因此先做乐观并发预检：
+    // 基线已被外部改动时直接拒绝，不留下半条账本事件。
+    assertBaselineFresh(model);
+    appendEvent(paths().root, {
+      event_id: `cache-apply-${entry.event_id}`,
+      record_id: record.id,
+      record_version: version,
+      task_id: taskId,
+      kind,
+      // source 沿用账本既有约定：自动来源的 kind 记 automatic，人工的记 manual。
+      source: AUTOMATIC_EVIDENCE_KINDS.has(kind) ? 'automatic' : 'manual',
+      observed_at: entry.evidence.observed_at || undefined,
+    });
+    save(model);
+    return { record_id: record.id, evidence_kind: kind };
+  }
+
+  function cachePrune() {
+    const olderThan = opt('--older-than');
+    const days = olderThan === null ? null : Number(String(olderThan).replace(/d$/, ''));
+    if (days !== null && (!Number.isFinite(days) || days < 0)) throw Error('--older-than 必须是天数（如 7d）');
+    const lease = acquireLockSync(cachePaths(paths().root).lock);
+    try {
+      const entries = readCache(paths().root);
+      const { model, versions } = cacheStoreSnapshot();
+      const derived = deriveStale(entries, versions);
+      const cutoff = days === null ? null : Date.now() - days * 86400000;
+      const kept = [];
+      const removed = [];
+      for (const [index, entry] of entries.entries()) {
+        // stale 是读时派生态，不写回磁盘；判定只用于决定是否清理。
+        const processed = entry.status === 'applied' || entry.status === 'discarded' || derived[index].stale === true;
+        // 阈值从「已处理时刻」起算（卡 03「超 N 天已处理」）；未处理的条目按暂存时刻起算。
+        const since = entry.processed_at || entry.created_at;
+        const oldEnough = cutoff === null || Date.parse(since) <= cutoff;
+        if (processed && oldEnough) removed.push(entry.event_id);
+        else kept.push(entry);
+      }
+      if (removed.length) writeCache(paths().root, kept);
+      return json({ removed: removed.length, kept: kept.length, removed_ids: removed });
+    } finally { lease.release(); }
+  }
+
+  function cacheCommand() {
+    const sub = args[1] || 'list';
+    if (sub === 'add') return cacheAdd();
+    if (sub === 'list') return cacheList();
+    if (sub === 'show') return cacheShow();
+    if (sub === 'discard') {
+      // 与 `cache apply --decision discard` 同一入口：`--id` 优先，兼容位置参数。
+      const id = opt('--id') || args[2];
+      if (!id) throw Error('必须提供 --id');
+      return cacheMarkDiscarded(id);
+    }
+    if (sub === 'apply') return cacheApply();
+    if (sub === 'prune') return cachePrune();
+    throw Error('未知 cache 子命令');
+  }
+
+  async function main() { const command = args[0]; try { if (command === 'init') return initialize(); if (command === 'validate') return validate(); if (command === 'diagnose') return diagnose(); if (command === 'read') return read(); if (command === 'preview') return preview(); if (command === 'runtime') return runtimeCommand(); if (command === 'tags') return tagsCommand(); if (command === 'catalog') { validateLedger(paths().root); const model = loadStore(); const invalid = new Set(validateModel(model).filter((x) => x.kind === 'record').map((x) => x.id)); if (opt('--by') === 'tag') return json(tagCatalog(model.records.filter((r) => r.status === 'active' && !invalid.has(r.id)))); return json(model.groups.map((g) => ({ ...g, count: model.records.filter((r) => r.group === g.id && r.status === 'active' && !invalid.has(r.id)).length }))); } if (command === 'inspect') { const model = loadStore(); if (has('--legacy')) { const source=legacySource(); return json({ snapshot: source.snapshot, items: source.items.map((item, i) => ({ temporary_id: `U${String(i + 1).padStart(3, '0')}`, source_hash: item.source_hash, content: item.bytes.toString('utf8') })) }); } validateLedger(paths().root); if (/^\d/.test(args[1] || '')) return json(projectRecord(paths().root, find(model, args[1]))); if (has('--trim-candidates')) return json(model.records.map((r) => projectRecord(paths().root, r)).filter((r) => r.positive - r.negative < 0 || (r.negative >= 3 && r.negative >= r.positive))); return json(has('--groups') ? model.groups : model); } if (command === 'add') return add(); if (command === 'update') return update(); if (command === 'status') { const m=loadStore(); mustWritable(m); const r=find(m,args[1]); if(!STATUS.has(args[2])) throw Error('状态非法'); r.status=args[2]; save(m); return console.log(r.id); } if (command === 'delete') { const m=loadStore(); mustWritable(m); const ids=new Set((opt('--ids')||'').split(',').filter(Boolean)); m.records=m.records.filter((r)=>!ids.has(r.id)); save(m); return console.log('PSM_DELETED'); } if (command === 'score') return score('normal'); if (command === 'score-reset') return score('reset'); if (command === 'score-repair') return score('repair'); if (command === 'merge') return merge(); if (command === 'groups' || command === 'group') return groups(); if (command === 'legacy') return legacy(); if (command === 'evidence' || command === 'migrate-evidence') return evidence(); if (command === 'cache') return cacheCommand(); if (command === 'config') return config(); if (command === 'viewer') return viewerCommand(); if (command === 'migrate-schema') { const model=loadStore(); if(model.store?.version === '1') return console.log('PSM_NO_MIGRATION: 当前已是 v1，无可迁移前版'); throw Error('未知或未来结构化版本不能迁移'); } throw Error('未知命令'); } catch (e) { die(e.message); } }
+
+  /**
+   * 唯一入口：注入参数后运行一次命令。
+   * 参数解析放在这里，命令实现继续沿用模块级的 args/opt/has 绑定。
+   */
+  async function run(argv) {
+    raw = Array.isArray(argv) ? argv.slice() : [];
+    args = raw.filter((v, i) => v !== '--project-root' && raw[i - 1] !== '--project-root');
+    opt = (name) => { const i = raw.indexOf(name); return i < 0 ? null : raw[i + 1]; };
+    has = (name) => args.includes(name);
+    return main();
+  }
+
+  return { run };
+}

@@ -1,0 +1,42 @@
+{
+  "hashes": {
+    "402db2f5f3cb5dd05188842991108c432ba80d01ba328972f91280497661ce36": {
+      "built_from": [
+        "memory-store.mjs",
+        "memory-lock.mjs",
+        "evidence-ledger.mjs",
+        "memory-tags.mjs",
+        "memory-cache.mjs",
+        "viewer-server.mjs",
+        "viewer-page.mjs",
+        "psm-cli-core.mjs"
+      ]
+    },
+    "e85f8b4ce679ea602187aaed8bc93fabe2283888eb3e4f74159791dcb482e1cf": {
+      "built_from": [
+        "memory-store.mjs",
+        "memory-lock.mjs",
+        "evidence-ledger.mjs",
+        "memory-tags.mjs",
+        "memory-cache.mjs",
+        "viewer-server.mjs",
+        "viewer-page.mjs",
+        "psm-cli-core.mjs"
+      ]
+    },
+    "451a7cc8db7485c4558021f906df08cb4e7e15759878683ef6f41258ef6dcda9": {
+      "built_from": [
+        "memory-store.mjs",
+        "memory-lock.mjs",
+        "evidence-ledger.mjs",
+        "memory-tags.mjs",
+        "memory-cache.mjs",
+        "viewer-server.mjs",
+        "viewer-page.mjs",
+        "psm-cli-core.mjs"
+      ]
+    }
+  },
+  "name": "psm-cli.js",
+  "runtime_version": "1.0.0"
+}
