@@ -2,6 +2,8 @@
 
 `.project-self-memory/view-memoery.js` 是自包含单文件查看器：只用 Node 内置模块，不访问网络，只监听 127.0.0.1。文件名 `view-memoery.js` 是固定拼写，不要改成 `view-memory.js`。
 
+> 这是历史产物：新版不再部署或升级它，已存在的副本原字节保留、仍可自行运行。新入口是 CLI 的统一 `preview`，运行时部署与兼容契约见 [runtime.md](runtime.md)。本页的 HTTP 契约与安全模型同时适用于 `preview`。
+
 ## 启动与令牌
 
 ```text
@@ -15,7 +17,7 @@ node .project-self-memory/view-memoery.js
 - 令牌是 ≥256-bit 随机 hex，经 URL fragment 交接；页面把它暂存进 `sessionStorage`（标签页级，关闭即清）并立刻从地址栏移除。
 - 令牌只存在于进程内存与页面会话中，不写入磁盘，不进入请求 URL、Referer 或历史记录。
 - 刷新同一标签页不需要重新复制令牌；新标签页必须重新带 `#token=` 打开。
-- 记忆目录固定为脚本所在目录内最近一层的 `.project-self-memory/`，与启动时的工作目录无关。脚本在 `.project-self-memory/` 内（部署位置）或项目根（手动复制）启动均可；复制到别处即查看别处的库。
+- 记忆目录固定为脚本所在目录内最近一层的 `.project-self-memory/`，与启动时的工作目录无关。脚本在 `.project-self-memory/` 内（部署位置）或项目根（手动复制）启动均可；复制到别处即查看别处的库。统一 `preview` 改用统一项目解析规则（显式 `--project-root` → 运行时绑定 → 启动 cwd）。
 
 ## HTTP 契约
 

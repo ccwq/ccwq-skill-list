@@ -20,14 +20,26 @@
       "files": []
     },
     {
+      "id": "locate-installed-runtime",
+      "prompt": "这个项目里没有 .agents/skills/project-self-memory，但我在用户级装过 project-self-memory。帮我读一下这个项目的记忆。",
+      "expected_output": "Given：项目目录没有 skill 安装，但宿主本次已加载用户级安装的 project-self-memory。When：需要读取该项目的记忆。Then：直接用宿主已加载安装里的 runtime-dist/psm-cli.js 运行（记忆库按 --project-root 或 cwd 定位），不把「项目里没有 skill 目录」当成工具不可用，也不建议把整套 skill 安装进项目。防回归：在项目里搜索 psm-cli.js 找不到后建议项目级整套安装。",
+      "files": []
+    },
+    {
+      "id": "runtime-missing-fail-closed",
+      "prompt": "装好的 project-self-memory 里好像少了 psm-cli.js，帮我把这次的结论存进项目记忆。",
+      "expected_output": "Given：已加载安装内缺少 runtime-dist/psm-cli.js。When：需要暂存并保存结论。Then：报告该安装不完整并给出修复方向，不从文档拼装运行时、不自动下载或改用另一版本；本次如实报告记忆未暂存，业务任务继续。防回归：用未验证的替代入口写入记忆库。",
+      "files": []
+    },
+    {
       "id": "cli-add-content-file",
-      "prompt": "node .agents/skills/project-self-memory/scripts/memory.mjs add --type constraint --content-file conclusion.txt",
+      "prompt": "node .agents/skills/project-self-memory/runtime-dist/psm-cli.js add --type constraint --content-file conclusion.txt",
       "expected_output": "通过 CLI 文件输入新增一条经过调用方准备的 constraint 记录，并返回永久 ID。",
       "files": []
     },
     {
       "id": "cli-add-stdin",
-      "prompt": "echo 已验证结论 | node .agents/skills/project-self-memory/scripts/memory.mjs add --type fact",
+      "prompt": "echo 已验证结论 | node .agents/skills/project-self-memory/runtime-dist/psm-cli.js add --type fact",
       "expected_output": "通过标准输入读取非空正文；缺少正文时明确拒绝。",
       "files": []
     },

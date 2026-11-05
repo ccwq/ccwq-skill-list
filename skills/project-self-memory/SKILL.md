@@ -7,21 +7,40 @@ description: 维护项目级、可自进化的结论记忆。用于非简单仓�
 
 本 Skill 把项目经验保存在 `<project-root>/.project-self-memory/`，由 Node CLI 独占读写。`self-memory/` 是只读 legacy 来源；不要直接编辑任一活动文件。
 
+## 运行时定位
+
+运行时是一个自包含单文件：`runtime-dist/psm-cli.js`，随 skill 一起安装。
+
+定位顺序：
+
+1. 用宿主本次加载 skill 时给出的基目录（即 `SKILL.md` 所在目录，记作 `<skill-path>`）直接定位 `<skill-path>/runtime-dist/psm-cli.js`。`<skill-path>` 与当前工作目录无关：Codex 装在 `<项目>/.agents/skills/project-self-memory/`，用户级装在 `~/.agents/skills/project-self-memory/`，Claude Code 装在 `.claude/skills/project-self-memory/`。
+2. 宿主没有给出加载位置时，只查宿主已知的项目级与用户级 skill 根（如 `.agents/skills/`、`.claude/skills/` 及其用户级对应目录）。规范化后指向同一真实安装的候选去重；有多个不同的有效安装且无法确认本次加载身份时，列出候选请用户选择，不静默挑一个。
+3. 已加载安装内缺少运行时文件时，报告「该安装不完整」并给出修复方向。不从文档拼装运行时、不自动下载、不改用另一版本掩盖损坏。
+4. 有界查找失败后降级：本次任务不使用 PSM，如实报告「记忆未读取/未暂存」，业务任务继续。
+
+不要在当前项目里找 `psm-cli.js`，也不要把「项目里没有 skill 目录」当成工具不可用的证据。skill 安装位置与项目记忆库位置互相独立：读取或维护某个项目的记忆不需要在那个项目里再装一份 skill。
+
 ## 开始任务
 
-1. 在项目根目录运行 `node <skill-path>/scripts/memory.mjs init`；它只在缺失时创建 `config.yaml` 与 `memory.md`。
+1. 在项目根目录运行 `node <skill-path>/runtime-dist/psm-cli.js init`；它只在缺失时创建 `config.yaml` 与 `memory.md`，不部署任何可执行文件。
 2. 执行 `validate`。配置不合法时关闭自动行为，先报告错误；结构化库损坏时不执行写操作。
 3. `auto_load: true` 时，先用 `read`；大型库可先查标签目录再精读，已有分组库仍可按旧 `group` 读取。标签是可选线索，无标签不阻断任务。只将相关内容作为线索，现场状态仍要验证。调用与参数统一见[根 README](../../README.md#project-self-memory)。
 
 ## CLI 工作流
 
-唯一入口是：
+首选入口是运行时单文件：
 
 ```text
-node <skill-path>/scripts/memory.mjs <command> [options]
+node <skill-path>/runtime-dist/psm-cli.js <command> [options]
 ```
 
-`<skill-path>` 是本 Skill 自身目录，即 `SKILL.md` 所在目录。它与当前工作目录无关：Codex 装在 `<项目>/.agents/skills/project-self-memory/`，用户级装在 `~/.agents/skills/project-self-memory/`。记忆库的位置由 `--project-root` 或当前工作目录决定，与 skill 目录无关。
+`<skill-path>` 是本 Skill 自身目录，即 `SKILL.md` 所在目录，定位规则见[运行时定位](#运行时定位)。它与当前工作目录无关。记忆库的位置由 `--project-root`、运行时绑定或当前工作目录决定，与 skill 目录无关：
+
+- 显式 `--project-root` 优先；
+- 运行时落在某项目的 `.project-self-memory/` 内时，默认操作该项目；
+- 其余安装位置使用当前工作目录。
+
+源码入口 `scripts/memory.mjs` 是同一份实现的薄兼容层，供宿主适配器与源码调试使用；它与运行时产物行为一致，不是另一套实现。
 
 ## Host adapter
 
@@ -29,27 +48,37 @@ node <skill-path>/scripts/memory.mjs <command> [options]
 
 每个计量会话的首次成功交付非空 `memoryContext` 时，`MemorySession` 对最终交付文本整体估算一次 token（UTF-16 长度除以 3 向上取整）。估算严格大于 37,000 时，通过 audit 通道发出非阻断 `recall-usage` warning，payload 上同时有 `recallUsage` 结构化结果；宿主必须把提醒展示给用户（含估算值、37,000 阈值与「压缩或复盘记忆」建议），当前任务继续，提醒不是整理授权。空召回、`auto_load` 关闭和加载失败不消耗检查机会。默认实例各自独立计量；多任务宿主显式传入同一 `recallState` 对象共享一次检查。原始 CLI `read` 不承担会话提醒。宿主接入细节见 [reference-host.md](references/reference-host.md)。
 
-## 紧凑查看器
+## 统一 preview
 
-`init` 会把自包含单文件查看器部署到 `.project-self-memory/view-memoery.js`。人工浏览或改正文/类型/状态时，优先用它，而不是直接编辑 `memory.md`：
+Web 查看器已并入 CLI，不再需要单独部署脚本：
 
 ```text
-node .project-self-memory/view-memoery.js
+node <skill-path>/runtime-dist/psm-cli.js preview
 ```
 
-它只监听 127.0.0.1，输出带 `#token=` 的地址，并自动用系统默认浏览器打开。关闭自动打开等启动参数见[根 README](../../README.md#project-self-memory)。写入走与 CLI 相同的锁、备份、原子替换和乐观并发。暂存区可在查看器中查看、编辑并入、丢弃、清理。部署与升级契约、HTTP 接口和安全模型见 [viewer.md](references/viewer.md)。
+它只监听 127.0.0.1，输出带 `#token=` 的地址，并自动用系统默认浏览器打开。关闭自动打开等启动参数见[根 README](../../README.md#project-self-memory)。写入走与 CLI 相同的锁、备份、原子替换和乐观并发。暂存区可在查看器中查看、编辑并入、丢弃、清理。缺库或损坏库时保持只读诊断，不隐式初始化或修复。
+
+只有用户明确要求「项目独立运行」时，才把运行时副本部署到项目：
+
+```text
+node <skill-path>/runtime-dist/psm-cli.js runtime install
+node <skill-path>/runtime-dist/psm-cli.js runtime status
+node <skill-path>/runtime-dist/psm-cli.js runtime update
+```
+
+部署只落一个文件 `.project-self-memory/psm-cli.js`，不复制 skill 指令、参考文档、源码模块或测试。普通 `init`、`read`、`validate`、`preview` 不构成部署授权。已存在的旧独立查看器 `view-memoery.js` 保留原样、仍可自行运行，新版不再部署或升级它。运行时部署、升级保护与旧命令兼容见 [runtime.md](references/runtime.md)。
 
 正文使用 `--content-file <path>` 或标准输入，避免 shell 转义。常用命令（`<skill-path>` 是本 Skill 自身目录）：
 
 ```bash
-node <skill-path>/scripts/memory.mjs init
-node <skill-path>/scripts/memory.mjs read --type pitfall
-node <skill-path>/scripts/memory.mjs add --type fact --content-file conclusion.txt
-node <skill-path>/scripts/memory.mjs score 0001 +1
-node <skill-path>/scripts/memory.mjs inspect --trim-candidates
-node <skill-path>/scripts/memory.mjs cache add --op add --record-type fact --content-file conclusion.txt --source <session-id>
-node <skill-path>/scripts/memory.mjs cache list
-node <skill-path>/scripts/memory.mjs cache apply --id <id> --decision write
+node <skill-path>/runtime-dist/psm-cli.js init
+node <skill-path>/runtime-dist/psm-cli.js read --type pitfall
+node <skill-path>/runtime-dist/psm-cli.js add --type fact --content-file conclusion.txt
+node <skill-path>/runtime-dist/psm-cli.js score 0001 +1
+node <skill-path>/runtime-dist/psm-cli.js inspect --trim-candidates
+node <skill-path>/runtime-dist/psm-cli.js cache add --op add --record-type fact --content-file conclusion.txt --source <session-id>
+node <skill-path>/runtime-dist/psm-cli.js cache list
+node <skill-path>/runtime-dist/psm-cli.js cache apply --id <id> --decision write
 ```
 
 调用与参数统一见[根 README](../../README.md#project-self-memory)，JSON 输出和退出语义见 [cli-contract.md](references/cli-contract.md)。格式约束见 [memory-format.md](references/memory-format.md)。
@@ -164,11 +193,11 @@ node <skill-path>/scripts/memory.mjs cache apply --id <id> --decision write
 
 当任务要求给出行动计划时，先判断项目状态：仅在明确为空或缺少记忆时使用 `init`；已有、重复、待确认或损坏状态不得初始化。损坏状态先 `config validate` 和/或 `diagnose`，并停止写操作。
 
-计划中的每个 `commands` 条目只能是一条直接的 `node <skill-path>/scripts/memory.mjs ...` 调用：不要使用 `printf`、管道、变量、命令替换或 shell 条件。`<skill-path>` 是本 Skill 自身目录（`SKILL.md` 所在处），不是当前工作目录；`--project-root` 决定操作哪个项目的记忆库。需要写入内容时，计划可引用准备好的 `--content-file conclusion.txt`，但 CLI 的子命令与参数必须完整、可识别。
+计划中的每个 `commands` 条目只能是一条直接的 `node <skill-path>/runtime-dist/psm-cli.js ...` 调用：不要使用 `printf`、管道、变量、命令替换或 shell 条件。`<skill-path>` 是本 Skill 自身目录（`SKILL.md` 所在处），不是当前工作目录；`--project-root` 决定操作哪个项目的记忆库。需要写入内容时，计划可引用准备好的 `--content-file conclusion.txt`，但 CLI 的子命令与参数必须完整、可识别。
 
-- 配置校验是 `node <skill-path>/scripts/memory.mjs config validate`；通用库校验是 `node <skill-path>/scripts/memory.mjs validate`。
-- 新分类计划先只读核验 `tags show`/`tags suggest`/`tags stats`；分类标准与单条 override 的写入必须已有具体授权。兼容旧分组计划先 `catalog` 再使用 `node <skill-path>/scripts/memory.mjs groups show`；在明确确认前绝不出现 `tags apply`、`tags set`、`groups apply`、`merge`、`delete` 或负分 `score`。
-- 按 refid 讨论、检查状态或提出评分建议时，先用 `node <skill-path>/scripts/memory.mjs inspect <refid>` 核验该记录及其直接证据；确认前只提出 `score +1`/`score -1` 的候选，不把评分命令放入 `commands`。
+- 配置校验是 `node <skill-path>/runtime-dist/psm-cli.js config validate`；通用库校验是 `node <skill-path>/runtime-dist/psm-cli.js validate`。
+- 新分类计划先只读核验 `tags show`/`tags suggest`/`tags stats`；分类标准与单条 override 的写入必须已有具体授权。兼容旧分组计划先 `catalog` 再使用 `node <skill-path>/runtime-dist/psm-cli.js groups show`；在明确确认前绝不出现 `tags apply`、`tags set`、`groups apply`、`merge`、`delete` 或负分 `score`。
+- 按 refid 讨论、检查状态或提出评分建议时，先用 `node <skill-path>/runtime-dist/psm-cli.js inspect <refid>` 核验该记录及其直接证据；确认前只提出 `score +1`/`score -1` 的候选，不把评分命令放入 `commands`。
 - 读后写任务必须先给出 `read`。写入分两条路：用户已就这条具体操作授权的人工策展，直接给出 `add --type <type>` 或 `update <id>`；任务收尾的自动保存给出 `cache add --op add --record-type <type> --content-file <file>` 暂存候选，落库由 `-c` 流程逐条确认。只读任务不得包含写命令。
 - 类型以任务用词为准：任务要求保存“经验”时用 `experience`（`add --type experience` 或 `cache add --op add --record-type experience`），要求 pitfall/fact/constraint 时保留该精确类型，不要自行改成通用 `fact`。
 - 候选入库走 `-c` 流程：先只读 `cache list` 核验待处理候选，再在授权范围内给出 `cache apply --id <id> --decision write|discard`；在明确确认前不出现 `cache apply`。

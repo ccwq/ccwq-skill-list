@@ -1,6 +1,8 @@
 # CLI contract
 
-入口：`node <skill-path>/scripts/memory.mjs <command> [options]`。`<skill-path>` 是本 Skill 自身目录（`SKILL.md` 所在处），与当前工作目录无关；操作哪个项目的记忆库由 `--project-root` 或当前工作目录决定。成功退出 0；参数、格式或安全拒绝退出 1 并输出 `PSM_ERROR:`。维护读取输出稳定 JSON；普通 `read` 输出人读 Markdown。调用示例与参数的唯一维护处是[根 README](../../../README.md#project-self-memory)，本页定义命令行为与输出。
+入口：`node <skill-path>/runtime-dist/psm-cli.js <command> [options]`。`<skill-path>` 是本 Skill 自身目录（`SKILL.md` 所在处），与当前工作目录无关；操作哪个项目的记忆库由 `--project-root`、运行时绑定（运行时落在某项目的 `.project-self-memory/` 内）或当前工作目录决定，优先级依次递减。源码入口 `scripts/memory.mjs` 是同一份实现的薄兼容层，行为一致。
+
+成功退出 0；参数、格式或安全拒绝退出 1 并输出 `PSM_ERROR:`。维护读取输出稳定 JSON；普通 `read` 输出人读 Markdown。调用示例与参数的唯一维护处是[根 README](../../../README.md#project-self-memory)，本页定义命令行为与输出。
 
 | 命令族 | 命令 |
 |---|---|
@@ -12,7 +14,9 @@
 | 缓存 | `cache add`, `cache list`, `cache show`, `cache discard`, `cache apply`, `cache prune` |
 | 生命周期 | `merge`（keep 必须较早）, `groups show|apply|rename|move`, `legacy scan|migrate`, `migrate-schema` |
 | 配置 | `config show|validate|set|reset|repair` |
-| 查看器 | `viewer install`, `viewer update`, `viewer status` |
+| 预览 | `preview` |
+| 项目运行时 | `runtime install`, `runtime status`, `runtime update` |
+| 旧查看器（已弃用） | `viewer status`（只读兼容）, `viewer install`, `viewer update`（退出 1，未执行） |
 
 ## cache 暂存区（自动流程的唯一去处）
 
@@ -63,10 +67,12 @@
 - 两者返回 `{applied: boolean}`，`false` 表示规范化后的目标字节与已有文件相同。计划或输入非法时退出 1，不落盘。
 - 两者需具体操作的人工授权，检查库可写后共用 `memory.lock`；替换前备份已有 taxonomy 并校验，原子替换，拒绝覆盖符号链接。不序列化 `memory.md`，不追加 evidence，不改变 `record_version`；自动保存与评分不调用它们。
 
-## 旧分组、迁移与查看器
+## 旧分组、迁移与旧查看器
 
 新分类推荐标签；旧 `group` 保持解析、序列化与哈希兼容，不自动迁移。`groups apply` 计划须含非空 `group_dimension`、完整 `groups`、完整 `assignments`（每个现存记录为 group ID 或 null），且不可删除已有稳定 group ID。
 
 `legacy scan` 返回 SHA-256 snapshot；迁移计划必须回传该 snapshot，且每项含唯一 temporary_id、source_hash、type、content。计划不合法时不修改库。`migrate-schema` 在 v1 输出“无可迁移前版”，未知/未来版本拒绝。
 
-`viewer` 命令族管理紧凑查看器部署：`init` 自动安装；`viewer install` 显式安装且幂等；`viewer update` 只在整文件 SHA-256 命中官方 `viewer-dist/manifest.json` 时替换，本地修改或符号链接拒绝；`viewer status` 输出 `{exists, official, up_to_date}` JSON，不信任文件自报版本。HTTP 契约与安全模型见 [viewer.md](viewer.md)。
+`viewer` 命令族已弃用。`viewer status` 保持只读兼容，输出既有 `{exists, official, up_to_date}` 字段并附 `deprecated` 与 `diagnostics`；官方识别只依据已知旧查看器产物哈希，无法识别时如实报告。`viewer install` 与 `viewer update` 退出 1，明确说明未执行旧查看器部署或更新，并指向统一 `preview` 与可选的 `runtime install`。旧产物 `view-memoery.js` 原字节保留、仍可自行运行，不会自动获得新功能。
+
+统一预览与运行时部署契约见 [runtime.md](runtime.md)；旧查看器的 HTTP 契约与安全模型见 [viewer.md](viewer.md)。

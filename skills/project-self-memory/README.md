@@ -6,23 +6,27 @@
 
 ## 快速开始
 
-从目标项目根目录调用 Skill 中的 CLI。`<skill-path>` 是本 Skill 自身目录（`SKILL.md` 所在处）：Codex 装在 `.agents/skills/project-self-memory/`，Claude Code 装在 `.claude/skills/project-self-memory/`。
+从目标项目根目录调用 Skill 随附的运行时。`<skill-path>` 是本 Skill 自身目录（`SKILL.md` 所在处）：Codex 装在 `.agents/skills/project-self-memory/`，Claude Code 装在 `.claude/skills/project-self-memory/`。
 
 ```bash
-node <skill-path>/scripts/memory.mjs init
-node <skill-path>/scripts/memory.mjs config validate
-node <skill-path>/scripts/memory.mjs validate
-node <skill-path>/scripts/memory.mjs read
+node <skill-path>/runtime-dist/psm-cli.js init
+node <skill-path>/runtime-dist/psm-cli.js config validate
+node <skill-path>/runtime-dist/psm-cli.js validate
+node <skill-path>/runtime-dist/psm-cli.js read
 ```
 
 常用人工操作：
 
 ```bash
-node <skill-path>/scripts/memory.mjs add --type fact --content-file conclusion.txt
-node <skill-path>/scripts/memory.mjs score 0001 +1
-node <skill-path>/scripts/memory.mjs evidence inspect --record-id 0001
-node <skill-path>/scripts/memory.mjs cache list
+node <skill-path>/runtime-dist/psm-cli.js add --type fact --content-file conclusion.txt
+node <skill-path>/runtime-dist/psm-cli.js score 0001 +1
+node <skill-path>/runtime-dist/psm-cli.js evidence inspect --record-id 0001
+node <skill-path>/runtime-dist/psm-cli.js cache list
 ```
+
+运行时是自包含单文件：Node 22+，无第三方依赖，不依赖相邻源码、参考文档或 `node_modules` 目录。源码入口 `scripts/memory.mjs` 是同一份实现的薄兼容层，供宿主适配器与源码调试使用。
+
+skill 安装位置与项目记忆库位置互相独立：不需要在每个项目里再装一份 skill。运行时定位与降级规则见 [SKILL.md](SKILL.md#运行时定位)。
 
 Skill 层的显式调用：Codex 用 `$project-self-memory`，Claude Code 用 `/project-self-memory`。
 
@@ -39,13 +43,21 @@ $project-self-memory -l      # 显式读取
 
 必须通过 CLI 或查看器读写活动文件。分类标准也由 CLI 显式应用；人工可编辑独立计划文件，不直接修改 `.project-self-memory/` 内的文件。
 
-人工浏览或修改正文/类型/状态时，可以启动随 `init` 部署的紧凑查看器：
+人工浏览或修改正文/类型/状态时，启动统一预览：
 
 ```bash
-node <project-root>/.project-self-memory/view-memoery.js
+node <skill-path>/runtime-dist/psm-cli.js preview
 ```
 
-它只监听 127.0.0.1 并输出带 `#token=` 的地址，并自动用系统默认浏览器打开。关闭自动打开等启动参数见[根 README](../../README.md#project-self-memory)。写入与 CLI 共用锁、备份与乐观并发。暂存区可在查看器中查看、编辑并入、丢弃、清理。部署、HTTP 契约与安全模型见 [viewer.md](references/viewer.md)。
+它只监听 127.0.0.1 并输出带 `#token=` 的地址，并自动用系统默认浏览器打开。关闭自动打开等启动参数见[根 README](../../README.md#project-self-memory)。写入与 CLI 共用锁、备份与乐观并发。暂存区可在查看器中查看、编辑并入、丢弃、清理。HTTP 契约与安全模型见 [viewer.md](references/viewer.md)。
+
+只有需要项目独立运行时才部署一个运行时副本到项目：
+
+```bash
+node <skill-path>/runtime-dist/psm-cli.js runtime install
+```
+
+部署只落 `.project-self-memory/psm-cli.js` 一个文件，不复制 skill 指令、参考文档或源码模块。已有旧独立查看器 `view-memoery.js` 保留原样、仍可自行运行。运行时部署、升级保护与旧命令兼容见 [runtime.md](references/runtime.md)。
 
 `self-memory/` 是只读 legacy 来源，只能通过 `legacy` 命令迁移，不能直接编辑。
 

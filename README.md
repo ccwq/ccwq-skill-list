@@ -66,7 +66,7 @@ npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code --
 | `ntl-script-descriptions` | 为 package.json 补充 ntl 可读取的 scripts 中文说明 | [速查](#ntl-script-descriptions) · [SKILL](skills/ntl-script-descriptions/SKILL.md) |
 | `pro-grilling` | 手动逐层厘清复杂决策，在共同理解前保持只读 | [速查](#pro-grilling) · [SKILL](skills/pro-grilling/SKILL.md) |
 | `progressive-doc` | 用渐进式披露结构创建、改写或审查中文技术文章 | [速查](#progressive-doc) · [SKILL](skills/progressive-doc/SKILL.md) |
-| `project-self-memory` | 维护项目级结论记忆，支持逐问策展、评分、候选逐条入库、结论暂存、可选派生多标签与 legacy 迁移 | [速查](#project-self-memory) · [README](skills/project-self-memory/README.md) |
+| `project-self-memory` | 维护项目级结论记忆，支持逐问策展、评分、候选逐条入库、结论暂存、可选派生多标签与 legacy 迁移；附自包含单文件 CLI 与统一 Web 预览 | [速查](#project-self-memory) · [README](skills/project-self-memory/README.md) |
 | `rd-mode` | 远程开发模式规则，统一通过 `abc` 命令操作 host 浏览器 | [速查](#rd-mode) · [README](skills/rd-mode/README.md) |
 | `skill-to-prompt` | 把技能源文提炼为文言式执行提示词，删除低频分支并以 `agent-skill` 标签封装 | [速查](#skill-to-prompt) · [SKILL](skills/skill-to-prompt/SKILL.md) |
 | `software-license-checker` | 评估软件企业内部使用的许可证合规与付费风险 | [速查](#software-license-checker) · [README](skills/software-license-checker/README.md) |
@@ -942,24 +942,34 @@ Codex 用 `$` 前缀显式调用；Claude Code 用 `/` 前缀（`/project-self-m
 
 活动目录固定为 `.project-self-memory/`；`self-memory/` 仅能通过 `legacy` 命令只读迁移。所有命令均可附 `--project-root <path>`。不记录凭据、个人数据、易失机器状态或未经验证推断。
 
-CLI 脚本随 skill 安装，路径与当前工作目录无关：Codex 装在 `.agents/skills/project-self-memory/`，Claude Code 装在 `.claude/skills/project-self-memory/`。下面的示例用 `<skill-path>` 表示该目录。
+CLI 随 skill 安装，路径与当前工作目录无关：Codex 装在 `.agents/skills/project-self-memory/`，Claude Code 装在 `.claude/skills/project-self-memory/`。下面的示例用 `<skill-path>` 表示该目录。
+
+入口是随 skill 安装的自包含单文件 `runtime-dist/psm-cli.js`（Node 22+，无第三方依赖）：
 
 ```text
-node <skill-path>/scripts/memory.mjs init
-node <skill-path>/scripts/memory.mjs read --type pitfall
-node <skill-path>/scripts/memory.mjs add --type fact --content-file conclusion.txt
-node <skill-path>/scripts/memory.mjs --project-root E:\repo diagnose
-node <skill-path>/scripts/memory.mjs tags show
-node <skill-path>/scripts/memory.mjs tags suggest
-node <skill-path>/scripts/memory.mjs tags stats
-node <skill-path>/scripts/memory.mjs read --tag host_scope:tenc,component:api
-node <skill-path>/scripts/memory.mjs catalog --by tag
-node <skill-path>/scripts/memory.mjs cache list
-node <skill-path>/scripts/memory.mjs cache show <id>
+node <skill-path>/runtime-dist/psm-cli.js <command> [options]
+```
+
+记忆库位置按 `--project-root` → 运行时所在项目的 `.project-self-memory/` 绑定 → 启动工作目录依次判定。skill 安装位置与项目记忆库位置互相独立：读取或维护某个项目的记忆，不需要在那个项目里再装一份 skill。
+
+源码入口 `scripts/memory.mjs` 是同一份实现的薄兼容层，供宿主适配器与源码调试使用。
+
+```text
+node <skill-path>/runtime-dist/psm-cli.js init
+node <skill-path>/runtime-dist/psm-cli.js read --type pitfall
+node <skill-path>/runtime-dist/psm-cli.js add --type fact --content-file conclusion.txt
+node <skill-path>/runtime-dist/psm-cli.js --project-root E:\repo diagnose
+node <skill-path>/runtime-dist/psm-cli.js tags show
+node <skill-path>/runtime-dist/psm-cli.js tags suggest
+node <skill-path>/runtime-dist/psm-cli.js tags stats
+node <skill-path>/runtime-dist/psm-cli.js read --tag host_scope:tenc,component:api
+node <skill-path>/runtime-dist/psm-cli.js catalog --by tag
+node <skill-path>/runtime-dist/psm-cli.js cache list
+node <skill-path>/runtime-dist/psm-cli.js cache show <id>
 # 以下为显式写入，先确认具体分类标准或修正内容
-node <skill-path>/scripts/memory.mjs cache apply --id <id> --decision write
-node <skill-path>/scripts/memory.mjs tags apply --plan-file taxonomy.json
-node <skill-path>/scripts/memory.mjs tags set 0001 --add component:api --remove host_scope:tenc
+node <skill-path>/runtime-dist/psm-cli.js cache apply --id <id> --decision write
+node <skill-path>/runtime-dist/psm-cli.js tags apply --plan-file taxonomy.json
+node <skill-path>/runtime-dist/psm-cli.js tags set 0001 --add component:api --remove host_scope:tenc
 ```
 
 活动目录固定为 `.project-self-memory/`；`self-memory/` 仅能通过 `legacy` 命令只读迁移。所有命令均可附 `--project-root <path>`。不记录凭据、个人数据、易失机器状态或未经验证推断。
@@ -983,7 +993,9 @@ node <skill-path>/scripts/memory.mjs tags set 0001 --add component:api --remove 
 | `cache discard <id>` / `cache apply --id <id> --decision write\|discard [--content-file <f>]` | 丢弃单条 / 落库或丢弃单条；`--content-file` 是「改写后写入」的正文 | 候选入库的唯一入口 |
 | `cache prune [--older-than <N>d]` | 清理已处理与已失效条目 | `pending` 候选无 TTL，不自动过期 |
 | `migrate-schema` | v1 明确报告无可迁移前版；未知版本拒绝 | 当前格式为 v1 |
-| `viewer install` / `viewer update` / `viewer status` | 部署、按官方哈希升级、检查紧凑查看器 | 随 `init` 自动安装 |
+| `preview` | 启动统一 Web 预览（前台长驻、本机回环、令牌保护） | 不部署任何脚本；缺库只读 |
+| `runtime install` / `runtime status` / `runtime update` | 部署、查询、升级项目运行时副本 `.project-self-memory/psm-cli.js` | 仅显式要求项目独立运行时执行 |
+| `viewer status` | 只读检查旧独立查看器（`viewer install`/`update` 已弃用，退出 1 且不执行） | `init` 不再部署旧查看器 |
 
 命令的 JSON 输出和退出语义见 [cli-contract.md](skills/project-self-memory/references/cli-contract.md)。新写入正文必须单行（宿主按内置 STE 表达契约改写，CLI 校验；历史多行记录保持可读），错误带 `PSM_CONTRACT` 前缀；`MemorySession` 首次召回超过 37,000 估算 token 时发非阻断提醒。规则见 [expression-contract.md](skills/project-self-memory/references/expression-contract.md) 与 [memory-format.md](skills/project-self-memory/references/memory-format.md)。
 
@@ -991,19 +1003,29 @@ node <skill-path>/scripts/memory.mjs tags set 0001 --add component:api --remove 
 
 </details>
 
-紧凑查看器（支持标签多选任一匹配、按首标签分组；标签只读，正文/类型/状态可编辑）：
+统一预览（支持标签多选任一匹配、按首标签分组；标签只读，正文/类型/状态可编辑）：
 
 ```text
-node .project-self-memory/view-memoery.js
+node <skill-path>/runtime-dist/psm-cli.js preview
 ```
 
-输出带 `#token=` 的本机地址；只监听 127.0.0.1；令牌只在进程与页面内存中；默认自动用系统默认浏览器打开（`--no-open` 可禁止）。写入带备份、原子替换与乐观并发。暂存区可在查看器中查看、编辑并入、丢弃、清理。详见 [viewer.md](skills/project-self-memory/references/viewer.md)。
+输出带 `#token=` 的本机地址；只监听 127.0.0.1；令牌只在进程与页面内存中；默认自动用系统默认浏览器打开（`--no-open` 可禁止）。写入带备份、原子替换与乐观并发，与 CLI 共用同一套锁与存储核心。暂存区可查看、编辑并入、丢弃、清理。详见 [runtime.md](skills/project-self-memory/references/runtime.md) 与 [viewer.md](skills/project-self-memory/references/viewer.md)。
 
-| 查看器参数 / 环境变量 | 说明 | 默认值 |
+| 预览参数 / 环境变量 | 说明 | 默认值 |
 |------|------|--------|
 | `--port <N>` | 监听端口，整数 `0..65535`；`0` 自动分配 | `0` |
 | `--no-open` / `PSM_VIEWER_OPEN=0` | 禁止自动打开浏览器，适用于无头环境 | 自动打开 |
 | `PSM_VIEWER_OPEN=echo` | 仅打印待打开地址，不执行浏览器命令，用于诊断 | 不设置 |
+
+项目运行时副本只在明确要求「项目独立运行」时部署，只落一个文件：
+
+```text
+node <skill-path>/runtime-dist/psm-cli.js runtime install
+node <skill-path>/runtime-dist/psm-cli.js runtime status
+node <skill-path>/runtime-dist/psm-cli.js runtime update
+```
+
+不复制 skill 指令、参考文档、源码模块或测试；已有旧独立查看器 `view-memoery.js` 保留原样、仍可自行运行，新版不再部署或升级它。
 
 详情见 [README.md](skills/project-self-memory/README.md)。按「你的意图」组织的使用指南见 [使用指南](docs/teach/project-self-memory/lessons/0001-psm-usage-guide.html)。
 

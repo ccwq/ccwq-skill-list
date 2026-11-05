@@ -5,7 +5,7 @@
   {"query":"请审阅这次项目改动是否遵循现有路由约定。", "should_trigger":true},
   {"query":"把这个前端页面的筛选交互改好，完成后做真实验收。", "should_trigger":true},
   {"query":"这个项目未来只允许从服务端读取支付密钥，记录为长期约束。", "should_trigger":true},
-  {"query":"请用 node .agents/skills/project-self-memory/scripts/memory.mjs add --type constraint --content-file conclusion.txt 保存已验证部署约束", "should_trigger":true},
+  {"query":"请用 node .agents/skills/project-self-memory/runtime-dist/psm-cli.js add --type constraint --content-file conclusion.txt 保存已验证部署约束", "should_trigger":true},
   {"query":"看看线上部署为什么健康检查一直 503。", "should_trigger":true},
   {"query":"定位这个仓库构建在 Windows 上失败的根因。", "should_trigger":true},
   {"query":"迁移这个项目的鉴权方案并验证 Cookie 行为。", "should_trigger":true},
