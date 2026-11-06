@@ -948,10 +948,10 @@ export function validateScopePaths(cwd, scope, baseHead) {
 
   const tracked = new Set();
   if (baseHead) {
-    const result = runGit(['ls-tree', '-r', '--name-only', baseHead], cwd);
+    const result = runGit(['ls-tree', '-r', '--name-only', '-z', baseHead], cwd);
     if (result.status === 0) {
-      for (const line of result.stdout.split(/\r\n|\n|\r/)) {
-        if (line.trim()) tracked.add(line.trim());
+      for (const treePath of splitNul(result.stdout)) {
+        tracked.add(treePath);
       }
     }
   }

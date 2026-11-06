@@ -56,7 +56,7 @@ npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code --
 | `ffmpeg-video-processing` | 用 ffmpeg / ffprobe 压缩、转码、裁剪、抽取音频与检查媒体 | [速查](#ffmpeg-video-processing) · [SKILL](skills/ffmpeg-video-processing/SKILL.md) |
 | `gemin-mirror` | Gemini 兼容镜像站的账号探针、账号切换与安全会话删除 | [速查](#gemin-mirror) · [README](skills/gemin-mirror/README.md) |
 | `git-history-cleaner` | 清理 Git 历史中的特定文件或目录 | [速查](#git-history-cleaner) · [SKILL](skills/git-history-cleaner/SKILL.md) |
-| `git-up` | Git 提交与 `.gitignore` 维护；默认按文件规划，`-d/--deep` 增强语义拆分，`-g/--grilling` 逐问审查，支持委派与受控 push | [速查](#git-up) · [README](skills/git-up/README.md) |
+| `git-up` | Git 提交与 `.gitignore` 维护；默认按文件规划，`-d/--deep` 增强语义拆分，`-g/--grilling` 逐问审查，支持中文删除路径、委派与受控 push | [速查](#git-up) · [README](skills/git-up/README.md) |
 | `handoff-portable` | 把当前任务交接给普通聊天 AI，生成可粘贴的单个 Markdown 文件并做结构校验与语义体检 | [速查](#handoff-portable) · [SKILL](skills/handoff-portable/SKILL.md) |
 | `joint-debugging` | 手动协调技术联调、故障诊断、验证与修复 | [速查](#joint-debugging) · [SKILL](skills/joint-debugging/SKILL.md) |
 | `lite-team` | 轻量多 Agent 协作，用协作板在不同 Agent / session 间手动交接 | [速查](#lite-team) · [README](skills/lite-team/README.md) |
@@ -570,7 +570,7 @@ $git-history-cleaner --repo /path/to/repo --path "*.log" --auto
 /git-up                  # 只生成一条 commit message
 ```
 
-计划保存在对话上下文中。`-p` 与 `-c` 必须在同一会话。
+计划保存在对话上下文中。`-p` 与 `-c` 必须在同一会话。计划范围支持基线中已跟踪、工作区已删除的中文路径。
 
 `--push/-P` 必须与 `-c`、`-pc` 或 `-s` 组合。它不支持单独 push，也不自动创建 upstream。
 

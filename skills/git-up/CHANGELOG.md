@@ -19,6 +19,7 @@ All notable changes to this skill will be documented in this file.
 - 新增 `scripts/plan_context.mjs`：一次调用返回规划所需的全部输入（改动文件清单、diff 统计、当前分支、最近提交标题），内部的 Git 调用并发执行。Agent 规划时不必再分开跑多次 `git` 命令探提交信息惯例。
 
 ### 修复
+- 范围校验改用 NUL 分隔的基线路径，避免已删除的中文路径因 Git 转义被误判为 `invalid_plan`，同时保留路径中的空白字符。
 - 全局安装时的脚本调用路径。`references/ignore.md` 的示例此前写 `skills/git-up/scripts/gitignore_manager.mjs`，这是仓库内相对路径。skill 装在 `~/.claude/skills/` 下时该路径不存在，Agent 照抄后得到 `No such file or directory`，再改用 `.py` 后缀又失败一次（脚本已改写为 `.mjs`）。现在示例改用 skill 基目录下的绝对路径形式。
 - 路径枚举关闭重命名探测。`stagedPaths` 与 `commitPaths` 此前用 `--name-only`，Git 默认把重命名折叠成一条新路径记录，被删除的旧路径从枚举里消失。计划外的删除一旦折进一次重命名就逃过范围检查，最终只报「树不匹配」，真实原因被掩盖，且提交已进历史。现在返回 `patch_scope_mismatch` 并指出计划外的路径。
 - 块标量首行按语法识别。此前只认 `|` 一种写法，`|-` 与 `|+` 退化成字面量字符串：`subject: |-` 会通过非空校验，产出一条标题为 `|-` 的提交，`verification` 仍报 `verified`。现在 `|` `|-` `|+` 都受支持，折叠写法 `>` 与畸形首行（如 `|x`）显式返回 `invalid_plan`。
