@@ -4,6 +4,8 @@
 
 任务通过 `MemorySession` 加载相关记忆。它也负责保存结论和记录记忆的使用结果。
 
+面向日常使用者的[离线 HTML 使用手册](manual.html)：自然语言请求、候选审核、概念边界与折叠维护说明；参数速查仍以根 README 为准。
+
 ## 快速开始
 
 从目标项目根目录调用 Skill 随附的运行时。`<skill-path>` 是本 Skill 自身目录（`SKILL.md` 所在处）：Codex 装在 `.agents/skills/project-self-memory/`，Claude Code 装在 `.claude/skills/project-self-memory/`。
@@ -140,7 +142,7 @@ MemorySession
 1. 校验配置、记忆库和审计账本。
    任一项无法确认有效时，停止自动加载。
 2. 排除 `review` 和 `disabled`；
-3. 根据任务关键词、类型和旧分组计算基础相关性，对精确匹配的任务标签增加排序权重；
+3. 根据任务关键词、类型和旧分组计算基础相关性；标签仅作只读归因观测，不增加排序权重；
 4. 应用可信度和新鲜度条件；
 5. 排序并限制单一分组占用；
 6. 在 `max_records` 与 `max_context_tokens` 内截断；

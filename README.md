@@ -66,7 +66,7 @@ npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code --
 | `ntl-script-descriptions` | 为 package.json 补充 ntl 可读取的 scripts 中文说明 | [速查](#ntl-script-descriptions) · [SKILL](skills/ntl-script-descriptions/SKILL.md) |
 | `pro-grilling` | 手动逐层厘清复杂决策，在共同理解前保持只读 | [速查](#pro-grilling) · [SKILL](skills/pro-grilling/SKILL.md) |
 | `progressive-doc` | 用渐进式披露结构创建、改写或审查中文技术文章 | [速查](#progressive-doc) · [SKILL](skills/progressive-doc/SKILL.md) |
-| `project-self-memory` | 维护项目级结论记忆，支持逐问策展、评分、候选逐条入库、结论暂存、可选派生多标签与 legacy 迁移；附自包含单文件 CLI 与统一 Web 预览 | [速查](#project-self-memory) · [README](skills/project-self-memory/README.md) |
+| `project-self-memory` | 维护项目级结论记忆，支持逐问策展、评分、候选逐条入库、结论暂存、可选派生多标签与 legacy 迁移；附自包含单文件 CLI、统一 Web 预览与离线使用手册 | [速查](#project-self-memory) · [README](skills/project-self-memory/README.md) · [手册](skills/project-self-memory/manual.html) |
 | `rd-mode` | 远程开发模式规则，统一通过 `abc` 命令操作 host 浏览器 | [速查](#rd-mode) · [README](skills/rd-mode/README.md) |
 | `skill-to-prompt` | 把技能源文提炼为文言式执行提示词，删除低频分支并以 `agent-skill` 标签封装 | [速查](#skill-to-prompt) · [SKILL](skills/skill-to-prompt/SKILL.md) |
 | `software-license-checker` | 评估软件企业内部使用的许可证合规与付费风险 | [速查](#software-license-checker) · [README](skills/software-license-checker/README.md) |
@@ -1027,7 +1027,7 @@ node <skill-path>/runtime-dist/psm-cli.js runtime update
 
 不复制 skill 指令、参考文档、源码模块或测试；已有旧独立查看器 `view-memoery.js` 保留原样、仍可自行运行，新版不再部署或升级它。
 
-详情见 [README.md](skills/project-self-memory/README.md)。按「你的意图」组织的使用指南见 [使用指南](docs/teach/project-self-memory/lessons/0001-psm-usage-guide.html)。
+详情见 [README.md](skills/project-self-memory/README.md)。日常操作见[离线 HTML 使用手册](skills/project-self-memory/manual.html)；早期 Codex 教学材料见[使用指南](docs/teach/project-self-memory/lessons/0001-psm-usage-guide.html)。
 
 ---
 

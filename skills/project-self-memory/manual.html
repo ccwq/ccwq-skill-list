@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PSM 使用手册</title>
+<meta name="description" content="面向日常使用者的项目记忆手册。用自然语言让 Agent 读取、暂存、审核和维护记忆。">
+<style>
+/* 紧凑手册：窄目录、双栏场景、内联示例、按需展开维护；固定白底大白风。 */
+:root{--bg:#f7f8fa;--paper:#fff;--ink:#0b0d12;--muted:#566171;--line:#e3e7ed;--blue:#001a72;--display:"Microsoft YaHei","PingFang SC",system-ui,sans-serif;--body:"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif;--mono:Consolas,"SFMono-Regular",monospace;color-scheme:light}
+*{box-sizing:border-box}html{scroll-padding-top:12px}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.6 var(--body);padding-block:16px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}a{color:var(--blue);text-underline-offset:3px}a:hover{text-decoration-thickness:2px}button,summary,a{touch-action:manipulation}a:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--blue);outline-offset:3px}button{font:inherit;color:var(--blue);background:var(--paper);border:1px solid var(--line);border-radius:2px;padding:3px 9px;cursor:pointer}button:hover{border-color:var(--blue)}[hidden]{display:none!important}.sheet{max-width:1240px;margin:auto;background:var(--paper);padding:18px 22px}header{display:flex;justify-content:space-between;align-items:start;gap:12px;border-bottom:1px solid var(--line);padding-bottom:12px}h1,h2,h3{font-family:var(--display);text-wrap:balance;color:var(--ink)}h1{font-size:27px;line-height:1.25;letter-spacing:-.03em;margin:0 0 5px}h2{font-size:18px;line-height:1.4;margin:0 0 9px}h3{font-size:14px;margin:0 0 4px}p{margin:0 0 7px}p:last-child{margin-bottom:0}.sub,.meta,.note{color:var(--muted)}.meta{font-size:12px;text-align:right;flex-shrink:0}.meta a{display:inline-block;margin-top:3px}.layout{display:grid;grid-template-columns:158px minmax(0,1fr);gap:22px;padding-top:16px}.layout>*{min-width:0}nav{font-size:13px;align-self:start;position:sticky;top:12px}nav strong{display:block;margin-bottom:5px}nav a{display:block;padding:4px 0;text-decoration:none}nav .nav-note{font-size:12px;border-top:1px solid var(--line);margin-top:8px;padding-top:8px;color:var(--muted)}main{display:grid;gap:20px;min-width:0}section{min-width:0;scroll-margin-top:12px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 18px}.grid>*{min-width:0}.scene{padding:9px 0;border-top:1px solid var(--line)}.scene h3{color:var(--blue)}.ask{background:var(--bg);padding:7px 9px;margin:6px 0;overflow-wrap:anywhere;position:relative}.ask p{margin:0}.copy{display:block;margin:4px 0 0 auto;font-size:12px;padding:1px 8px;min-height:26px}.result{font-size:13px}.result strong,.label{color:var(--blue)}.strip{background:var(--bg);padding:9px 11px;margin-bottom:10px}.strip strong{color:var(--blue)}ol,ul{margin:4px 0 0;padding-left:20px}li{margin:2px 0}code{font: .92em/1.5 var(--mono);overflow-wrap:anywhere}pre{margin:7px 0;background:var(--bg);padding:9px 11px;overflow-x:auto;max-width:100%;white-space:pre-wrap;overflow-wrap:anywhere}pre code{font-size:12px}.table-wrap{overflow-x:auto;max-width:100%}table{border-collapse:collapse;width:100%;font-size:13px}th,td{padding:6px 8px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}th{background:var(--bg);color:var(--blue);font-weight:600}td:first-child{font-weight:600}tbody tr:last-child td{border-bottom:0}.terms td:first-child{width:115px}.prompt{font-family:var(--body)}.compact-list{columns:2;column-gap:22px}.compact-list li{break-inside:avoid}.flow{font-weight:600;color:var(--blue);background:var(--bg);padding:8px 11px;line-height:1.8;overflow-wrap:anywhere}.hint{font-size:12px;color:var(--muted);margin-top:6px}details{border-top:1px solid var(--line);padding:8px 0}summary{cursor:pointer;font-weight:600;color:var(--blue);padding:2px 0}details[open]>summary{margin-bottom:7px}.detail-body{padding-left:14px;display:grid;gap:8px}.detail-body p{margin:0}.faq{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 18px}.faq>*{min-width:0}.faq details{font-size:13px}.faq summary{font-size:13px}.sources{font-size:12px;display:flex;flex-wrap:wrap;gap:4px 14px}.footer{border-top:1px solid var(--line);padding-top:9px;margin-top:16px;color:var(--muted);font-size:12px;display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 16px}.screen-reader{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@media(max-width:900px){.sheet{padding:15px}.layout{grid-template-columns:130px minmax(0,1fr);gap:15px}.grid,.faq{grid-template-columns:1fr}.compact-list{columns:1}}
+@media(max-width:600px){body{padding-block:8px}.sheet{padding:13px 12px}header{display:block;padding-bottom:9px}h1{font-size:25px}.meta{text-align:left;margin-top:7px;display:flex;flex-wrap:wrap;gap:4px 12px}.meta a{margin:0}.layout{display:block;padding-top:10px}nav{position:static;display:flex;flex-wrap:wrap;gap:3px 14px;padding-bottom:12px}nav strong{display:none}nav a{padding:3px 0}nav .nav-note{display:none}main{gap:17px}h2{font-size:17px}.grid{gap:0}.terms td:first-child{width:auto}th,td{padding:6px}.copy{min-height:32px}summary{padding-block:5px}.detail-body{padding-left:8px}}
+@media print{body{background:var(--paper);padding:0}.sheet{max-width:none;padding:0}.layout{display:block}nav,.copy{display:none}details{break-inside:avoid}.scene{break-inside:avoid}a{color:var(--ink)}}
+</style>
+</head>
+<body>
+<div class="sheet">
+<header>
+<div><h1>PSM 使用手册</h1><p class="sub">让 Agent 复用项目结论。先读取，后暂存，确认后入库。</p></div>
+<div class="meta"><span>适用：PSM 2.8.0 · 2026-11-06</span><br><a href="../../README.md#project-self-memory">调用与参数速查 ↗</a></div>
+</header>
+<div class="layout">
+<nav aria-label="手册目录">
+<strong>按意图查阅</strong>
+<a href="#start">快速上手</a><a href="#scenes">日常场景</a><a href="#review">候选入库</a><a href="#concepts">概念与 scope</a><a href="#boundaries">授权与安全</a><a href="#faq">常见问题</a><a href="#advanced">高级维护</a><a href="#sources">资料来源</a>
+<p class="nav-note">离线阅读，无外部资源。<br>示例是发给 Agent 的请求，不是终端命令。<br>本页不会读写项目数据。</p>
+</nav>
+<main>
+<section id="start">
+<h2>快速上手</h2>
+<div class="strip"><strong>只记结论，不记聊天流水。</strong> 新结论先进入暂存区。用户确认后，候选才进入记忆库。</div>
+<ol>
+<li><strong>确认入口。</strong> 在目标项目中，让 Agent 使用已安装的 <code>project-self-memory</code>。安装方法见<a href="../../README.md">根 README</a>。已有用户级安装时，不必在每个项目重复安装。</li>
+<li><strong>读取记忆。</strong> 请求「检查本项目的 PSM，读取与当前任务相关的记忆」。缺库时确认初始化；库损坏时只诊断。</li>
+<li><strong>完成业务任务。</strong> 把记忆当线索，核验当前代码与环境。</li>
+<li><strong>暂存结论。</strong> 请求「把本次已验证的新结论先暂存，不入库」。检查暂存条数与候选编号。</li>
+<li><strong>审核入库。</strong> 请求「逐条展示暂存候选，由我决定写入、丢弃或暂缓」。写入后回读结果。</li>
+</ol>
+<p class="hint">自然语言请求必须发给能加载此 Skill 的 Agent。自动行为还取决于配置与宿主接入，安装 Skill 不等于后台服务。</p>
+</section>
+<section id="scenes">
+<h2>日常场景</h2>
+<p class="note">以下为请求示例。编号与业务内容必须换成当前项目的真实内容。</p>
+<div class="grid">
+<article class="scene"><h3>读取与任务相关的记忆</h3><div class="ask"><p>使用 PSM，读取与本次部署任务相关的记忆。说明哪些结论仍需现场验证。</p></div><p class="result"><strong>结果：</strong>Agent 读取相关记录。读取不表示结论仍然有效，也不产生评分。</p></article>
+<article class="scene"><h3>把结论先攒起来</h3><div class="ask"><p>把本次任务中已验证、可复用的新结论暂存进 PSM。不要直接入库。报告候选编号。</p></div><p class="result"><strong>结果：</strong>候选进入暂存区，跨会话保留。记忆库与评分账本不变。</p></article>
+<article class="scene"><h3>审核已有候选</h3><div class="ask"><p>逐条展示 PSM 暂存候选。修改类先展示原文与新文，等我选择后再执行。</p></div><p class="result"><strong>结果：</strong>Agent 进入候选审核。没有候选时直接结束，不制造问题。</p></article>
+<article class="scene"><h3>盘点本次经验</h3><div class="ask"><p>用 PSM 盘点本次经验，检查重复与冲突。先讨论，不保存。</p></div><p class="result"><strong>结果：</strong>Agent 逐问核对结论与适用范围。认可结论不等于授权写入。</p></article>
+<article class="scene"><h3>修订一条已知记忆</h3><div class="ask"><p>检查 PSM 记录 0001。先核验现状，展示修订前后内容，等我确认再修改。</p></div><p class="result"><strong>结果：</strong>先读后写。具体修改获得授权后，可以直接修订；不必先放入暂存区。</p></article>
+<article class="scene"><h3>评价实际用过的记忆</h3><div class="ask"><p>评价本次实际采用的 PSM 记忆。区分有效、在适用范围内失效、无法归因。先给建议。</p></div><p class="result"><strong>结果：</strong>只讨论有实际结果的记录。任务失败或场景不匹配，不自动等于负分。</p></article>
+<article class="scene"><h3>打开查看器</h3><div class="ask"><p>为当前项目启动 PSM 统一 preview。不要部署运行时副本，也不要改项目数据。</p></div><p class="result"><strong>结果：</strong>启动本机页面。可以浏览记忆与暂存候选；点击写操作才会提交变更。</p></article>
+<article class="scene"><h3>本次不自动保存</h3><div class="ask"><p>本次任务继续读取 PSM，但关闭自动保存与自动评分。不要在收尾时暂存结论。</p></div><p class="result"><strong>结果：</strong>任务级覆盖生效。关闭自动行为不删除已有记忆或候选。</p></article>
+</div>
+<p class="hint">显式 Skill 调用与全部参数只在<a href="../../README.md#project-self-memory">根 README</a>维护。本页不另建参数表。</p>
+</section>
+<section id="review">
+<h2>候选入库：逐条决定</h2>
+<p class="flow">读取候选 → 检查冲突与版本 → 用户选择 → 单条执行 → 回读结果</p>
+<div class="table-wrap"><table><thead><tr><th>候选情况</th><th>用户可以选择</th><th>执行边界</th></tr></thead><tbody>
+<tr><td>新增、删除、评分</td><td>写入 / 丢弃 / 暂缓</td><td>选择只授权当前这一条操作。</td></tr>
+<tr><td>修改已有正文</td><td>改写后写入 / 丢弃 / 暂缓</td><td>先展示原正文与新正文，再确认。</td></tr>
+<tr><td>目标记录已变更或删除</td><td>丢弃 / 基于现状重新评估</td><td>旧候选不能直接覆盖当前记录。</td></tr>
+<tr><td>同一目标存在冲突</td><td>核对证据后逐条决定</td><td>不得把互相矛盾的候选直接合并入库。</td></tr>
+</tbody></table></div>
+<p class="hint">中途中断时，已执行的变更保留，未处理候选留在暂存区。待处理候选不会因时间自动过期。清理会移除已处理与已失效条目，必须先核对范围。</p>
+</section>
+<section id="concepts">
+<h2>概念与 scope</h2>
+<div class="table-wrap"><table class="terms"><thead><tr><th>术语</th><th>含义</th><th>不要混淆</th></tr></thead><tbody>
+<tr><td>技能安装</td><td>让宿主发现 Skill 指令与配套工具。</td><td>不决定记忆存在哪个项目。</td></tr>
+<tr><td>运行时部署</td><td>向项目放入独立可运行的 <code>psm-cli.js</code>。</td><td>不是整套 Skill 安装；普通使用不要求部署。</td></tr>
+<tr><td>记忆库</td><td><code>memory.md</code> 保存正文与稳定编号。</td><td>只暂存的候选还不是记忆记录。</td></tr>
+<tr><td>暂存区</td><td><code>cache.jsonl</code> 保存待审核候选。</td><td>自动保存表示暂存，不表示入库。该文件由 Git 忽略。</td></tr>
+<tr><td>评分账本</td><td><code>evidence.jsonl</code> 保存评分与使用结果收据。</td><td>不保存记忆正文或自由文本证据。</td></tr>
+<tr><td>分类标准</td><td><code>tags.json</code> 定义标签规则与单条修正。</td><td>标签是派生结果，不是记录的固定属性。</td></tr>
+<tr><td>记录类型</td><td>经验、避坑、决策、约束、事实。</td><td>类型说明结论性质，不表示环境或访问权限。</td></tr>
+<tr><td>记录状态</td><td><code>active</code> 参与普通读取；<code>review</code> 待复核；<code>disabled</code> 停用。</td><td>待复核或停用不等于删除。</td></tr>
+</tbody></table></div>
+<div class="grid" style="margin-top:9px">
+<div><h3>项目边界：选择哪一个库</h3><p>数据目录固定为 <code>&lt;project-root&gt;/.project-self-memory/</code>。优先使用显式项目根，其次使用项目运行时绑定，最后使用启动目录。</p><p class="note">工具不自动向父目录寻找项目。项目里指向全局运行时的链接，不等于项目独立副本。这是数据目录分隔，不是访问控制。</p></div>
+<div><h3>记录范围：标签不强制隔离</h3><p>PSM 没有记录级 <code>scope</code> 固定属性。正文前缀 <code>[env=prod]</code> 可以派生 <code>env:prod</code> 标签，表达适用范围。</p><p class="note">标签支持显式筛选，但不参与自动检索排序，也不强制排除范围外记录。使用前仍必须核对适用条件。</p></div>
+</div>
+<p class="hint">旧分组有 <code>scope</code> 描述文本，一条记录至多属于一个组。该文本不是权限规则。新分类推荐多标签，旧分组保持兼容，不自动迁移。</p>
+</section>
+<section id="boundaries">
+<h2>授权与安全</h2>
+<div class="grid">
+<div><h3>可以直接请求只读检查</h3><ul><li>读取、目录、记录详情、证据查看。</li><li>配置校验、库诊断、标签建议与统计。</li><li>运行时状态、查看器只读浏览。</li></ul></div>
+<div><h3>写操作必须明确范围</h3><ul><li>候选入库、正文修订、合并、删除、评分。</li><li>标签规则、旧分组、配置修复与迁移。</li><li>项目运行时的部署或升级。</li></ul></div>
+</div>
+<div class="strip" style="margin-top:9px"><strong>不得直接编辑活动文件。</strong> 让 Agent 调用 CLI，或在查看器中提交。不得保存凭据、个人数据、易失机器状态或未核验推断。</div>
+<p>授权示例：「把记录 0001 改为刚才确认的新正文，现在执行。」只说「结论对」「继续讨论」「确认后保存」，不构成具体写入授权。</p>
+<p class="note">库结构未知或损坏时，停止写入并保留原文件。不得用初始化、重置或自动修复掩盖错误。已有具体授权且范围未变时，不重复确认。</p>
+</section>
+<section id="faq">
+<h2>常见问题</h2>
+<div class="faq">
+<details><summary>为什么记忆库没有本次的新结论？</summary><p>先检查暂存区。自动收尾只暂存合格候选，不直接入库。读取、保存开关关闭或验证不足时，也不会生成候选。让 Agent 报告具体原因。</p></details>
+<details><summary>为什么没有加载某条记忆？</summary><p>检查项目根、配置、记录状态和诊断。接入自动选择的宿主还会检查相关性、评分、新鲜度与上下文预算。显式读取与宿主自动选择不是同一行为。</p></details>
+<details><summary>找不到 CLI，是否把整个 Skill 装进项目？</summary><p>不必。让 Agent 从本次加载的 Skill 基目录找发行运行时。已加载安装缺少产物时，报告安装不完整；不得切到另一版本掩盖错误。定位失败时，报告记忆未读取或未暂存，业务任务继续。</p></details>
+<details><summary>为什么保存显示冲突？</summary><p>另一个写入方改变了记录或库版本。刷新并重读当前内容，比较差异，再决定重提。不得强制覆盖；失效候选必须重新评估。</p></details>
+<details><summary>为什么新正文不接受多行？</summary><p>新正文必须紧凑单行，不以标题、列表或代码围栏开头。让 Agent 保留事实与字面量后改写。CLI 只校验，不改写语义。历史多行正文保持可读。</p></details>
+<details><summary>为什么修改正文后评分变了？</summary><p>评分绑定记录版本。正文、类型、状态或旧分组变化时，版本变化；旧评分不自动继承。改标签分类标准不会改变记录版本。</p></details>
+<details><summary>为什么有标签，却仍读到其他范围？</summary><p>标签是分类线索，不是 scope 强制隔离。自动选择不按标签排除其他记录。必须显式请求标签筛选，并现场核对适用条件。</p></details>
+<details><summary>为什么查看器打不开或只读？</summary><p>浏览器未自动打开时，使用终端输出的完整带令牌地址。端口冲突时换端口。缺库或库损坏时只读诊断；不要因此直接编辑活动文件。</p></details>
+<details><summary>装好 Skill，就会自动运行吗？</summary><p>安装只让宿主发现 Skill。提示词宿主由 Agent 按指令执行，不是后台守护服务。<code>MemorySession</code> 是可接入的自动流程入口，参考适配器不代表当前宿主已经接入。</p></details>
+<details><summary>文件能跨会话或跨项目共用吗？</summary><p>记忆与暂存候选保存在项目中，可以跨会话读取；当前任务的读取态不长期保存。不同项目默认使用各自的数据目录，不自动共享全局记忆。团队分发取决于实际 Git 跟踪策略。</p></details>
+</div>
+</section>
+<section id="advanced">
+<h2>高级维护 <span class="note" style="font-size:12px;font-weight:400">按需展开</span></h2>
+<details><summary>初始化与配置：先检查，再写入</summary><div class="detail-body"><p>仅在确认缺库或为空时初始化。<code>init</code> 创建缺失的数据配置与记忆文件，初始化账本，并补充暂存区的 Git 忽略规则；不部署可执行文件。</p><p>自动行为分别控制读取、候选暂存和评分候选。覆盖优先级为任务级、会话级、项目配置、默认值。会话级覆盖在本次任务收尾后或明确恢复时失效。</p><p>配置损坏时关闭自动行为。让 Agent 先校验，再展示修复计划；没有授权时不得重置。</p><p><strong>请求：</strong>「检查本项目的 PSM 配置与库健康。先解释诊断，不重置、不修复。」</p></div></details>
+<details><summary>评分、版本与证据：先归因，再评价</summary><div class="detail-body"><p><code>record_id</code> 是稳定编号。<code>record_version</code> 是记录内容与元数据的指纹。<code>task_id</code> 区分任务，<code>event_id</code> 区分证据收据。同一事件重试不重复计分。</p><p>有效性必须来自实际采用后的可观察结果。仅加载不算使用。环境故障、场景不匹配和原因不明不直接构成负面证据。</p><p>可信宿主的自动证据还必须匹配当前任务、已加载记录及版本。提示词宿主收尾只暂存新增结论，不自行生成评分候选。</p><p><strong>请求：</strong>「检查记录 0001 的当前版本与证据。说明评分依据，先不调整。」</p></div></details>
+<details><summary>标签与旧分组：分类不等于适用性判断</summary><div class="detail-body"><p>标签来自正文前缀、关键词规则与单条修正。<code>[host_scope=qbox,tgate]</code> 派生两个标签。一条记录最多显示 8 个标签。</p><p>关键词规则使用不区分大小写的字面量子串。建议命令只统计前缀与重复词，不联网，也不自动采纳。标签损坏时关闭全部标签并给出 warning，普通记忆功能继续。</p><p>维护时先看建议与统计，再授权应用分类计划。查看器标签只读。旧分组保持兼容，分组变更会改变记录版本。</p><p><strong>请求：</strong>「只读检查 PSM 标签覆盖率，提出分类建议。不要应用规则，也不要迁移旧分组。」</p></div></details>
+<details><summary>清理与合并：先核对候选，不做全库扫除</summary><div class="detail-body"><p>清理入口只讨论负分占优或达到既定负分条件的记录。具体条件见根 README。可以保留、修订、待复核、停用或删除。</p><p>合并必须保留较早的稳定编号，并核对新正文。盘点、评分、清理不代替暂存区审核；暂存候选单独走候选入库流程。</p><p><strong>请求：</strong>「检查 PSM 的清理候选。按条说明保留或修改理由。不要删除或合并。」</p></div></details>
+<details><summary>查看器：人工浏览、编辑与审核</summary><div class="detail-body"><p>统一 <code>preview</code> 前台运行，只监听 <code>127.0.0.1</code>。默认打开浏览器；退出前台进程后，服务结束。</p><p>查看器支持标签筛选、正文/类型/状态编辑，以及暂存候选的查看、编辑并入、丢弃、清理。它不提供标签规则编辑。</p><p>写入前检查版本并创建备份。发生冲突时重读后再决定，不覆盖其他写入方的内容。不得把带令牌的启动地址发给他人。</p><p>这份离线手册只是文档，不是查看器，不会连接你的项目。</p></div></details>
+<details><summary>项目独立运行：只部署一个文件</summary><div class="detail-body"><p>普通使用直接运行已安装 Skill 的发行 CLI。仅在明确要求项目独立运行时，部署 <code>.project-self-memory/psm-cli.js</code>。项目运行时只依赖 Node 22+，不依赖相邻源码或第三方模块。</p><p>安装拒绝覆盖未知内容和符号链接。升级只替换能识别的官方旧产物，先备份再替换；不改记忆正文、评分、配置或暂存区。</p><p>运行时不联网自更新，不自动替换自身，也不替用户决定 Git 跟踪策略。文件哈希识别不是来源签名认证。</p><p><strong>请求：</strong>「先检查本项目 PSM 运行时状态。说明是否需要独立副本，暂不安装或升级。」</p></div></details>
+<details><summary>旧数据与旧查看器：保留原件，显式迁移</summary><div class="detail-body"><p><code>self-memory/</code> 是只读旧数据来源。先扫描，再确认含快照与来源指纹的迁移计划。迁移可以部分成功；失败条目保留原字节。</p><p>当前存储格式是 v1。未知或未来格式拒绝迁移，不猜测修复。迁移的新正文也必须符合单行契约。</p><p>旧 <code>view-memoery.js</code> 保留，可以继续运行，但不自动获得新功能。旧查看器安装与更新命令拒绝执行；只读状态查询保留。新使用统一 <code>preview</code>。</p><p><strong>请求：</strong>「只扫描旧记忆与旧查看器，给出迁移建议。保留原件，等待我确认。」</p></div></details>
+<details><summary>宿主接入与上下文预算：开发者参考</summary><div class="detail-body"><p><code>MemorySession</code> 在任务开始时加载，在结束时暂存候选。自动选择先检查有效性与记录状态，再按相关性、可信度、新鲜度、旧分组多样性和 token 预算选择。</p><p>标签只提供命中观测，不加权排序。自动加载关闭时，不把记忆正文交给 Agent；配置或库校验失败时停止自动流程。</p><p>每个计量会话首次成功交付非空上下文时估算 token。严格超过 37,000 时发出提醒；任务继续。原始 CLI 读取不提供此会话提醒，提醒也不是清理授权。</p><p>实现细节见<a href="references/reference-host.md">宿主适配器</a>。本手册不声称当前生产宿主已经接入该接口。</p></div></details>
+</section>
+<section id="sources">
+<h2>资料来源</h2>
+<p class="note">内容按当前仓库契约编写。参数、默认值与完整调用示例以根 README 为准。本页链接依赖仓库目录；单独复制本文件后，正文仍可离线阅读。</p>
+<div class="sources"><a href="../../README.md#project-self-memory">参数速查</a><a href="README.md">Skill 说明</a><a href="SKILL.md">Agent 行为</a><a href="references/runtime.md">运行时</a><a href="references/cli-contract.md">CLI 契约</a><a href="references/memory-format.md">存储与标签</a><a href="references/expression-contract.md">正文契约</a><a href="references/viewer.md">查看器</a><a href="references/grouping-rules.md">旧分组</a><a href="references/migration-rules.md">迁移</a></div>
+</section>
+</main>
+</div>
+<footer class="footer"><span>project-self-memory · 离线单页手册 · 大白商务风</span><span>自然语言操作优先 · STE 原则 · 无外部依赖</span></footer>
+<p id="copy-status" class="screen-reader" aria-live="polite"></p>
+</div>
+<script>
+// 复制失败时选中文本；不依赖联网、存储或浏览器权限也能阅读。
+const copyStatus = document.getElementById('copy-status');
+for (const box of document.querySelectorAll('.ask')) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'copy';
+  button.textContent = '复制请求';
+  button.setAttribute('aria-label', '复制：' + box.parentElement.querySelector('h3').textContent);
+  button.addEventListener('click', async () => {
+    const text = box.querySelector('p');
+    try {
+      await navigator.clipboard.writeText(text.textContent.trim());
+      copyStatus.textContent = '已复制请求。';
+      button.textContent = '已复制';
+    } catch {
+      const selection = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(text);
+      selection.removeAllRanges();
+      selection.addRange(range);
+      copyStatus.textContent = '已选中文本，请手动复制。';
+      button.textContent = '请手动复制';
+    }
+  });
+  box.appendChild(button);
+}
+// 目录或外部锚点定位到折叠内容时，先展开父级。
+function revealAnchor() {
+  const id = location.hash.slice(1);
+  const target = document.getElementById(id);
+  if (!target) return;
+  for (let parent = target.parentElement; parent; parent = parent.parentElement) {
+    if (parent.tagName === 'DETAILS') parent.open = true;
+  }
+}
+window.addEventListener('hashchange', revealAnchor);
+revealAnchor();
+</script>
+</body>
+</html>
