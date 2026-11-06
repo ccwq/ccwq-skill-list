@@ -6,6 +6,22 @@
 
 面向日常使用者的[离线 HTML 使用手册](manual.html)：自然语言请求、候选审核、概念边界与折叠维护说明；参数速查仍以根 README 为准。
 
+
+## 安装
+
+从插件市场安装（需先把本仓库加为 marketplace）：
+
+```text
+/plugin install project-self-memory --marketplace ccwq/ccwq-skill-list
+```
+
+或用 skills CLI 安装：
+
+```bash
+npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code --skill project-self-memory
+```
+
+
 ## 快速开始
 
 从目标项目根目录调用 Skill 随附的运行时。`<skill-path>` 是本 Skill 自身目录（`SKILL.md` 所在处）：Codex 装在 `.agents/skills/project-self-memory/`，Claude Code 装在 `.claude/skills/project-self-memory/`。

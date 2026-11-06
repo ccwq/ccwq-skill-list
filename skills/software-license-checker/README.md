@@ -2,6 +2,22 @@
 
 为企业内部使用的软件提供偏保守的许可证、商业授权与潜在付费预警，并把公开采购信息整理给技术负责人和采购。它是公开信息基础上的合规预警，不构成正式法律意见。
 
+## 安装
+
+从插件市场安装（需先把本仓库加为 marketplace）：
+
+```text
+/plugin install software-license-checker --marketplace ccwq/ccwq-skill-list
+```
+
+或用 skills CLI 安装：
+
+```bash
+npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code --skill software-license-checker
+```
+
+
+
 ## 适用范围
 
 仅适用于公司内部安装、研发、测试、办公、数据处理、运维辅助和不对外提供服务的内部系统。SaaS 对外服务、嵌入产品后的外部分发、OEM、转售和外部开源义务分析不在此范围内。

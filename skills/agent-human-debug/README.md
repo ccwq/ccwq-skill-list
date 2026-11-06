@@ -2,6 +2,22 @@
 
 一个跨平台的人机协作故障诊断 Skill：Agent 负责最小化取证与证据分析，人类以低成本执行单段命令；结果先脱敏，再优先复制到剪切板回传。
 
+
+## 安装
+
+从插件市场安装（需先把本仓库加为 marketplace）：
+
+```text
+/plugin install agent-human-debug --marketplace ccwq/ccwq-skill-list
+```
+
+或用 skills CLI 安装：
+
+```bash
+npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code --skill agent-human-debug
+```
+
+
 ## 使用方式
 
 将整个目录放入支持 Skills 的目录，或把 `SKILL.md` 作为技能入口加载。

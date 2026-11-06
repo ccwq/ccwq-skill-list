@@ -2,6 +2,22 @@
 
 在已登录的 ChatGPT Web 中完成信息调查、图片生成与编辑、单图结构化视觉审查，以及经确认后的经验整理。它复用现有浏览器会话，以工作区归属、完整发送和业务后置条件验收操作，不是通用网页爬取工具。
 
+
+## 安装
+
+从插件市场安装（需先把本仓库加为 marketplace）：
+
+```text
+/plugin install chatgpt-web-skill --marketplace ccwq/ccwq-skill-list
+```
+
+或用 skills CLI 安装：
+
+```bash
+npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code --skill chatgpt-web-skill
+```
+
+
 ## 使用前提
 
 - 已安装并可使用 `agent-browser`。

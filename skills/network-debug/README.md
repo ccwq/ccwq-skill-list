@@ -21,3 +21,17 @@ Windows、Linux、macOS、路由器/NAS、容器/VM、移动端只是不同的�
 Clash/Mihomo、Tailscale、WireGuard 只是代理/VPN/overlay 分支中的实现示例。
 
 Windows 环境额外支持 clipboard-first 的人机诊断方式，但这不是 Skill 的全局约束。
+
+## 安装
+
+从插件市场安装（需先把本仓库加为 marketplace）：
+
+```text
+/plugin install network-debug --marketplace ccwq/ccwq-skill-list
+```
+
+或用 skills CLI 安装：
+
+```bash
+npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code --skill network-debug
+```

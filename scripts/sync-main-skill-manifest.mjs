@@ -55,6 +55,9 @@ function expectedManifest(root) {
     name: 'ccwq-skill-list',
     version: '1.0.0',
     description: 'ccwq 的主要 Claude Code Skill 集合；未显式列出的 Skill 由 skills CLI 归入 Other。',
+    author: {
+      name: 'ccwq',
+    },
     skills: mainSkills(root),
   };
 }

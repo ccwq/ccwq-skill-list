@@ -34,7 +34,19 @@ npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code --
 
 本仓库不固定外部 `skills` CLI 的版本。
 
-> 当前通过 `skills` CLI 安装。仓库包含 Plugin Marketplace 元数据，但插件安装尚未验证。
+也可以走 Claude Code 插件市场安装：先把本仓库加为 marketplace，再安装整包或单个插件。
+
+```text
+/plugin marketplace add ccwq/ccwq-skill-list
+
+# 整包（安装 .claude-plugin/plugin.json 中列出的主 Skill）
+/plugin install ccwq-skill-list --marketplace ccwq/ccwq-skill-list
+
+# 单个 Skill
+/plugin install git-up --marketplace ccwq/ccwq-skill-list
+```
+
+> 两条安装链路相互独立：`skills` CLI 扫描仓库 `skills/` 目录，插件市场读取 `.claude-plugin/marketplace.json` 的条目。
 
 ## 可用 Skill
 

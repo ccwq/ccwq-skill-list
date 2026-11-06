@@ -5,6 +5,12 @@
 适用场景：本机(server)无桌面、代码挂载自远端(host)，需要在 host 上跑服务、操作浏览器。
 
 ## 安装
+从插件市场安装（需先把本仓库加为 marketplace）：
+
+```text
+/plugin install rd-mode --marketplace ccwq/ccwq-skill-list
+```
+
 
 随本仓库一起安装（见仓库根 README），或单独指定：
 

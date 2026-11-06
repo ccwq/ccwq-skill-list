@@ -2,6 +2,22 @@
 
 诊断并修复 Windows 上 Codex hooks 的入口命令、PowerShell 包装器与 stdout JSON schema 问题。目标是让真实 Codex hook runner 接受命令、退出码和输出，而不只是让单个脚本看起来可以运行。
 
+## 安装
+
+从插件市场安装（需先把本仓库加为 marketplace）：
+
+```text
+/plugin install codex-windows-hooks-fix --marketplace ccwq/ccwq-skill-list
+```
+
+或用 skills CLI 安装：
+
+```bash
+npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code --skill codex-windows-hooks-fix
+```
+
+
+
 ## 适用症状
 
 - `SessionStart`、`UserPromptSubmit`、`PreToolUse`、`PostToolUse` 或 `Stop hook failed`。

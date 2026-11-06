@@ -15,6 +15,12 @@ CLI 仅使用 Node.js 标准库。运行探测不依赖 Docker daemon。
 - 实时探测镜像源需要网络
 
 ## 安装
+从插件市场安装（需先把本仓库加为 marketplace）：
+
+```text
+/plugin install dockerhub-mirror --marketplace ccwq/ccwq-skill-list
+```
+
 
 复制整个目录，保持 `SKILL.md`、`bin/`、`scripts/`、`config/`、`references/` 在一起。
 

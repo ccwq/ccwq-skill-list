@@ -2,6 +2,22 @@
 
 将可并行、需要独立复核或需要模型路由的工作拆给临时原生 Codex Worker。主线程始终保留用户沟通、授权、集成与最终验收；它不会创建持久的 `.codex/agents/*.toml` 角色文件。
 
+## 安装
+
+从插件市场安装（需先把本仓库加为 marketplace）：
+
+```text
+/plugin install subagent-router --marketplace ccwq/ccwq-skill-list
+```
+
+或用 skills CLI 安装：
+
+```bash
+npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code --skill subagent-router
+```
+
+
+
 ## 适用场景
 
 - 多个相互独立的调查、实现或审查分支。

@@ -4,6 +4,22 @@
 
 > 脚本需 Python 3（≥3.8）；部分系统 `python` 仍指向 Python 2，请统一用 `python3`。
 
+## 安装
+
+从插件市场安装（需先把本仓库加为 marketplace）：
+
+```text
+/plugin install lite-team --marketplace ccwq/ccwq-skill-list
+```
+
+或用 skills CLI 安装：
+
+```bash
+npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code --skill lite-team
+```
+
+
+
 ## 最快使用
 
 1. 将整个 `lite-team` 文件夹安装到 Agent Skill 目录。

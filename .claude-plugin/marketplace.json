@@ -4,62 +4,66 @@
     "name": "ccwq"
   },
   "description": "ccwq 的 Claude Code Skill / Plugin 集合",
-  "metadata": {
-    "pluginRoot": "./plugins"
-  },
   "plugins": [
     {
+      "name": "ccwq-skill-list",
+      "source": ".",
+      "description": "ccwq 的 Claude Code Skill / Plugin 集合：整包安装 .claude-plugin/plugin.json 中列出的主 Skill；单独安装某个 Skill 请直接选择对应条目。",
+      "version": "1.0.0",
+      "category": "devtools"
+    },
+    {
       "name": "git-up",
-      "source": "./git-up",
-      "description": "Git 提交与 .gitignore 维护工具：-p 默认按文件规划（等价旧 -zp）；-d/--deep 启用增强语义规划；-g/--grilling 逐问审查计划且不提交（兼容旧 --discuss）；--modify 按反馈调整；-pc 对简单安全任务走快车道，保留受控 push、子智能体委派与旧 -z 兼容。",
+      "source": "./skills/git-up",
+      "description": "Git 提交与 .gitignore 维护工具：-p 默认按文件规划（等价旧 -zp）；-d/--deep 启用增强语义规划；-g/--grilling 逐问审查计划且不提交（兼容旧 --discuss）；--modify 按反馈调整；-pc 对简单安全任务走快车道，支持中文删除路径，保留受控 push、子智能体委派与旧 -z 兼容。",
       "version": "3.0.0",
       "category": "git"
     },
     {
       "name": "git-history-cleaner",
-      "source": "./git-history-cleaner",
+      "source": "./skills/git-history-cleaner",
       "description": "清理 Git 仓库历史中的特定文件或目录以减小仓库体积，或移除误提交到历史中的敏感/二进制文件",
       "version": "1.0.0",
       "category": "git"
     },
     {
       "name": "nano-prompt",
-      "source": "./nano-prompt",
+      "source": "./skills/nano-prompt",
       "description": "AI 图像提示词生成技能。基于 Nano Banana Pro 的 20 条核心提示技巧，输出 YAML 格式的分层提示词结构",
       "version": "1.0.0",
       "category": "ai"
     },
     {
       "name": "software-license-checker",
-      "source": "./software-license-checker",
+      "source": "./skills/software-license-checker",
       "description": "评估软件在企业内部使用场景下的许可证、授权与潜在付费要求，输出偏保守的法务预警报告",
       "version": "1.0.0",
       "category": "compliance"
     },
     {
       "name": "ffmpeg-video-processing",
-      "source": "./ffmpeg-video-processing",
+      "source": "./skills/ffmpeg-video-processing",
       "description": "通过 ffmpeg/ffprobe 处理音视频文件：压缩、转码、裁剪、缩放、变帧率、抽取音频、混流、拼接、字幕烧录、加水印与媒体检查",
       "version": "1.0.0",
       "category": "media"
     },
     {
       "name": "codex-windows-hooks-fix",
-      "source": "./codex-windows-hooks-fix",
+      "source": "./skills/codex-windows-hooks-fix",
       "description": "修复 Windows 环境中 Codex hooks 入口命令、PowerShell 包装器和 stdout JSON schema 问题",
       "version": "1.0.0",
       "category": "devtools"
     },
     {
       "name": "ntl-script-descriptions",
-      "source": "./ntl-script-descriptions",
+      "source": "./skills/ntl-script-descriptions",
       "description": "为包含 package.json 的项目补充 ntl 可读取的 scripts 中文说明，维护 package.json#ntl.descriptions",
       "version": "1.0.0",
       "category": "devtools"
     },
     {
       "name": "npm-license-declaration",
-      "source": "./npm-license-declaration",
+      "source": "./skills/npm-license-declaration",
       "description": "为前端项目生成 npm 直接依赖的许可证声明，统一查询 npm latest 元数据并输出 docs/npm-license-declaration.md",
       "version": "1.0.1",
       "category": "compliance"
@@ -101,7 +105,7 @@
     },
     {
       "name": "lite-team",
-      "source": "./lite-team",
+      "source": "./skills/lite-team",
       "description": "轻量多 Agent 协作技能，用 docs/bbs/lite-team-bbs.md 协作板在不同 Agent/session 间手动交接",
       "version": "1.1.2",
       "category": "collaboration"
@@ -205,7 +209,7 @@
       "category": "devtools"
     },
     {
-      "name": "claude-proj-skill-linker",
+      "name": "proj-skill-linker",
       "source": "./skills/claude-proj-skill-linker",
       "description": "项目级 skill 接入与链接整理：把 .agents/skills 通过目录链接接入 .claude/skills、迁移实体 skill 到 .agents；默认只读预览，确认摘要后执行，CLI 提供稳定 JSON/退出码契约，并独立验证 Windows junction 或 POSIX 符号链接指向 canonical source 且可读 SKILL.md，绝不写入全局配置",
       "version": "1.0.1",

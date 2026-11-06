@@ -6,6 +6,22 @@
 
 Skill 只处理用户明确授权的数据。它复用已有 CDP 标签页，不启动新浏览器。
 
+
+## 安装
+
+从插件市场安装（需先把本仓库加为 marketplace）：
+
+```text
+/plugin install gemin-mirror --marketplace ccwq/ccwq-skill-list
+```
+
+或用 skills CLI 安装：
+
+```bash
+npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code --skill gemin-mirror
+```
+
+
 ## 使用前提
 
 - 已登录的目标镜像站标签页，可通过 CDP 接入（默认端口 `9696`）。

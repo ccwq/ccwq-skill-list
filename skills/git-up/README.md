@@ -10,6 +10,22 @@
 
 简单、安全的单提交任务使用 `-pc/-pcP` 时，自动采用快车道。
 
+
+## 安装
+
+从插件市场安装（需先把本仓库加为 marketplace）：
+
+```text
+/plugin install git-up --marketplace ccwq/ccwq-skill-list
+```
+
+或用 skills CLI 安装：
+
+```bash
+npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code --skill git-up
+```
+
+
 ## 快速开始
 
 ```text
