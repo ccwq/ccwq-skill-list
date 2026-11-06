@@ -54,4 +54,5 @@ __tmp*
 /.planning
 /.scratch
 /.project-self-memory/backups/
+/.project-self-memory/cache.jsonl
 /test-space

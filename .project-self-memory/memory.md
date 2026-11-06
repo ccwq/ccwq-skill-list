@@ -1,4 +1,4 @@
-<!-- <psm-store version="1" next_id="0026" group_dimension="" /> -->
+<!-- <psm-store version="1" next_id="0033" group_dimension="" /> -->
 <!-- <psm id="0001" type="pitfall" status="active" positive="0" negative="0" created_at="2026-08-11T15:41:36Z" last_scored_at="" /> -->
 `.env` 的反斜杠续行必须在执行 `KEY=value` 校验前合并物理行。对逗号分隔的清单，续行处仍需保留分隔符，例如 `aria-filedown,\` 后接下一行；否则会拼成错误的单个名称（如 `aria-filedowndeep-investigation`）。
 
@@ -73,4 +73,22 @@ Windows 下若初始化契约要求生成文件与模板字节完全一致，优
 
 <!-- <psm id="0025" type="fact" status="active" positive="0" negative="0" created_at="2026-10-31T06:30:00Z" last_scored_at="" /> -->
 已验证：2026-10-31 git-up 回归套件完成 Windows 与 Linux 双端验证。已验证的跨平台 Git 事实三条：(1) Linux 上 core.fileMode=true，只改文件模式的改动不进 `git diff HEAD` 的输出（实测 0 字节），必须用 `git diff --cached` 取模式补丁；Windows 上 core.fileMode=false，同一命令两种写法都输出模式变更。(2) Linux 上 Git 忽略没有执行位的钩子，提交直接成功并提示 hook was ignored because it's not set as executable；写钩子测试必须补 chmod +x。(3) WSL 的 PATH 含 Windows 目录，能找到 powershell.exe，但那是互操作调用，与 Windows 原生参数形态和编码行为不同，Windows 专有用例必须按 process.platform 设闸，不能按「能否找到程序」判断。测试框架新增 SKIP 语义：平台不具备运行前提时显式跳过并记录原因，不计为失败。已验证的双端结果：Windows 语义 49 例与计划 30 例全通过；Linux 语义 49 例全通过、计划 29 例通过 + 1 例跳过（PowerShell 管道为 Windows 专有行为）。新增 test-space/git-up-dual-platform/run_all.mjs 作为双端验证入口，scripts/verify-linux.sh 作为 Linux 侧入口，package.json 新增 test:git-up-dual。已知未做：GitHub Actions 工作流。
+
+<!-- <psm id="0026" type="fact" status="active" positive="0" negative="0" created_at="2026-11-06T14:52:40Z" last_scored_at="" /> -->
+Claude Code 插件市场 source 相对 marketplace root（包含 .claude-plugin/ 的仓库根目录）解析，不从 .claude-plugin/ 内开始；metadata.pluginRoot 只给无 / 的裸名 source 加前缀，对 ./ 开头的 source 无效，SchemaStore schema 对 relative source 的 pattern 是 ^./；以 marketplace-reference 文档为权威。官方依据：code.claude.com/docs/en/plugins/create-marketplace.md 与 marketplace-reference.md。2026-11-06 已按此核对本仓库全部条目。
+
+<!-- <psm id="0027" type="experience" status="active" positive="0" negative="0" created_at="2026-11-06T14:52:41Z" last_scored_at="" /> -->
+ccwq-skill-list 中 npx skills add 与 Claude Code plugin marketplace 是两套独立安装链路：skills CLI 扫描仓库 skills/ 目录，不读 marketplace.json 的 source，因此旧 source 路径错误不影响 skills add 安装；README 明确插件安装未验证。判断安装问题前先分清链路，不要用目录缺失推断 skills add 失败。
+
+<!-- <psm id="0028" type="fact" status="active" positive="0" negative="0" created_at="2026-11-06T15:17:24Z" last_scored_at="" /> -->
+已验证 2026-11-06：git-up 源仓库 validateScopePaths 改用 `git ls-tree -r --name-only -z` 加 `splitNul`，取代按行拆分并 trim，修复 `core.quotePath=true` 时已跟踪的中文删除路径被误判 `invalid_plan`；回归测试置于受版本控制的 `tests/git-up/cli-paths.test.mjs`（T01–T06 共 8 用例），新增入口 `npm run test:git-up-paths`，Windows 与隔离源码副本均 8/8 通过，T01 对修复前实现仍失败。
+
+<!-- <psm id="0029" type="fact" status="active" positive="0" negative="0" created_at="2026-11-06T15:17:24Z" last_scored_at="" /> -->
+已验证 2026-11-06：Claude Code 插件保留字规则（名称以 `claude-`、`anthropic-`、`anthropics-`、`cc-plugin-` 开头即 Error）只约束插件标识符，即 marketplace 条目名与 `.claude-plugin/plugin.json` 的 `name` 字段；skill 的 `SKILL.md` frontmatter `name` 与目录名不受此限。因此 skill 名可保留 `claude-` 前缀，只需把 marketplace 条目名换成非保留字，官方依据 code.claude.com/docs/en/plugins/manifest-reference.md。
+
+<!-- <psm id="0030" type="fact" status="active" positive="0" negative="0" created_at="2026-11-06T15:17:25Z" last_scored_at="" /> -->
+已验证 2026-11-06：`claude plugin validate .` 可捕获 relative source 目录不存在（校验期不报，`plugin install` 才报 `Source path does not exist`）、条目名保留字 Error、根 `.claude-plugin/plugin.json` 缺 author 的 warning，以及各 skill README 缺 `/plugin install <name> --marketplace <owner/repo>` 安装行的 advice，advice 不影响通过结论。修复口径：source 写实际相对路径、条目名避开保留字、生成器补 author 字段、各 skill README 补安装行。
+
+<!-- <psm id="0031" type="fact" status="active" positive="0" negative="0" created_at="2026-11-06T15:17:25Z" last_scored_at="" /> -->
+已验证 2026-11-06：`.claude-plugin/marketplace.json` 修正后共 34 条，即 33 个 skill 加一个 `source` 为 `.` 的整包条目 `ccwq-skill-list`；9 条旧式 `./<name>` source 改为 `./skills/<name>`，移除指向不存在 `./plugins` 的 `metadata.pluginRoot`，因该字段对以 `./` 开头的 source 从不生效；`claude plugin validate .` 零 warning 零 advice 通过，34 条 source 全部指向存在目录。
 
