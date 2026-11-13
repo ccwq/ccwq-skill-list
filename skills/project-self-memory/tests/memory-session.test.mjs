@@ -275,10 +275,18 @@ test('enabled lifecycle loads, stages once, and deduplicates positive rating', a
   await session.recordEvidence({ recordId: '0001', record_version: loaded.record_version,
     kind: 'applied_success', source: 'automatic', host_confirmed: true,
     direct_result: { adopted: true }, event_id: 'enabled-event-7b31' });
-  await session.endTask({ conclusions: [{ type: 'fact', content: 'runtime 新结论', verified: true, isNew: true, conflictFree: true }] });
+  const end = await session.endTask({ conclusions: [{ type: 'fact', content: 'runtime 新结论', verified: true, isNew: true, conflictFree: true }] });
   const after = snapshot(root).toString();
   const cached = JSON.parse(run(root, 'cache', 'list'));
 
+  assert.equal(end.cache.status, 'staged');
+  assert.equal(end.cache.total, 2);
+  assert.deepEqual(end.cache.added, end.added);
+  assert.deepEqual(end.cache.rated, end.rated);
+  assert.equal(end.cache.next_action, 'cache apply');
+  assert.equal(end.cache.attempted, 2);
+  assert.equal(end.cache.duplicates, 0);
+  assert.match(JSON.stringify(end.cache.message), /cache apply/);
   assert.match(JSON.stringify(agent.calls[0].context), /ENABLED_LOAD_SENTINEL_7b31/);
   assert.equal(after, before);
   assert.deepEqual(JSON.parse(run(root, 'evidence', 'inspect')).events, []);
@@ -291,8 +299,33 @@ test('enabled lifecycle loads, stages once, and deduplicates positive rating', a
 });
 
 /**
+ * Given：同一 task_id 的候选已在此前落库
+ * When：再次结束任务并重复暂存同一候选
+ * Then：返回 noop，pending 数量为零，不提示 cache apply
+ * 防回归：重复候选被错误报告为新的 pending 候选
+ */
+test('cache feedback distinguishes applied duplicates from pending candidates', async () => {
+  const root = temp();
+  init(root, { auto_load: 'true', auto_save: 'true', auto_rate: false });
+  const session = new MemorySession({ projectRoot: root, agent: null });
+  await session.beginTask({ task_id: 'duplicate-feedback-task' });
+  const candidate = { type: 'fact', content: 'DUPLICATE_FEEDBACK_SENTINEL', verified: true, isNew: true, conflictFree: true };
+  const first = await session.endTask({ candidates: [candidate] });
+  const eventId = first.added[0];
+  run(root, 'cache', 'apply', '--id', eventId, '--decision', 'write');
+
+  const retry = new MemorySession({ projectRoot: root, agent: null });
+  await retry.beginTask({ task_id: 'duplicate-feedback-task' });
+  const end = await retry.endTask({ candidates: [candidate] });
+
+  assert.equal(end.cache.status, 'noop');
+  assert.equal(end.cache.total, 0);
+  assert.equal(end.cache.next_action, null);
+  assert.equal(end.cache.duplicates, 1);
+  assert.match(end.cache.message, /没有新的 pending/);
+});
+/**
  * Given：配置开启，但 session 与 task override 依次关闭不同能力
- * When：分别创建 session 并在 beginTask 时提供覆盖
  * Then：task 优先于 session，session 优先于 config，且最终策略可审计
  * 防回归：覆盖层级反转导致禁用策略被配置值重新开启
  */

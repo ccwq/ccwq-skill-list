@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { MemorySession } from '../scripts/memory-session.mjs';
 const cli = fileURLToPath(new URL('../scripts/memory.mjs', import.meta.url));
@@ -102,4 +102,40 @@ test('taxonomy replacement fails closed when its backup cannot be written', () =
   assert.throws(() => run(root, 'tags', 'apply', '--plan-file', plan));
   assert.equal(fs.readFileSync(file, 'utf8'), old);
   assert.equal(fs.existsSync(path.join(base, 'memory.lock')), false);
+});
+
+/**
+ * Given：记忆库存在 active 记录，但没有旧 group 目录
+ * When：执行默认 catalog
+ * Then：命令返回 group 模式、group_count=0，并提示使用标签目录
+ * 防回归：空旧分组目录被误认为记忆库为空，用户无法发现 catalog --by tag
+ */
+test('catalog explains an empty legacy group directory', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'psm-catalog-empty-group-'));
+  run(root, 'init');
+  const body = path.join(root, 'body.txt');
+  fs.writeFileSync(body, 'CATALOG_EMPTY_GROUP_SENTINEL');
+  run(root, 'add', '--type', 'fact', '--content-file', body);
+
+  const result = JSON.parse(run(root, 'catalog'));
+  assert.deepEqual(result, []);
+  const stderrResult = spawnSync(process.execPath, [cli, '--project-root', root, 'catalog'], { encoding: 'utf8' });
+  assert.match(stderrResult.stderr, /"mode":"group"/);
+  assert.match(stderrResult.stderr, /"group_count":0/);
+  assert.match(stderrResult.stderr, /catalog --by tag/);
+});
+
+/**
+ * Given：项目初始化但没有 active 记录
+ * When：执行默认 catalog
+ * Then：stderr 明确报告空库，且不推荐无结果的标签目录
+ * 防回归：空库收到 catalog --by tag 的无效下一步提示
+ */
+test('catalog distinguishes an empty store from an ungrouped store', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'psm-catalog-empty-store-'));
+  run(root, 'init');
+  const result = spawnSync(process.execPath, [cli, '--project-root', root, 'catalog'], { encoding: 'utf8' });
+  assert.deepEqual(JSON.parse(result.stdout), []);
+  assert.match(result.stderr, /"record_count":0/);
+  assert.doesNotMatch(result.stderr, /catalog --by tag/);
 });

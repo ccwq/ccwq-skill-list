@@ -320,6 +320,12 @@ export class MemorySession {
     if (!isObject(input)) throw new TypeError('endTask 输入必须是对象');
     const added = [];
     const rated = [];
+    const pendingAdded = new Set();
+    const pendingRated = new Set();
+    let saveFailures = 0;
+    let rateFailures = 0;
+    let attempted = 0;
+    let duplicates = 0;
     // Automatic saves are host-owned: never promote an Agent return value into
     // a durable candidate unless the host explicitly passes it to endTask.
     const candidates = Array.isArray(input.candidates) ? input.candidates
@@ -330,9 +336,8 @@ export class MemorySession {
     for (const item of evidence) this.recordEvidence(item, { hostProvided: true });
     this.ended = true;
     if (!this.policy.auto_save) {
-      this.emit('save', false, this.policy.failClosed ? 'fail-closed' : 'policy-disabled');
+      this.emit('save', false, this.policy.failClosed ? 'fail-closed' : 'policy-disabled', { status: 'disabled' });
     } else {
-      let saveFailures = 0;
       for (const candidate of candidates) {
         if (!this.qualify(candidate)) continue;
         try {
@@ -346,19 +351,23 @@ export class MemorySession {
                 observation: candidate.content.trim(),
               })], input: candidate.content.trim() });
           const staged = JSON.parse(result.stdout || '{}');
+          attempted++;
+          if (staged.duplicate === true) duplicates++;
           if (staged.event_id) added.push(staged.event_id);
+          if (staged.event_id && staged.status === 'pending' && !pendingAdded.has(staged.event_id)) {
+            pendingAdded.add(staged.event_id);
+          }
         } catch {
           saveFailures++;
           this.emit('save', false, 'cache-write-failure');
         }
       }
       this.emit('save', saveFailures === 0, saveFailures ? 'partial-failure' : 'policy-enabled',
-        { count: added.length, outcome: saveFailures ? 'partial' : 'allowed', target: 'cache' });
+        { count: added.length, outcome: saveFailures ? 'partial' : 'allowed', target: 'cache', status: added.length ? 'staged' : 'noop', pending: added.length, next_action: added.length ? 'cache apply' : null });
     }
     if (!this.policy.auto_rate) {
-      this.emit('rate', false, this.policy.failClosed ? 'fail-closed' : 'policy-disabled');
+      this.emit('rate', false, this.policy.failClosed ? 'fail-closed' : 'policy-disabled', { status: 'disabled' });
     } else {
-      let rateFailures = 0;
       // 自动评分只写 cache：投票方向由证据类型决定，无法归因的结果不投票。
       for (const event of this.structuredEvidence.values()) {
         const op = VOTE_OPS.get(event.kind);
@@ -375,7 +384,12 @@ export class MemorySession {
                 observed_at: event.observed_at || null,
               })] });
           const staged = JSON.parse(result.stdout || '{}');
-          if (staged.event_id) rated.push(staged.event_id);
+          attempted++;
+          if (staged.duplicate === true) duplicates++;
+          if (staged.event_id && staged.status === 'pending' && !pendingRated.has(staged.event_id)) {
+            pendingRated.add(staged.event_id);
+            rated.push(staged.event_id);
+          }
         } catch {
           rateFailures++;
           this.emit('rate', false, 'cache-write-failure', { refid: event.record_id });
@@ -388,14 +402,34 @@ export class MemorySession {
           const result = this.runCli({ node: this.node, cliPath: this.cliPath, projectRoot: this.projectRoot,
             args: ['cache', 'add', '--op', '+1', '--target', id, '--source', this.taskId] });
           const staged = JSON.parse(result.stdout || '{}');
+          attempted++;
+          if (staged.duplicate === true) duplicates++;
+          if (staged.event_id && staged.status === 'pending' && !pendingRated.has(staged.event_id)) {
+            pendingRated.add(staged.event_id);
+            rated.push(staged.event_id);
+          }
           this.ratedRecords.add(id);
-          if (staged.event_id) rated.push(staged.event_id);
         } catch { rateFailures++; this.emit('rate', false, 'cache-write-failure', { refid: id }); }
       }
       this.emit('rate', rateFailures === 0, rateFailures ? 'partial-failure' : 'policy-enabled',
-        { count: rated.length, outcome: rateFailures ? 'partial' : 'allowed', target: 'cache' });
+        { count: rated.length, outcome: rateFailures ? 'partial' : 'allowed', target: 'cache', status: rated.length ? 'staged' : 'noop', pending: rated.length, next_action: rated.length ? 'cache apply' : null });
     }
-    return Object.freeze({ added, rated, audit: this.auditEvents.slice() });
+    const cacheAdded = [...pendingAdded];
+    const cacheRated = [...pendingRated];
+    const cacheTotal = cacheAdded.length + cacheRated.length;
+    const cache = Object.freeze({
+      status: cacheTotal ? 'staged' : (attempted ? 'noop' : (!this.policy.auto_save && !this.policy.auto_rate ? 'disabled' : 'empty')),
+      total: cacheTotal,
+      added: Object.freeze(cacheAdded),
+      rated: Object.freeze(cacheRated),
+      attempted,
+      duplicates,
+      next_action: cacheTotal ? 'cache apply' : null,
+      message: cacheTotal ? '候选已暂存到 cache；执行 cache apply 后才会写入记忆库或 evidence ledger。'
+        : attempted ? '没有新的 pending cache 候选。'
+          : (!this.policy.auto_save && !this.policy.auto_rate ? '自动保存和自动评分已关闭。' : '没有新的 cache 候选。'),
+    });
+    return Object.freeze({ added, rated, cache, audit: this.auditEvents.slice() });
   }
 
   /** Direct Agent access is unavailable; host must not grant shell/fs or raw CLI tools. */

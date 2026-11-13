@@ -993,12 +993,12 @@ node <skill-path>/runtime-dist/psm-cli.js tags set 0001 --add component:api --re
 | 命令 | 说明 | 默认值 |
 |------|------|--------|
 | `init` / `validate` / `diagnose` | 初始化、严格校验、输出库健康摘要 | 当前项目根目录 |
-| `read` / `catalog` / `inspect` | 人读的 active 经验、分类目录、维护 JSON | `read` 仅 active；`catalog` 默认旧分组 |
+| `read` / `catalog` / `inspect` | 人读的 active 经验、分类目录、维护 JSON | `read` 仅 active；`catalog` 默认返回旧分组数组；无 group 时向 stderr 提示 `catalog --by tag` |
 | `tags show` / `tags suggest` / `tags stats` | 只读查看分类标准、生成前缀与词频提案、统计覆盖率 | 不联网、不自动采纳提案 |
 | `tags apply --plan-file <file>` | 显式应用完整 taxonomy JSON（取提案的 `taxonomy` 对象，不是整个提案） | 用户授权后加锁、备份旧文件、原子替换 |
 | `tags set <id> --add <csv> --remove <csv>` | 为现存记录维护标签 override；逗号分隔，至少传一项 | 不改正文或评分版本 |
 | `read --tag <csv>` | 多标签任一匹配；与 ID、类型、旧分组筛选取交集 | 不传时不过滤无标签记录 |
-| `catalog --by tag` | 标签目录 `{name, count}[]`，只统计有效 active 记录 | 不传时保持旧分组目录 |
+| `catalog --by tag` | 标签目录 `{name, count}[]`，只统计有效 active 记录 | 不传时保持旧分组数组；无旧分组时向 stderr 提示 `catalog --by tag` |
 | `add` / `update` / `status` / `delete` | 用文件或 stdin 传正文维护记录 | ID 永不复用 |
 | `score` / `merge` / `groups` / `legacy` / `config` | 评分、合并、兼容旧分组与迁移、自动行为配置 | 新分类推荐标签，不自动迁移 group |
 | `cache add --op <op> [--target <id>] [--content-file <f>] [--record-type <t>] [--group <g>] [--source <s>] [--evidence-json <json>]` | 追加待处理候选；`op` 为 `add`/`update`/`delete`/`+1`/`-1` | 自动流程只暂存不落库；同会话同操作幂等 |

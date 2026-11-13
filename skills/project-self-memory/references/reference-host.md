@@ -11,6 +11,10 @@ node scripts/reference-host.mjs --project-root C:\path\to\project --auto-load
 
 `projectRoot` 与 adapter 脚本位置相互独立：CLI 路径始终由 adapter 自身解析，因此从 source Skill、Subject Junction 或任意 `cwd` 启动都使用同一 runtime。
 
+## 结束结果与 cache 状态
+
+`MemorySession.endTask()` 返回 `end.cache`。当 `status` 为 `staged` 时，候选已进入 cache，但尚未写入记忆库或 evidence ledger；宿主必须展示 `total`、`added`、`rated` 和 `next_action`。用户确认后，使用 `cache apply` 逐条处理。`noop` 表示本次有暂存尝试，但没有新的 pending 候选；`empty` 表示没有候选输入；`disabled` 表示自动保存和自动评分均已关闭。
+
 ## 计量会话与首次召回提醒
 
 **单任务实例 ≠ 计量会话。** 宿主为每个任务新建 `MemorySession` 且不共享状态时，每个实例都是独立计量会话：每个任务的首次非空召回都会各自执行一次检查。需要「整个宿主会话只提醒一次」的多任务宿主，必须显式把同一个 `recallState` 对象传给每个实例的 `constructor`（`new MemorySession({ recallState, ... })`）；该状态只承载首次检查结果（`checked`/`estimated_tokens`/`exceeded`），不承载任务权限、候选或评分证据。不要以相同 task_id、项目路径或哈希推断会话连续性，也不要跨进程持久化该状态。

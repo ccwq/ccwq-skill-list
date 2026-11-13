@@ -41,7 +41,7 @@
 - `suggest` 返回 `{taxonomy, candidates, truncated_tags, total_records, covered_records, uncovered_ids}`。它扫描所有记录（含非 active），合并现有规则、overrides 与内置前缀生成最多 256 项的 taxonomy；超额数量写入 `truncated_tags`。词频候选是跨至少 2 条记录重复、排除内置停用词的英文标识词，按频次降序、同频词典序排列，最多 32 项，每项为 `{term, record_count}`。候选词不会自动变成规则。
 - `suggest` 的覆盖统计针对返回的合并提案；已有规则与 overrides 保留。人工审核并编辑返回的 `taxonomy` 对象作为应用计划，不把整个提案直接应用。该命令不是 AI 分类、不联网、不自动采纳提案。
 - `stats` 返回 `{total_records, tagged_records, tags, diagnostics}`，统计所有记录，`tags` 为 `{name, count}[]`，按标签名英文词典序排列。
-- `catalog` 标签目录使用相同 `{name, count}[]` 形状，但仅统计有效 active 记录；未选择标签目录时保持旧分组目录输出。
+- `catalog`：默认保持旧分组目录数组输出；无旧分组时向 stderr 输出 `mode=group`、`group_count=0` 和下一步命令 `catalog --by tag`。
 - `read` 的显式多标签条件采用精确匹配、任一命中，与其他读取条件取交集；默认无标签条件时不排除未标记记录。输出仍为既有人读 Markdown，不增加标签元数据行。
 - `inspect` 在既有 JSON 记录上附带派生的 `tags` 数组；`read`、`catalog`、`inspect` 和标签只读命令均不修改正文、账本或 taxonomy。
 
@@ -56,7 +56,11 @@
 - 查看器 PATCH 的同一校验返回 400 `error: "CONTRACT"`，磁盘不变；重提交记录自身正文（即使多行）仍然合法，用于元数据维护。
 - CLI 不做语义改写；宿主按 [expression-contract.md](expression-contract.md) 在调用前完成 STE 改写，改写失败时跳过候选而不是原样保存。
 
-## 首次召回计量（宿主结果）
+## MemorySession 结束结果
+
+`MemorySession.endTask()` 返回 `cache` 状态。`staged` 表示候选已进入 cache，`total` 表示仍为 `pending` 的候选数，`next_action` 为 `cache apply`；`noop` 表示有暂存尝试但没有新的 pending 候选；`empty` 表示没有候选输入；`disabled` 表示自动保存和自动评分均已关闭。宿主必须向用户展示这些状态，不得把 `staged` 报告为已写入记忆库或 evidence ledger。
+
+
 
 `MemorySession`（不是原始 CLI）在每个计量会话首次成功交付非空上下文时，对最终 `memoryContext` 全文估算一次 token（UTF-16 长度 ÷ 3 向上取整，算法标识 `utf16-length-div-3-ceil`）。估算严格大于 37,000（十进制）时，audit 通道发出 `action: "recall-usage"`、`outcome: "warning"` 事件，payload 附带 `recallUsage` 结构化结果（`checked`、`estimated_tokens`、`exceeded`、`threshold`、`algorithm`、`warning.message`）。提醒正文包含估算值、37,000 阈值、「压缩或复盘记忆」建议与「当前任务继续」含义；不含任何记忆正文。空召回、`auto_load` 关闭、加载失败不消耗检查机会；多任务宿主用共享 `recallState` 界定同一计量会话。原始 `read` 保持只读输出契约，不增加会话提醒。
 
