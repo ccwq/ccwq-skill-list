@@ -1,0 +1,50 @@
+[
+  {
+    "query": "请比较 Playwright、Cypress 和 Selenium，目标是给 E:/project/web-app 做 CI 端到端测试；先按 Node.js、并行能力和无头运行硬筛，再查官方资料、标证据等级，最后给首选和 POC 方案，但不要自行安装。",
+    "should_trigger": true
+  },
+  {
+    "query": "我们要给公司选一个团队密码管理器，候选是 1Password、Bitwarden 和 Keeper。重点看 SSO、审计日志、隐私、价格和长期维护，请做有来源的 gate-first 决策报告。",
+    "should_trigger": true
+  },
+  {
+    "query": "帮我筛选能在 Windows 11 离线运行、支持中文 OCR、可商用且不上传文档的 PDF 工具；预算每年不超过 2000 元。未知项要列出来，别把宣传语当事实。",
+    "should_trigger": true
+  },
+  {
+    "query": "前情是我们准备把 PostgreSQL 迁移到云上。请比较 AWS RDS、Cloud SQL 和 Azure Database for PostgreSQL，按备份恢复、区域可用性、合规和总成本取证，说明权重变化会不会翻转推荐。",
+    "should_trigger": true
+  },
+  {
+    "query": "我已经倾向选 ripgrep，但想让你审慎核对它和 The Silver Searcher 在 Windows 脚本集成、正则兼容性和项目健康度方面的差异，给证据和不推荐条件，不要直接替我装。",
+    "should_trigger": true
+  },
+  {
+    "query": "没有指定候选。我们需要一个能接 GitHub、Slack 和 Jira 的开源自动化平台，团队 5 人，能自托管，先探索主要技术路线并淘汰不满足许可证和 webhook 要求的，再对 Top N 深挖；关键未知足够影响结论时只给 POC 步骤。",
+    "should_trigger": true
+  },
+  {
+    "query": "我已经决定用 Playwright 了，请在 E:/project/web-app 安装依赖、改 package.json、写一个登录测试并跑起来；不要再做工具比较。",
+    "should_trigger": false
+  },
+  {
+    "query": "帮我调试 E:/project/api 的 Docker Compose：PostgreSQL 容器启动后立刻退出。请看日志、复现并修配置，不需要比较任何容器工具。",
+    "should_trigger": false
+  },
+  {
+    "query": "请把 AWS RDS 的官方定价页面整理成一张按实例规格分类的价格表，所有数字保留原币种；我只要资料摘录，不要推荐云厂商。",
+    "should_trigger": false
+  },
+  {
+    "query": "比较我们内部两个 Node.js 实现的性能：分别跑 10 万次 JSON 解析，输出 benchmark 结果和火焰图，结论只针对这两个 commit。",
+    "should_trigger": false
+  },
+  {
+    "query": "帮我写一份采购申请，说明为什么团队想买 1Password，语气正式，附预算和审批人；产品已经定了，不需要查候选或做 gate。",
+    "should_trigger": false
+  },
+  {
+    "query": "我想学习 Terraform：从安装到写第一个 AWS VPC，一步一步教我并检查我是否掌握，不要做 IaC 工具选型或证据比较。",
+    "should_trigger": false
+  }
+]

@@ -1,0 +1,50 @@
+[
+  {
+    "query": "$npm-license-declaration 请检查 `E:\\project\\portal` 的 `package.json`，按 dependencies 和 devDependencies 去重后生成 `docs/npm-license-declaration.md`；项目有 `package-lock.json`，报告里要列出 npm latest 版本和不可用依赖。",
+    "should_trigger": true
+  },
+  {
+    "query": "帮我给当前 Vue 前端做一份 npm 第三方依赖许可证声明，不要把传递依赖混进来。需要运行 Node 生成器，按包名排序，并把每项的功能、GitHub、SPDX 分级和建议写进 `docs/npm-license-declaration.md`。",
+    "should_trigger": true
+  },
+  {
+    "query": "请处理 `C:\\work\\admin-web`：package.json 里有 23 个直接依赖，lockfile 是 yarn.lock。生成许可证清单，网络查不到元数据时保留 resolved URL，最后告诉我总数和各风险等级数量。",
+    "should_trigger": true
+  },
+  {
+    "query": "我们要给法务初审材料补一个依赖许可文档。目标是 `frontend/package.json`，只看直接 dependencies/devDependencies，目录不存在就创建 docs；文档是风险提示，不要把它写成法律意见。",
+    "should_trigger": true
+  },
+  {
+    "query": "我自己用 `npm ls --depth=0` 也能列包，但想让你按仓库规则重建许可证声明：`apps/customer/package.json` 作为输入，版本取 npm latest，不要照 package.json 的 semver 范围，写完校验依赖集合。",
+    "should_trigger": true
+  },
+  {
+    "query": "$npm-license-declaration 先定位 `E:\\mono\\web` 的项目根目录，再运行许可证生成器并检查必需章节；如果 package.json 无效就停止，不要顺手升级依赖或修代码，交付输出路径和“⚪ 不可用”项。",
+    "should_trigger": true
+  },
+  {
+    "query": "请扫描 `package-lock.json` 的所有传递依赖，生成 CycloneDX SBOM，包含每个组件的 license、checksum 和依赖关系，输出到 `artifacts/sbom.json`；直接依赖和 devDependencies 不要漏。",
+    "should_trigger": false
+  },
+  {
+    "query": "我们的 npm 项目被 `npm audit` 报了 7 个 high 漏洞，请分析 `lodash` 和 `axios` 的修复版本，更新 package.json/package-lock.json 并跑测试，许可证文档先不用管。",
+    "should_trigger": false
+  },
+  {
+    "query": "给 `src/` 下所有 TypeScript 文件补上第三方库的 MIT 版权头，按 `NOTICE` 模板插入作者和年份；不要生成依赖清单。",
+    "should_trigger": false
+  },
+  {
+    "query": "Python 项目 `pyproject.toml` 里有 requests、Django 和内部包，请生成一份完整的 Python license inventory，包含 transitive dependencies，输出 `docs/licenses.md`。",
+    "should_trigger": false
+  },
+  {
+    "query": "帮我把 `package.json` 里所有 dependencies 升到最新 major，处理 breaking changes，更新 lockfile 并修复 CI；可以顺便看看 license，但主要目标是升级。",
+    "should_trigger": false
+  },
+  {
+    "query": "审查公司前端发布包是否满足 GPL/AGPL 合规要求，结合源码分发方式、动态链接和 SaaS 例外给出法务风险意见；不要只生成 npm 依赖声明。",
+    "should_trigger": false
+  }
+]

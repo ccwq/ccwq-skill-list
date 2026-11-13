@@ -1,0 +1,50 @@
+[
+  {
+    "query": "请按 L4 教我 Docker。我的项目在 E:/project/api，docker compose up 经常失败；先给最短 Core Path，让我跑通一个真实服务，再用一个稍微变形的场景检查我能不能独立判断。",
+    "should_trigger": true
+  },
+  {
+    "query": "L3 Git rebase：我会 add/commit，但总把冲突处理错。用中文从 mental model 讲起，带我完成一次小练习，最后出一道需要区分 rebase 和 merge 的检查题。",
+    "should_trigger": true
+  },
+  {
+    "query": "我想掌握 Kubernetes readinessProbe，不要百科全书式罗列字段。请先解释它解决什么问题，再给最小可用 YAML，按 Map → Minimal Win → Expand → Verify 教，版本相关的字段请注明需要查文档。",
+    "should_trigger": true
+  },
+  {
+    "query": "L3+L5 Python asyncio：我只懂同步函数。先用 L3 基线让我能解释 event loop，再只补 L5 需要的并发边界、取消和背压，并给一个陌生场景让我迁移判断。",
+    "should_trigger": true
+  },
+  {
+    "query": "请一步一步教我用 jq 处理 logs/app.jsonl。目标是筛出 status>=500 且按 endpoint 计数；每完成一个有意义的动作就停下来等我，不要一次把整套教程讲完。",
+    "should_trigger": true
+  },
+  {
+    "query": "我已经能照着教程写 React useEffect 了，但遇到依赖数组变化就懵。请按 L4 诊断我的缺口，用一个会重复请求的例子修复，再给新的微场景验证，没通过就不要宣布我掌握。",
+    "should_trigger": true
+  },
+  {
+    "query": "请比较 Terraform、Pulumi 和 CloudFormation，按 AWS 项目团队的成本、生态和迁移风险给推荐，引用当前资料；这是工具选型，不是教我掌握 IaC。",
+    "should_trigger": false
+  },
+  {
+    "query": "把 Docker 官方文档整理成一篇完整中文教程，覆盖所有 Dockerfile 指令、网络模式和 compose 字段，越全面越好，不需要练习或掌握检查。",
+    "should_trigger": false
+  },
+  {
+    "query": "E:/project/api 的 pytest 有 3 个测试失败，请直接定位根因并修改代码，最后跑测试；我不需要学习 pytest 原理。",
+    "should_trigger": false
+  },
+  {
+    "query": "帮我做一套 Git rebase 的 20 道选择题和答案，题目覆盖全部命令参数，不要根据我的回答自适应讲解。",
+    "should_trigger": false
+  },
+  {
+    "query": "我知道 Kubernetes readinessProbe 是什么，只想查 Kubernetes 1.31 的官方字段语法和默认值，给我一份精确 API 速查表，不要教学流程。",
+    "should_trigger": false
+  },
+  {
+    "query": "请把下面的 Python asyncio 代码改成性能更好的版本，并给出 benchmark；重点是交付可运行代码，不要分析我的学习等级或安排微检查。",
+    "should_trigger": false
+  }
+]

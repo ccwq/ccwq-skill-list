@@ -1,0 +1,14 @@
+[
+  { "query": "请检查我当前打开的 Gemini 兼容镜像站标签页，确认登录的是 user@example.com，读取原生会话数量；先只做探针，不要删除任何东西，结果要带 URL 和账号证据。", "should_trigger": true },
+  { "query": "在 mirror.example.com 上把当前唯一活动账号的 Gemini 会话清空，预期账号是 alice@corp.test。请先核对 origin、登录状态和删除前计数，删完强制刷新确认 after=0，并做脱敏审计。", "should_trigger": true },
+  { "query": "我有三个镜像账号要清理，但只允许删除 dashboard 上明确选中的那几个。请用默认 site-map 适配器逐个切换账号、核验邮箱和原生列表，任何证据不唯一就停，不要把 Cookie 写进日志。", "should_trigger": true },
+  { "query": "Gemini 镜像站页面显示会话数是 12，API 返回却是 0。帮我复用现有 CDP 标签页做只读探针，记录目标 URL、活动账号、页面计数和接口计数，先不要尝试 DOM 删除。", "should_trigger": true },
+  { "query": "请用 scripts/delete-sessions-via-api.mjs 清理当前已核验账号的会话；expected-account 传 bob@example.net。若请求模板或响应语义不完整就保留现场并报告，限流时按现有规则有限重试。", "should_trigger": true },
+  { "query": "我误点了多账号删除入口，想先确认是否真的删干净：请在已登录的 Gemini mirror dashboard 上检查每个目标卡片、刷新原生列表并输出 before/after、runner、重试次数和账号短哈希，完整账号 ID 不要落审计。", "should_trigger": true },
+  { "query": "请打开 Google Gemini 官方网站，用我的账号发送一条‘测试’消息并截图回复内容；不要清理会话，也不用检查镜像站。", "should_trigger": false },
+  { "query": "我在 scripts/delete-sessions-via-api.mjs 里发现 API runner 的重试次数写死为 5 次，请帮我改成最多 2 次并补一个单元测试；不需要访问浏览器或删除真实会话。", "should_trigger": false },
+  { "query": "请把 mirror.example.com 的登录页面做成 Playwright 测试，验证邮箱输入框、密码框和登录按钮的可见性，使用 tests/login.spec.ts，不要登录或操作会话。", "should_trigger": false },
+  { "query": "Gemini API 返回 401，我想知道 OAuth refresh token 为什么过期。请分析 logs/auth-debug.log 并给出认证架构建议，不要操作任何已登录标签页。", "should_trigger": false },
+  { "query": "帮我从 dashboard.html 提取所有账号邮箱和会话数，输出成 data/accounts.csv；这是离线 HTML 文件，不需要切换账号、刷新页面或执行删除。", "should_trigger": false },
+  { "query": "请在 Gemini 镜像站上把我的聊天记录导出为 JSON，保留完整 prompt 和 response，保存到 backups/gemini-chats.json；不要删除会话，也不需要做账号核验。", "should_trigger": false }
+]

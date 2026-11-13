@@ -1,0 +1,50 @@
+[
+  {
+    "query": "我有一个 E:/demo/src/hero.tsx 的落地页，想把首屏的蓝色粒子从鼠标位置吸引、散开并带一点发光拖尾，最好先判断原生 CSS、Motion 还是 Three.js 哪条实现路径更合适，再给出性能检查点。",
+    "should_trigger": true
+  },
+  {
+    "query": "参考视频 E:/refs/liquid-logo.mp4，帮我拆解里面的液态 Logo 变形、镜头推进和音效卡点，说明在 Blender、Three.js 或后期节点里分别该用哪些功能入口，最后给一条能导出 1080p MP4 的最小工作流。",
+    "should_trigger": true
+  },
+  {
+    "query": "我在做一个 12 秒产品介绍视频：WhisperX 先把 E:/audio/demo.wav 做词级对齐，按节拍让 Remotion 里的字幕和粒子爆发同步，最后用 FFmpeg 混音并渲染到 E:/exports/intro.mp4。请帮我排实现顺序和验收条件。",
+    "should_trigger": true
+  },
+  {
+    "query": "Three.js 场景在 E:/web/src/scene.ts 里，模型落地时需要刚体碰撞、角色推箱子和镜头跟随；现在只想知道 Jolt Physics 的碰撞层、约束和查询怎么接，以及如何用最小场景验证，不要先给一堆无关 API。",
+    "should_trigger": true
+  },
+  {
+    "query": "我自己用 CSS transition 也能把卡片做出淡入，但这次要让 24 张卡片按滚动进度错峰出现，移动端还不能掉帧。代码在 E:/site/src/cards.css 和 app.ts，能不能按效果拆成可调参数，并告诉我什么时候不该再叠加动画库？",
+    "should_trigger": true
+  },
+  {
+    "query": "请帮我把 E:/capture/raw-session.mkv 做成可交付样片：先判断 OBS 录制的音画是否漂移，再截取 00:01:12-00:01:28，补一层轻微发光和字幕，检查不同帧率下的时序，最后导出 H.264；如果某一步其实需要手工审画面请明确说。",
+    "should_trigger": true
+  },
+  {
+    "query": "E:/dashboard/src/charts.ts 里的 Three.js 折线图数据经常晚两秒到，我只需要定位 fetch、缓存和 React state 的竞态，修好 loading 状态并补测试；不要改粒子、材质或渲染特效。",
+    "should_trigger": false
+  },
+  {
+    "query": "请用 FFmpeg 把 E:/archive/camera/ 下的 80 个 MOV 批量转成 ProRes 422，保留原始音轨和时间码，文件名按拍摄日期重命名，不需要剪辑、滤镜或任何视觉效果。",
+    "should_trigger": false
+  },
+  {
+    "query": "Blender 里的 E:/assets/robot.blend 需要做模型拓扑检查、UV 展开和 PBR 贴图命名规范，交付一个干净的 glTF；这次不涉及骨骼、动画、镜头或物理。",
+    "should_trigger": false
+  },
+  {
+    "query": "帮我审一下 E:/web/src/modal.css 的键盘焦点顺序、prefers-reduced-motion 和颜色对比度，目标是通过 WCAG 2.2 AA；不用设计新的转场或动画效果。",
+    "should_trigger": false
+  },
+  {
+    "query": "OBS Studio 里 E:/profiles/stream.json 的麦克风总是被桌面音频盖住，请只排查音频源、监听设备、增益和噪声门，给出直播设置修复步骤，不要分析画面特效。",
+    "should_trigger": false
+  },
+  {
+    "query": "Remotion 项目 E:/video/package.json 安装后出现 React 版本冲突和 TypeScript 类型错误，我只想恢复 npm install、lint 和 CI 构建，不要改视频脚本、转场或渲染逻辑。",
+    "should_trigger": false
+  }
+]

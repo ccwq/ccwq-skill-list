@@ -1,0 +1,50 @@
+[
+  {
+    "query": "请在 ChatGPT Web 的 agents-op Project 里做一次 Deep Research，核对 2026 年 Windows 上 Ollama 与某开源模型的显存要求；发送前先告诉我为什么要用 Deep Research，引用官方文档和论文，最后把结论按表格整理出来。",
+    "should_trigger": true
+  },
+  {
+    "query": "我有一张 E:/refs/product-packshot.png，想在 ChatGPT Web 的 agents-op 里生成 3 个白底电商主图版本：保留瓶身 logo 和文字，换成柔和侧光、45 度镜头和浅灰阴影；每轮都要检查图片是否真的生成，并把最佳图下载到 E:/exports/packshot.png。",
+    "should_trigger": true
+  },
+  {
+    "query": "请用 ChatGPT Web 的 visual-review 审查 E:/captures/homepage.png。标准 S1 是首屏 CTA 在 1440px 截图中可见，S2 是表格没有文字溢出；返回严格的中文 YAML，并按 critical、major、minor 算出 VISUAL_PASSED 或 VISUAL_BLOCKED。",
+    "should_trigger": true
+  },
+  {
+    "query": "我需要比较 Claude、GPT 和 Gemini 的长上下文价格与缓存规则。请在 agents-op 里先拟一份中文研究问题，等我明确授权后再用 Search，核对厂商官方定价页，不要把普通聊天授权当成搜索授权。",
+    "should_trigger": true
+  },
+  {
+    "query": "把这张 E:/art/character.png 的服装改成深绿色风衣，脸型、发型、姿势和画面构图都别动。可以用 ChatGPT Web 图片编辑，但生成前先列出 protected anchors，最多给我两轮修改，最后审阅并下载结果。",
+    "should_trigger": true
+  },
+  {
+    "query": "上次在 agents-op 里整理过一条关于图片生成失败重试的经验。请读取 chatgpt-web-skill 的统一经验库，告诉我这条经验是否已验证、适用边界是什么；不要创建新聊天，也不要生成或上传图片。",
+    "should_trigger": true
+  },
+  {
+    "query": "我已经从 ChatGPT 导出了 E:/data/conversations.json，请用本地 Node.js 脚本抽取每条消息的 role、content 和时间戳，去重后写成 E:/data/messages.csv；不要打开浏览器或上传任何内容。",
+    "should_trigger": false
+  },
+  {
+    "query": "请在我现有的 Chrome 标签页里打开 https://example.com，填写搜索框、点击提交并截图结果；这是普通网页自动化，不要进入 ChatGPT Web 或 agents-op。",
+    "should_trigger": false
+  },
+  {
+    "query": "我想用 GPT Image API 从 E:/refs/logo.svg 批量生成 30 张图，直接写一个 Python 调用脚本，读取 OPENAI_API_KEY 并保存到本地；不需要浏览器 UI、Project 或人工视觉审查。",
+    "should_trigger": false
+  },
+  {
+    "query": "请把 E:/reports/research.md 改写成中文技术报告，保留引用链接和章节结构，统一术语并删掉重复段落；全程只编辑本地 Markdown，不要用 ChatGPT Search 或 Deep Research。",
+    "should_trigger": false
+  },
+  {
+    "query": "我在 ChatGPT Web 里看到 Project 列表加载很慢，想直接用 curl 调 `/backend-api/gizmos/snorlax/sidebar`，重放请求并把完整响应和 cookie 保存下来，帮我排查接口参数。",
+    "should_trigger": false
+  },
+  {
+    "query": "请用 agent-browser 自动化 Notion：打开团队页面，点击 Export，下载 E:/exports/wiki.zip，再检查压缩包是否完整；可以复用当前浏览器登录态，但不要访问 ChatGPT 或使用 agents-op。",
+    "should_trigger": false
+  }
+]

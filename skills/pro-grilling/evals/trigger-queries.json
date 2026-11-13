@@ -1,0 +1,50 @@
+[
+  {
+    "query": "$pro-grilling 我想决定支付系统是继续用现有 PostgreSQL 分库，还是迁到云厂商的 NewSQL。约束是 3 个月上线、不能停机、团队只有两名后端；请先逐层问我关键问题，不要现在给方案，最后等我明确说 ok。",
+    "should_trigger": true
+  },
+  {
+    "query": "请用 pro-grilling 和我推演 monorepo 还是 polyrepo：已有 12 个 Node 服务、两个独立发布节奏、CI 每月超预算。每轮只问一个最能改变决策的问题，给选项、建议答案、代价，不要擅自执行迁移。",
+    "should_trigger": true
+  },
+  {
+    "query": "我需要做一个产品范围取舍：下季度到底先做离线模式，还是先做 SSO，客户都在催，工程师只有 6 人。别直接写路线图，先帮我把真实目标、成功标准和风险承受能力问清楚，确认前保持只读。",
+    "should_trigger": true
+  },
+  {
+    "query": "我们在选 Stripe、Adyen 还是自建收款，已有合规和地区覆盖信息，但退款流程还没定。请先判断缺口，必要时让我选直接继续/快速核验/充分调查；每次只问一个问题，等我说 ok 才收敛。",
+    "should_trigger": true
+  },
+  {
+    "query": "我其实可以自己在 A/B 两个方案里拍板，但总觉得漏了隐藏依赖。请围绕 `docs/architecture/queue.md` 里的消息队列替换决策做一次高信息增益盘问：不要套固定问卷，前面答案改变后续问题。",
+    "should_trigger": true
+  },
+  {
+    "query": "$pro-grilling 先讨论是否把客服系统外包。背景是供应商报价便宜 30%，但要交出客户数据，且上线日期和 SLA 都没谈；可以先做只读资料核验，但不要在我确认 ok 前写合同、定最终方案或联系供应商。",
+    "should_trigger": true
+  },
+  {
+    "query": "我已经决定用 PostgreSQL 了，请直接给我一份从 MySQL 迁移到 PostgreSQL 的执行方案、SQL、回滚脚本和上线时间表，不要再逐轮提问。",
+    "should_trigger": false
+  },
+  {
+    "query": "请对我的创业想法进行 20 分钟快速面试，连续问我商业问题，最后直接根据回答写一页 pitch deck；这里不需要等我说 ok。",
+    "should_trigger": false
+  },
+  {
+    "query": "帮我收集团队对 monorepo 的意见，整理成一份 PRD 并提出你认为最好的组织方式，明天直接发给工程群，别把流程拖成很多轮。",
+    "should_trigger": false
+  },
+  {
+    "query": "请 review `src/auth` 的 OAuth 实现，列出安全问题并直接修复高危项；如果有疑问你自己查代码，不用先和我讨论决策边界。",
+    "should_trigger": false
+  },
+  {
+    "query": "我在准备架构师面试，想让你当面试官连续追问 CAP、Raft 和一致性哈希，答错就马上纠正我，不要做方案收敛或决策树分析。",
+    "should_trigger": false
+  },
+  {
+    "query": "我们已经完成需求评审和预算批准，请把确定的多租户改造拆成 Jira tickets，安排优先级并开始修改 `services/tenant`；可以直接进入执行阶段。",
+    "should_trigger": false
+  }
+]

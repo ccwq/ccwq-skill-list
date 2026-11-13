@@ -1,0 +1,14 @@
+[
+  { "query": "我们准备给支付服务增加退款和部分退款，当前只有一份模糊需求，月底要上线，合规风险也不低。请根据目标产物和质量属性选择最小的方法组合，说明该写 User Story、Acceptance Criteria、ADR 还是 Test Strategy，并给出可验证的通过信号。", "should_trigger": true },
+  { "query": "线上订单服务 p95 从 180ms 升到 900ms，Grafana 指标和 api-gateway.log 都在 repo/ops/ 里。不要直接猜根因，帮我判断这是 debug 还是 operation 主问题，推荐假设驱动排障、实验或别的方法，并明确什么时候算验证失败。", "should_trigger": true },
+  { "query": "我要在 PostgreSQL 和 DynamoDB 之间做架构取舍，产物是给评审会看的 ADR，约束包括日均 2 亿条写入、RPO 5 分钟和预算上限。请选方法并说明 benchmark、trade-off matrix 等证据怎么配。", "should_trigger": true },
+  { "query": "我们已经有 feature request.md，但没有验收标准和测试策略；下周要让三个 Agent 并行实现。请从 requirement、ai_engineering 和 testing 里判断主活动，给一个不堆术语的组合，还要标出未知信息和最小下一步。", "should_trigger": true },
+  { "query": "代码能跑但最近重构把可观测性和回滚能力弄差了。请结合 src/telemetry/、CI 日志和发布阶段，帮我选 review、testing 还是 operation 方向的方法，并给出质量属性、风险、Avoid 和验证时机。", "should_trigger": true },
+  { "query": "我自己其实可以直接在 src/cache.ts 里加一个单元测试，但想确认这是不是正确的工程动作：缓存命中率是核心指标，线上偶发脏读，当前没有 incident report。请帮我识别产物、风险和最小有效方法组合，不要替我改代码。", "should_trigger": true },
+  { "query": "请解释 ADR 是什么，给我一个适合新手看的定义和一个三行示例；这次只是学习概念，不需要根据项目上下文选择方法。", "should_trigger": false },
+  { "query": "直接修改 src/auth/login.ts，给 OAuth 回调加 state 校验，并运行 tests/auth.test.ts；不要先写方案，也不要输出工程诊断卡。", "should_trigger": false },
+  { "query": "我们团队想把 Scrum standup 改成每天 15 分钟，把 OKR 的季度目标拆给各组，请帮忙设计会议流程和绩效跟踪表。", "should_trigger": false },
+  { "query": "请 review pull request #218 的代码风格，重点检查 TypeScript 命名、重复函数和 Prettier 格式；不需要讨论方法选择或测试策略。", "should_trigger": false },
+  { "query": "把 docs/architecture/adr-007.md 翻译成英文，保持标题、字段和 Markdown 表格不变，不要评价其中的技术决策。", "should_trigger": false },
+  { "query": "我们的 CI 在 npm test 阶段失败了，日志在 artifacts/ci.log。请找出具体报错对应的依赖版本并给出一行 package.json 修复，不需要分析工程阶段或选择方法。", "should_trigger": false }
+]

@@ -1,0 +1,50 @@
+[
+  {
+    "query": "把 skills/progressive-doc/SKILL.md 转成一个可独立使用的文言式执行提示词，正文上限 900 字，用 <agent-skill:progressive-doc> 标签包住；只提炼主流程，不要执行这个技能。",
+    "should_trigger": true
+  },
+  {
+    "query": "我有一份技能原文在 E:/project/self.project/ccwq-skill-list/skills/tool-evaluator/SKILL.md，帮我抽出核心规则并压缩成提示词，默认 700 字，保留输出格式和禁止事项。",
+    "should_trigger": true
+  },
+  {
+    "query": "@skill-to-prompt @tutor-man 正文上限1000字：读取 tutor-man 的 SKILL.md，把它改写成可复制给另一个 agent 的中文执行提示词，别照着原技能去教我。",
+    "should_trigger": true
+  },
+  {
+    "query": "请把这个 skill 的说明整理成 agent-skill 标签块。材料在 skills/my-skill/SKILL.md；需要删掉安装和冷门故障分支，但不能漏掉主流程、权限边界和验收条件。",
+    "should_trigger": true
+  },
+  {
+    "query": "我已经自己写好一版提示词了，但想对照 skills/deep-investigation/SKILL.md 重提炼一次：压到 500 字以内，检查有没有把‘必须’误写成‘可以’，最后只给 XML 风格标签块。",
+    "should_trigger": true
+  },
+  {
+    "query": "帮我批量转换 skills/alpha/SKILL.md 和 skills/beta/SKILL.md。每个技能独立按 600 字限长输出，标签名取 frontmatter 的 name，引用只展开支撑主干的部分，别运行源技能里的命令。",
+    "should_trigger": true
+  },
+  {
+    "query": "请直接执行 skills/progressive-doc/SKILL.md，帮我把下面这篇事故复盘改写成渐进式文章，并输出最终 Markdown。",
+    "should_trigger": false
+  },
+  {
+    "query": "我不需要读取任何技能文件，直接从零写一个 700 字以内的 agent-skill 提示词，让模型帮我管理 Todo 清单。",
+    "should_trigger": false
+  },
+  {
+    "query": "把 skills/skill-to-prompt/SKILL.md 翻译成英文，保留每一行规则和示例，不要压缩，也不要套 XML 标签。",
+    "should_trigger": false
+  },
+  {
+    "query": "请运行 skills/skill-to-prompt/scripts/validate_prompt.mjs 检查我这段提示词是否超 700 字，并告诉我 body_chars 和 total_chars。",
+    "should_trigger": false
+  },
+  {
+    "query": "帮我比较 skills/tool-evaluator 和 skills/tutor-man 哪个更适合当前需求，给出触发准确率评估和 12 条 eval queries。",
+    "should_trigger": false
+  },
+  {
+    "query": "我已经有现成的 <agent-skill:demo> 提示词，只想把正文从 800 字删到 500 字，不能改变语义，也不用读取任何源技能。",
+    "should_trigger": false
+  }
+]

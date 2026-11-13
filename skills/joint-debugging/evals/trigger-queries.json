@@ -1,0 +1,50 @@
+[
+  {
+    "query": "$joint-debugging 我们的 Windows 构建机上 `npm run build` 从 Node 18 升到 20 后偶发失败，PowerShell 输出和 Git Bash 输出还不一样。请先建立环境基线，按轮次只查一个最高价值证据，最后在我授权后再改脚本并验证。",
+    "should_trigger": true
+  },
+  {
+    "query": "请用 joint-debugging 协调一下这次联调：SSH 到 staging 的 Docker 容器里，`/api/orders` 间歇性返回 502，Nginx 日志、容器 stderr 和最近一次部署时间需要对上；不要碰生产，也不要先重启服务。",
+    "should_trigger": true
+  },
+  {
+    "query": "我这边有个跨环境问题想系统排查：本地 WSL 能跑，CI 的 Ubuntu runner 失败，目标仓库是 `services/payment/`，现象是同一个 curl 请求在两边返回不同 JSON。请按证据、授权、验证的主线推进，支线问题回答完要回到检查点。",
+    "should_trigger": true
+  },
+  {
+    "query": "帮我把这次技术故障联调管起来。先确认 macOS、当前 shell、Node/Python 版本和执行端，再检查 `scripts/collect-debug.mjs` 是否把 token 打进报告；必要时给我一段只读探测，剪切板失败就回退到临时 txt。",
+    "should_trigger": true
+  },
+  {
+    "query": "端口冲突我自己也能查，直接 `lsof -i :5173` 就行，但希望你按正式联调流程确认操作系统和进程归属，别误杀别人的服务；如果确实是我的 Vite 进程，再给出可回滚的处理和验证步骤。",
+    "should_trigger": true
+  },
+  {
+    "query": "$joint-debugging 继续处理 `E:\\portal\\deploy.ps1` 部署后健康检查失败：先看上轮回传的退出码和脱敏日志，用户中途问到 CMD 写法时先答支线，之后恢复主线；若根因明确，说明风险并等我单独授权修改，改完跑 health endpoint 验证。",
+    "should_trigger": true
+  },
+  {
+    "query": "请看一下 `src/cache.ts` 第 87 行的 TypeError，直接告诉我是哪一行写错了并给出最小代码补丁，我不需要环境盘点或分轮联调。",
+    "should_trigger": false
+  },
+  {
+    "query": "用 Chrome DevTools 分析 `checkout` 页面从点击支付到首屏完成的性能瓶颈，重点看 Network waterfall、Long Task 和内存快照，最后给优化建议；不用改服务器或协调执行端。",
+    "should_trigger": false
+  },
+  {
+    "query": "给 Node 服务 `apps/api` 加一套 debug instrumentation：在 `logger.ts` 里补 requestId、耗时和错误堆栈，并写 Jest 测试，直接改代码提交就好。",
+    "should_trigger": false
+  },
+  {
+    "query": "CI 的 GitHub Actions 在 `pnpm test` 这一步红了，我把完整日志贴给你，请根据日志解释失败原因并改 `.github/workflows/test.yml`；不需要连接 runner 或做环境基线。",
+    "should_trigger": false
+  },
+  {
+    "query": "我们怀疑生产主机被植入了恶意进程，请制定一份取证和隔离方案，重点是证据保全、IOC 搜索和权限轮换，不要执行任何诊断命令。",
+    "should_trigger": false
+  },
+  {
+    "query": "把这次 `npm run dev` 报错整理成团队 Wiki 的排障手册，包含常见症状、原因和命令示例即可，不用跟着我实时调查或修改环境。",
+    "should_trigger": false
+  }
+]
