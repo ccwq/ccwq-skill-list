@@ -1,8 +1,9 @@
 ---
 name: joint-debugging
-version: 1.0.0
 description: 手动协调技术联调、故障诊断、验证与修复：以单主线轮次推进，建立可复用环境基线，严格区分证据、授权、修改与验证。
 disable-model-invocation: true
+metadata:
+  version: "1.0.0"
 ---
 
 # Joint Debugging（技术联调）

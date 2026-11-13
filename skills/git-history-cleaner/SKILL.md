@@ -7,8 +7,9 @@ description: |
   - "git filter-repo"、"BFG 清理"
   - "仓库太大"、"reduce repo size"、"clean up git history"
   - 任何涉及删除 Git 历史记录中特定文件、目录或 glob 模式文件的需求
-version: 1.0.0
 disable-model-invocation: true
+metadata:
+  version: "1.0.0"
 ---
 
 # Git History Cleaner

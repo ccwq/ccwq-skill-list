@@ -1,10 +1,11 @@
 ---
 name: git-up
-version: 3.0.0
 argument-hint: "[-p|-c|-pc|-g|--grilling|--modify <内容>|-s|-i] [-d|--deep|-z] [-P] [-l zh|en] [提交约束]"
 description: |
   Git 提交工具：生成 commit message、规划或执行提交、语义拆分、push、委派和维护 .gitignore。
   用户要求提交、规划、生成提交信息、按文件或深度拆分、逐问审查提交计划时使用；支持 -p、-c、-pc、-d、--deep、-g、--grilling、-s、-z 和 -i。
+metadata:
+  version: "3.0.0"
 ---
 
 # Git-up

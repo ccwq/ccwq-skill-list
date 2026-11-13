@@ -3,9 +3,9 @@ name: chatgpt-web-skill
 description: 通过 ChatGPT Web 进行信息搜集、Deep Research、图片生成编辑、结构化视觉审查和统一经验整理。
 license: MIT
 metadata:
-  version: 1.16.0
-  tags: [chatgpt, chatgpt-web, agent-browser, image-generation, image-editing, visual-review, research]
-  related_skills: [agent-browser]
+  version: "1.16.0"
+  tags: "chatgpt, chatgpt-web, agent-browser, image-generation, image-editing, visual-review, research"
+  related_skills: "agent-browser"
 ---
 
 # ChatGPT Web 工作区 / Web Workspace

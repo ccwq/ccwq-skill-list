@@ -1,8 +1,9 @@
 ---
 name: deep-investigation
-version: 1.0.0
 description: 对公共事件、组织、人物、政策或商业议题进行可追溯的深度调查复盘，区分事实、推断和争议，输出时间线、关系与竞争解释。
 disable-model-invocation: true
+metadata:
+  version: "1.0.0"
 ---
 
 # Deep Investigation（深度调查）

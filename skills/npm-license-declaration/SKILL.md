@@ -1,8 +1,9 @@
 ---
 name: npm-license-declaration
-version: 1.0.1
 description: 为前端项目生成 npm 第三方依赖许可证声明文档。
 disable-model-invocation: true
+metadata:
+  version: "1.0.1"
 ---
 
 # NPM License Declaration
