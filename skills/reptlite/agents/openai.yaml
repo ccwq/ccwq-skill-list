@@ -1,0 +1,13 @@
+interface:
+  display_name: reptlite
+  short_description: 显式启用的轻量任务简报，支持周期汇报、手动查询与子 Agent 状态检查
+  default_prompt: 使用 $reptlite，为当前任务启用默认每 2 分钟的简报，并核对当前环境的定时能力。
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg
+policy:
+  allow_implicit_invocation: false
+  products:
+  - chatgpt
+  - codex
+  - api
+  - atlas

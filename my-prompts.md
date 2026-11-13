@@ -1,6 +1,6 @@
 # 我的提示词
 
-从本仓库正式维护的 33 个 Skill 中收录 18 项（普通聊天 11 项、工具型 7 项），并增补第三方 7 项，按 [skill-to-prompt](skills/skill-to-prompt/SKILL.md) 提炼为 25 个可复制的执行提示词。本仓库其余 15 项见文末排除清单；各工具型及第三方条目单列来源、能力要求，Q 风格另列待补全。
+从本仓库正式维护的 34 个 Skill 中收录 19 项（普通聊天 11 项、工具型 8 项），并增补第三方 7 项，按 [skill-to-prompt](skills/skill-to-prompt/SKILL.md) 提炼为 26 个可复制的执行提示词。本仓库其余 15 项见文末排除清单；各工具型及第三方条目单列来源、能力要求，Q 风格另列待补全。
 
 ## 使用与维护
 
@@ -30,13 +30,14 @@
 16. [dockerhub-mirror：镜像候选诊断](#dockerhub-mirror)
 17. [software-license-checker：内部使用许可预警](#software-license-checker)
 18. [tool-evaluator：工具评估](#tool-evaluator)
-19. [ste：简明中文汇报](#ste)
-20. [wayfinder：决策地图](#wayfinder)
-21. [grilling：设计树质询](#grilling)
-22. [humanizer-zh：中文编辑](#humanizer-zh)
-23. [infocard-white-purple-style：白紫信息卡](#infocard-white-purple-style)
-24. [infocard-bigwhite-style：大白商务信息卡](#infocard-bigwhite-style)
-25. [writing-for-agents：面向 Agent 写作](#writing-for-agents)
+19. [reptlite：轻量任务简报](#reptlite)
+20. [ste：简明中文汇报](#ste)
+21. [wayfinder：决策地图](#wayfinder)
+22. [grilling：设计树质询](#grilling)
+23. [humanizer-zh：中文编辑](#humanizer-zh)
+24. [infocard-white-purple-style：白紫信息卡](#infocard-white-purple-style)
+25. [infocard-bigwhite-style：大白商务信息卡](#infocard-bigwhite-style)
+26. [writing-for-agents：面向 Agent 写作](#writing-for-agents)
 
 待补全：[infocard-q-style](#infocard-q-style)。第三方来源与许可：[来源说明](my-prompts-sources.md)。
 
@@ -293,6 +294,21 @@ debug_report：SUMMARY含run_id、probe_id、environment、collection_status=ok|
 </agent-skill:tool-evaluator>
 ```
 
+## reptlite
+
+用途：仅在用户显式调用时管理当前任务的周期简报、立即简报和调度状态。来源：[SKILL.md](skills/reptlite/SKILL.md)。
+
+能力要求：宿主提供可核对的调度、会话元数据和子 Agent 状态接口；无调度后端时只能提供手动简报，不冒称已启用周期任务。
+
+```xml
+<agent-skill:reptlite>
+仅在用户显式调用 /reptlite 或点名启用时工作；不因长任务、子 Agent 或其他特征自动开启。无参数为当前任务开启默认每2分钟周期简报；--immediate/-i 只立即报告一次；--status/s 只查询所属调度；--reset-interval N/-r N 只修改已有调度并从修改时重计；--kill/-k 只停止所属调度。N须为正数，可为小数；缺值、非法值、未知参数或混用动作时显示用法并保持现状。
+先辨当前任务、会话及所属调度；每任务最多一项，复用现有项，不覆盖其他用途。创建、修改、停止后回读标识、启用、实际周期、下次时间及目标；分开报告已保存、已启用、实际触发与投递成功，证据不足写未确认。无后端、精度不支持、权限不足或投递失败时直说原因、影响与确认方法，保留手动报告；不以sleep循环、口头承诺或新会话冒充当前任务调度。
+简报先写任务目标和总体进度，再用四列Markdown表逐行列主 Agent 与本任务全部子 Agent：Agent、状态、实绩与产出、阻滞；状态只用已完成、部分完成、未开始、进行中、已验证、未验证、失败、跳过、阻塞、未确认。工作与验证分开，证据可定位，无新进展直写原因；连续两次无实质进展且无有效回应才提示疑似停滞，先查证再催办，不擅终止、替换或改派。
+用简明中文，关键在前，一句一事，同义同词，命令路径原样；此风格仅限本技能输出。无子 Agent 则仅列主 Agent，已完成者保留至任务结束。记录所属关系、时间戳与进展，不写安装目录。回调绑定任务、会话、开关及完整规则，不递归创建调度；结束时最终报告并撤销所属调度。忙碌延迟或漏触发不算子 Agent 停滞；接口缺失则说明，定时器不保证准点或检出主 Agent 挂起。
+</agent-skill:reptlite>
+```
+
 ## 第三方提示词
 
 本节从本地已安装技能和用户提供的 ZIP 提炼，不导入为仓库正式 Skill。已完成 7 项；`infocard-styles.zip` 中另一个 Q 风格因核心资料缺失，列为待补全。来源声明、取材记录、ZIP 摘要与已知许可原文见 [第三方提示词来源](my-prompts-sources.md)。来源只表示本地证据所载，未联网核验当前上游。
@@ -421,7 +437,7 @@ content
 
 ## 未收录
 
-以下 15 项仍是有效的工具型 Skill，但目前未纳入本汇编。前文已按用户指定新增 7 项本仓库工具型提示词；其余项目本次未转换，表中保留其主要依赖说明，并非质量评价。
+以下 15 项仍是有效的工具型 Skill，但目前未纳入本汇编。前文已收录 8 项本仓库工具型提示词；其余项目尚未转换，表中保留其主要依赖说明，并非质量评价。
 
 | Skill | 排除理由 |
 | --- | --- |

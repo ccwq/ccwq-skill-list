@@ -242,6 +242,13 @@
       "description": "动效与视觉特效工程顾问：把目标效果或参考视频拆解到 20 项工具的具体能力与功能入口，覆盖网页动画、Three.js/Blender、粒子/物理/后期、代码视频、生成素材、声音同步、录制导出，并诊断渲染、性能、时序与交付问题",
       "version": "1.0.0",
       "category": "media"
+    },
+    {
+      "name": "reptlite",
+      "source": "./skills/reptlite",
+      "description": "仅用户显式调用的轻量任务简报工具：支持周期简报、立即简报、状态查询和所属调度停止，不因任务特征自动启用",
+      "version": "1.0.0",
+      "category": "productivity"
     }
   ]
 }

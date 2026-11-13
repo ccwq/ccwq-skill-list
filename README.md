@@ -6,7 +6,7 @@ https://github.com/ccwq/ccwq-skill-list
 
 [Skill 演进日志](CHANGELOG.md)：查看各 Skill 的首次引入与重要调整。
 
-[提示词汇编](my-prompts.md)：收录本仓库 18 项（普通聊天 11 项、工具型 7 项）与第三方 7 项，每块正文不超过 720 字；附来源、能力与配套 CLI 要求、排除理由及 1 项待补全记录。第三方取材与许可见[来源说明](my-prompts-sources.md)。
+[提示词汇编](my-prompts.md)：收录本仓库 19 项（普通聊天 11 项、工具型 8 项）与第三方 7 项，每块正文不超过 720 字；附来源、能力与配套 CLI 要求、排除理由及 1 项待补全记录。第三方取材与许可见[来源说明](my-prompts-sources.md)。
 
 ## 安装
 
@@ -80,6 +80,7 @@ npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code --
 | `progressive-doc` | 用渐进式披露结构创建、改写或审查中文技术文章 | [速查](#progressive-doc) · [SKILL](skills/progressive-doc/SKILL.md) |
 | `project-self-memory` | 维护项目级结论记忆，支持逐问策展、评分、候选逐条入库、结论暂存、可选派生多标签与 legacy 迁移；附自包含单文件 CLI、统一 Web 预览与离线使用手册 | [速查](#project-self-memory) · [README](skills/project-self-memory/README.md) · [手册](skills/project-self-memory/manual.html) |
 | `rd-mode` | 远程开发模式规则，统一通过 `abc` 命令操作 host 浏览器 | [速查](#rd-mode) · [README](skills/rd-mode/README.md) |
+| `reptlite` | 显式调用的轻量任务简报：周期简报、立即简报与状态查询 | [速查](#reptlite) · [SKILL](skills/reptlite/SKILL.md) |
 | `skill-to-prompt` | 把技能源文提炼为文言式执行提示词，删除低频分支并以 `agent-skill` 标签封装 | [速查](#skill-to-prompt) · [SKILL](skills/skill-to-prompt/SKILL.md) |
 | `software-license-checker` | 评估软件企业内部使用的许可证合规与付费风险 | [速查](#software-license-checker) · [README](skills/software-license-checker/README.md) |
 | `subagent-router` | 预览并确认后临时创建子 Agent，支持动态模型路由 | [速查](#subagent-router) · [README](skills/subagent-router/README.md) |
@@ -1061,6 +1062,39 @@ rd-mode --init   # 首次使用，问答补全 RHost / CDP_PORT，写入 ~/.conf
 </details>
 
 host/server 架构、`abc` 用法与故障排查见 [README.md](skills/rd-mode/README.md)。
+
+---
+
+### reptlite
+
+仅在用户显式调用 `/reptlite` 或点名启用时工作。用于当前任务的周期简报、立即简报和调度状态查询。
+
+```text
+/reptlite
+/reptlite --immediate
+/reptlite --status
+/reptlite --reset-interval 5
+/reptlite --kill
+```
+
+默认周期为 2 分钟。`--reset-interval N` 的 `N` 为正数分钟，可为小数；宿主不支持请求精度时，必须先说明实际精度，不得静默取整。
+
+<details>
+<summary>参数</summary>
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| 无参数 | 为当前任务开启周期简报 | 每 2 分钟 |
+| `--kill` / `-k` | 停止本技能所属的周期调度 | 不停止主任务或子 Agent |
+| `--reset-interval N` / `-r N` | 修改已有调度的周期，并从修改时重新计时 | 不修改 |
+| `--immediate` / `-i` | 立即报告一次，不改变周期调度 | 不执行 |
+| `--status` / `s` | 查询简报调度状态 | 不创建调度 |
+
+</details>
+
+仅管理当前任务所属的调度。未知参数、无效周期或混用多个动作时保持现有调度不变并显示用法。调度创建、修改、停止和首次投递必须分别核对；没有后端时保留手动简报能力，不冒称已启用。
+
+详情见 [SKILL.md](skills/reptlite/SKILL.md)。
 
 ---
 
