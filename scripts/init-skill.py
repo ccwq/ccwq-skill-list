@@ -15,8 +15,9 @@ SKILLS_DIR = Path(__file__).parent.parent / "skills"
 
 TEMPLATE_SKILL = """---
 name: {name}
-version: 1.0.0
 description: {description}
+metadata:
+  version: "1.0.0"
 ---
 
 # {title}

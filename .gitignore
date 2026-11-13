@@ -39,6 +39,11 @@ docs/agents/*
 !docs/agents/issue-tracker.md
 !docs/agents/triage-labels.md
 !docs/agents/domain.md
+!docs/agent-skill规范.md
+!docs/agent-skill/
+docs/agent-skill/*
+!docs/agent-skill/references/
+!docs/agent-skill/references/*.md
 !docs/teach/
 docs/teach/*
 !docs/teach/project-self-memory/
