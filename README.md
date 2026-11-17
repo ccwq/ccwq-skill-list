@@ -1343,6 +1343,12 @@ ccwq-skill-list/
 └── README.md                # 项目说明文档
 ```
 
+## 仓库工具
+
+不属 `skills/` 正式索引、不是可转换对象的仓库内部工具：
+
+- [my-prompts-compiler](.agents/skills/my-prompts-compiler/SKILL.md) — 编译与维护 [提示词汇编](my-prompts.md) 的系统工具：增量增删改条目（`-a/-e/-d`）、全量重建（`-f`）、只校验（`-v`）；机械校验加独立语义复核。
+
 ## License
 
 MIT
