@@ -80,7 +80,7 @@ npx -y skills add https://github.com/ccwq/ccwq-skill-list --agent claude-code --
 | `progressive-doc` | 用渐进式披露结构创建、改写或审查中文技术文章 | [速查](#progressive-doc) · [SKILL](skills/progressive-doc/SKILL.md) |
 | `project-self-memory` | 维护项目级结论记忆，支持逐问策展、评分、候选逐条入库、结论暂存、可选派生多标签与 legacy 迁移；附自包含单文件 CLI、统一 Web 预览与离线使用手册 | [速查](#project-self-memory) · [README](skills/project-self-memory/README.md) · [手册](skills/project-self-memory/manual.html) |
 | `rd-mode` | 远程开发模式规则，统一通过 `abc` 命令操作 host 浏览器 | [速查](#rd-mode) · [README](skills/rd-mode/README.md) |
-| `reptlite` | 显式调用的轻量任务简报：周期简报、立即简报与状态查询 | [速查](#reptlite) · [SKILL](skills/reptlite/SKILL.md) |
+| `reptlite` | 显式调用的轻量任务简报：周期简报、立即简报与状态查询，含耗时与子 Agent 状态 | [速查](#reptlite) · [SKILL](skills/reptlite/SKILL.md) |
 | `skill-to-prompt` | 把技能源文提炼为文言式执行提示词，删除低频分支并以 `agent-skill` 标签封装 | [速查](#skill-to-prompt) · [SKILL](skills/skill-to-prompt/SKILL.md) |
 | `software-license-checker` | 评估软件企业内部使用的许可证合规与付费风险 | [速查](#software-license-checker) · [README](skills/software-license-checker/README.md) |
 | `subagent-router` | 预览并确认后临时创建子 Agent，支持动态模型路由 | [速查](#subagent-router) · [README](skills/subagent-router/README.md) |
@@ -1093,6 +1093,8 @@ host/server 架构、`abc` 用法与故障排查见 [README.md](skills/rd-mode/R
 </details>
 
 仅管理当前任务所属的调度。未知参数、无效周期或混用多个动作时保持现有调度不变并显示用法。调度创建、修改、停止和首次投递必须分别核对；没有后端时保留手动简报能力，不冒称已启用。
+
+长程任务或 spec 的简报额外显示总耗时与预计剩余时间，Agent 表列出每个 Agent 的所用模型。执行 implement、implement-spec 或 wayfinder 时，简报附带已完成与待执行摘要。
 
 详情见 [SKILL.md](skills/reptlite/SKILL.md)。
 

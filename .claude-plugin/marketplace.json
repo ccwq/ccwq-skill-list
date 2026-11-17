@@ -246,8 +246,8 @@
     {
       "name": "reptlite",
       "source": "./skills/reptlite",
-      "description": "仅用户显式调用的轻量任务简报工具：支持周期简报、立即简报、状态查询和所属调度停止，不因任务特征自动启用",
-      "version": "1.0.0",
+      "description": "仅用户显式调用的轻量任务简报工具：支持周期简报、立即简报、状态查询和所属调度停止，简报含耗时、预计剩余时间与子 Agent 模型信息",
+      "version": "1.1.0",
       "category": "productivity"
     }
   ]
