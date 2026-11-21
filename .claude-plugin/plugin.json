@@ -27,6 +27,7 @@
     "./skills/handoff-portable",
     "./skills/skill-to-prompt",
     "./skills/advise-motion-effects",
-    "./skills/reptlite"
+    "./skills/reptlite",
+    "./skills/txsum"
   ]
 }

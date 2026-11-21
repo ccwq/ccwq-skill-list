@@ -244,6 +244,13 @@
       "category": "media"
     },
     {
+      "name": "txsum",
+      "source": "./skills/txsum",
+      "description": "对用户提供的中文或其他语言原文做专业、分层、保真的总结：输出候选标题、精炼摘要、扩展摘要、观点与结构化总结五个模块，不联网、不补造事实、保留来源与数据口径",
+      "version": "1.0.0",
+      "category": "writing"
+    },
+    {
       "name": "reptlite",
       "source": "./skills/reptlite",
       "description": "仅用户显式调用的轻量任务简报工具：支持周期简报、立即简报、状态查询和所属调度停止，简报含耗时、预计剩余时间与子 Agent 模型信息",
